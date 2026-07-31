@@ -37,14 +37,20 @@ Service **nunca** interactúa con otras apps.
 
 ## Estado del proyecto
 
-- **SPRINT 2 en curso**: infraestructura del overlay desacoplada con datos
-  simulados (ver `docs/ROADMAP.md`).
+- **SPRINT 2 completado**: Design System + Overlay Foundation (ver
+  `docs/ROADMAP.md`). El overlay se alimenta de `SimulatedOverlayDataSource`
+  (ofertas simuladas cada 20 s evaluadas con el `ProfitEngine` real); el flujo
+  de accesibilidad persiste historial pero su UI no está conectada aún.
+- Design system en `:core:ui`: `SircTheme`, `SircColors`, `SircTypography`,
+  `SircSpacing`, `SircElevations`, `ProfitState`, `ProfitIndicator`,
+  `OverlayCard`/`OverlayCardContent`, `MetricCell`, etc. Todos con `@Preview`,
+  KDoc y prueba unitaria de paleta/estados.
 - MVP compilable (ver `docs/PROJECT.md`); 8 módulos Gradle; `:domain` y
   `:core:platform` son **Kotlin puro** (sin Android).
-- 14 pruebas unitarias JUnit 4 (`:domain` + `:core:platform`).
+- Pruebas unitarias JUnit 4: `:domain`, `:core:platform` y `:core:ui`.
 - ktlint + lint + CI (GitHub Actions) en verde.
-- Repositorio git inicializado en la rama `main`; el commit inicial sigue
-  pendiente por falta de identidad de git (`user.name`/`user.email`).
+- Repositorio git en rama `main`, sincronizado con
+  `origin https://github.com/TheJeivi02/SIRC-Android.git`.
 - Decisiones de diseño registradas en `.ai/DECISIONS.md`.
 
 ## Stack y versiones clave

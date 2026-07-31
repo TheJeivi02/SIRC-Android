@@ -12,12 +12,26 @@ MVVM + modularización en 8 módulos (`:app`, `:domain`, `:data`, `:core:ui`,
 
 - Estado: **completado**.
 
-## Sprint 2 — Overlay ✅
+## Sprint 2 — Design System + Overlay Foundation ✅
 
-Servicio de solapamiento flotante sobre las apps de transporte.
+Base visual reutilizable (Material 3) y el overlay flotante sobre las apps de
+transporte.
+
+**Design System (`:core:ui`):**
+
+- `SircTheme`, `SircColors` (semáforo), `SircTypography`, `SircSpacing` y
+  `SircElevations`.
+- `ProfitState` + `ProfitIndicator` (insignia semáforo), `DecisionBadge`,
+  `StatusDot`, `SectionCard`, `LabeledValue`, `MetricCell`/`MetricValue`,
+  `OverlayCard`/`OverlayCardContent`.
+- `@Preview` y KDoc en todos los componentes; pruebas unitarias de paleta y
+  estados.
+
+**Overlay:**
 
 - `OverlayService` (Foreground Service) con `TYPE_APPLICATION_OVERLAY`.
-- `OverlayContent`/`OverlayCard`: insignia de decisión y hasta 4 indicadores.
+- `OverlayContent`: insignia de decisión y hasta 4 indicadores, consumiendo los
+  componentes de `:core:ui`.
 - `OverlayConfig`: indicadores visibles, modo compacto, opacidad, TTL, posición.
 - `OverlayDataSource`/`SimulatedOverlayDataSource`: datos simulados evaluados
   con el `ProfitEngine` real.

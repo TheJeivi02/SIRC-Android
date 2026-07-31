@@ -4,6 +4,40 @@
 > opción elegida, alternativas descartadas y consecuencias. Se actualiza en
 > cada sprint.
 
+## SPRINT 2 — Design System + Overlay Foundation
+
+### D3.1 — Design System en `:core:ui` con tokens propios
+
+**Contexto:** cada pantalla usaba valores sueltos (dp, sp, colores). El overlay
+replicaba tarjetas y métricas que luego se necesitaron en pantallas.
+
+**Decisión:** `:core:ui` es la única fuente del design system: `SircColors`,
+`SircTypography`, `SircSpacing` (escala 4dp) y `SircElevations`. Todo componente
+público lleva KDoc y `@Preview`. `OverlayCard`/`OverlayCardContent` son
+presentacionales (slots de contenido) y no conocen de dominio; `ProfitIndicator`
+es la fuente única del estilo semáforo y `DecisionBadge` delega en él.
+
+**Alternativas descartadas:** crear componentes en cada feature (duplica
+estilos); atar `OverlayCard` a modelos de dominio (rompe la reutilización en
+vista previa y pantallas).
+
+### D3.2 — Estado semántico `ProfitState`
+
+**Contexto:** la decisión del motor es un enum de dominio (`Decision`); la UI
+necesita etiqueta + color consistentes en overlay, historial y diagnóstico.
+
+**Decisión:** `ProfitState` (`theme/ProfitState.kt`) mapea `Decision` →
+etiqueta/color de semáforo. Única fuente de la semántica visual; los
+componentes lo consumen y las pruebas cubren el mapeo.
+
+### D3.3 — El icono de cierre sin dependencia extra
+
+**Contexto:** `:core:ui` no quería arrastrar `material-icons-extended` solo por
+un `Close`.
+
+**Decisión:** se usa `Icons.Filled.Close`, incluido en el conjunto core de
+Material Icons que Material 3 ya aporta transitivamente.
+
 ## SPRINT 2 — Overlay desacoplado con datos simulados
 
 ### D2.1 — `PermissionManager` centraliza permisos y ajustes

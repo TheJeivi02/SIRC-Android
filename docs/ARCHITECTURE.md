@@ -86,8 +86,13 @@ Reglas derivadas del grafo real:
 
 ### Core:ui (`:core:ui`)
 
-- Tema SIRC: `SircTheme`, paleta `SircColors` (semáforo), `SircTypography`.
-- Componentes: `DecisionBadge`, `StatusDot`, `SectionCard`, `LabeledValue`.
+- Tema SIRC: `SircTheme`, paleta `SircColors` (semáforo), `SircTypography`,
+  `SircSpacing` (escala 4dp), `SircElevations`.
+- Estados: `ProfitState` (decisión → etiqueta/color) en `theme/ProfitState.kt`.
+- Componentes: `ProfitIndicator` (píldora semáforo, fuente única de estilo),
+  `DecisionBadge` (delega en `ProfitIndicator`), `StatusDot`, `SectionCard`,
+  `LabeledValue`, `MetricCell`/`MetricValue`, `OverlayCard`/`OverlayCardContent`
+  (presentacionales, slots de contenido). Todos con `@Preview` y KDoc.
 
 ### Feature:overlay (`:feature:overlay`) — el corazón del MVP
 
@@ -178,6 +183,9 @@ Detalles de diseño del overlay:
 | Indicadores ≤ 4 | Restricción de producto: el conductor decide en <3 s. |
 | `OfferEventBus` en memoria | Puente simple entre servicios sin persistencia ni I/O innecesaria. |
 | `OverlayDataSource` como única fuente del estado del overlay | `OverlayService` y pantallas comparten el mismo estado; FGS no depende de un ViewModel con ciclo de vida. |
+| Design System y tokens en `:core:ui` | Única fuente de colores/espaciados/elevaciones/estados; componentes con `@Preview` y KDoc. |
+| `OverlayCard`/`OverlayCardContent` presentacionales | Reutilizables en overlay y pantallas; no conocen de dominio (slots). |
+| `ProfitState` como semántica de decisión | `Decision` → etiqueta/color única para overlay, historial y diagnóstico. |
 | Overlay simulado con `ProfitEngine` real | Valida la UI completa (métricas y decisión verdaderas) sin conectar datos reales aún. |
 | Permisos centralizados en `PermissionManager` | Home y Diagnóstico leen el mismo estado; se elimina duplicación en `OverlayController`. |
 | `OverlayManager` fachada → `OverlayController` control del servicio | La UI depende de interfaces, nunca de Android/`Settings` directo. |

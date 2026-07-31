@@ -3,6 +3,41 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Las versiones siguen [SemVer](https://semver.org/lang/es/).
 
+## [v0.3.0] — 2026-07-31
+
+### Añadido
+
+- **Tokens de Design System** en `:core:ui`: `SircSpacing` (escala 4dp:
+  4/8/12/16/24/32) y `SircElevations` (Card 2dp, CardProminent 4dp, Overlay 8dp).
+- **`ProfitState`** (`theme/ProfitState.kt`): semántica de decisión → estado
+  visual (etiqueta `CONVIENE`/`DUDOSO`/`NO CONVIENE` + color semáforo) vía
+  `fromDecision`.
+- **Componentes overlay** en `:core:ui`: `ProfitIndicator` (píldora semáforo),
+  `OverlayCard` (contenedor presentacional con opacidad/compacto/borde/
+  elevación) y `OverlayCardContent` (cabecera + cierre opcional); `MetricCell`
+  y `MetricValue` para métricas del overlay.
+- **`@Preview` en todos los componentes** de `:core:ui` (dark scheme) y KDoc.
+- **Pruebas unitarias de `:core:ui`**: mapeo `ProfitState.fromDecision`,
+  etiquetas/colores de semáforo y valores de paleta (`ProfitStateTest`).
+- Dependencia `testImplementation(libs.junit)` en `:core:ui`.
+
+### Cambiado
+
+- `DecisionBadge` delega en `ProfitIndicator` (misma API, fuente única de
+  estilo semáforo).
+- `OverlayContent` (overlay) ahora compone los componentes de `:core:ui`
+  (`OverlayCard` + `OverlayCardContent` + `MetricCell`) en lugar de duplicar
+  tarjetas/métricas.
+- `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`, `.ai/CONTEXT.md` y
+  `.ai/DECISIONS.md` actualizados.
+
+### Notas técnicas
+
+- `OverlayCard` es presentacional: no conoce de dominio; la plataforma,
+  decisión y métricas entran como contenido/slot.
+- El icono de cierre usa `Icons.Filled.Close` (core icons, ya disponible
+  vía Material 3); `:core:ui` no depende de `material-icons-extended`.
+
 ## [v0.2.0] — 2026-07-31
 
 ### Añadido

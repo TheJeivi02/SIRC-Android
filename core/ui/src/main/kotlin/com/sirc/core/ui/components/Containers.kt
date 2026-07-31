@@ -16,7 +16,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.sirc.core.ui.theme.SircTheme
 
 /** Tarjeta de sección estándar del design system. */
 @Composable
@@ -66,6 +68,17 @@ fun LabeledValue(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun SectionCardPreview() {
+    SircTheme {
+        SectionCard(title = "Resumen") {
+            LabeledValue(label = "Ganancia", value = "$95.5")
+            LabeledValue(label = "Distancia", value = "8 km")
         }
     }
 }
