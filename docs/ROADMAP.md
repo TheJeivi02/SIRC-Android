@@ -60,6 +60,29 @@ Flujo de onboarding que alimenta al motor de rentabilidad con datos reales.
 
 - Estado: **completado**.
 
+## Sprint 4 — Plataforma de Captura (Infrastructure First) ✅
+
+Infraestructura de captura que servirá de base para analizar ofertas reales en
+el futuro. NO se implementó OCR, ML Kit, IA, regex ni interpretación de texto.
+
+- Nuevo módulo **`:core:capture`** (Kotlin puro): `WindowObserver`,
+  `OfferCaptureSession`, `OfferSnapshot` (inmutable, simulado), `OfferParser` +
+  `FakeParser`, `CaptureRepository` (en memoria, lista para persistencia),
+  `OfferCaptureCoordinator` (desacoplado, orquesta captura de extremo a
+  extremo).
+- **Feature Flags** configurables en caliente: `ACCESSIBILITY`, `OVERLAY`,
+  `CAPTURE`, `PARSER`, `DEBUG_PANEL`.
+- **Logging centralizado** (`SircLogger`), deshabilitado fuera de debug.
+- `AccessibilityWindowObserver` + `AndroidSircLogger` en `:feature:overlay`;
+  `SircAccessibilityService` reenvía los cambios de ventana al pipeline sin
+  interpretar y sin alterar el flujo existente.
+- **Panel de depuración** en `:app` (destino Debug): estado de accesibilidad/
+  overlay/captura/parser, toggles de flags, último snapshot, tiempo de
+  procesamiento, memoria aproximada y eventos recientes.
+- Pruebas unitarias de `:core:capture`; CI actualizado para correr `test`.
+
+- Estado: **completado**.
+
 ## Sprint 3 — Accessibility
 
 Canal de lectura del contenido visible de las plataformas.

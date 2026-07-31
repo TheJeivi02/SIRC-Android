@@ -45,7 +45,7 @@ jobs:
         run: ./gradlew ktlintCheck --stacktrace
 
       - name: Unit tests
-        run: ./gradlew testDebugUnitTest --stacktrace
+        run: ./gradlew test --stacktrace
 
       - name: Lint
         run: ./gradlew lintDebug --stacktrace

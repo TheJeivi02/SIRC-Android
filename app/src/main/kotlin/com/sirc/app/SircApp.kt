@@ -3,6 +3,7 @@ package com.sirc.app
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FactCheck
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
@@ -17,6 +18,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -34,6 +37,7 @@ private enum class Destination(
     HISTORY("history", "Historial", Icons.Filled.History),
     SETTINGS("settings", "Ajustes", Icons.Filled.Settings),
     DIAGNOSIS("diagnosis", "Diagnóstico", Icons.AutoMirrored.Filled.FactCheck),
+    DEBUG("debug", "Debug", Icons.Filled.Build),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,6 +47,9 @@ fun SircApp() {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
 
+    val debugViewModel: DebugPanelViewModel = hiltViewModel()
+    val debugState by debugViewModel.state.collectAsStateWithLifecycle()
+
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("SIRC") })
@@ -50,6 +57,9 @@ fun SircApp() {
         bottomBar = {
             NavigationBar {
                 Destination.entries.forEach { destination ->
+                    if (destination == Destination.DEBUG && !debugState.debugPanelEnabled) {
+                        return@forEach
+                    }
                     val selected =
                         currentDestination?.hierarchy
                             ?.any { it.route == destination.route } == true
@@ -92,6 +102,9 @@ fun SircApp() {
             }
             composable(Destination.DIAGNOSIS.route) {
                 DiagnosisScreen()
+            }
+            composable(Destination.DEBUG.route) {
+                DebugPanelScreen()
             }
         }
     }

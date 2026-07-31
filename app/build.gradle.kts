@@ -54,6 +54,7 @@ dependencies {
     implementation(project(":domain"))
     implementation(project(":data"))
     implementation(project(":core:ui"))
+    implementation(project(":core:capture"))
     implementation(project(":feature:overlay"))
     implementation(project(":feature:settings"))
     implementation(project(":feature:history"))

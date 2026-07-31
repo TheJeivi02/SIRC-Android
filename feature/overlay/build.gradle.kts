@@ -34,6 +34,7 @@ dependencies {
     implementation(project(":data"))
     implementation(project(":core:ui"))
     implementation(project(":core:platform"))
+    implementation(project(":core:capture"))
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

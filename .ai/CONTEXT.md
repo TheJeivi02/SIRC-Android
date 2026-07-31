@@ -17,6 +17,11 @@ es rentable.
 > `SimulatedOverlayDataSource` (ofertas simuladas por plataforma cada 20 s,
 > evaluadas con el `ProfitEngine` real). El flujo de accesibilidad persiste el
 > historial pero su UI no está conectada aún.
+>
+> Nota SPRINT 4: la captura observa cambios de ventana y produce snapshots
+> simulados (`FakeParser`) para validar el flujo; el parser/OCR real y su
+> conexión con `ProfitEngine` vendrán en un sprint futuro. `SircLogger` solo
+> emite en builds de desarrollo.
 
 1. Un **Accessibility Service (solo lectura)** detecta la app de transporte
    visible y recolecta los textos de pantalla (límites duros: 400 nodos, 80
@@ -37,6 +42,15 @@ Service **nunca** interactúa con otras apps.
 
 ## Estado del proyecto
 
+- **SPRINT 4 completado**: Plataforma de Captura (Infrastructure First, ver
+  `docs/ROADMAP.md`). Nuevo módulo `:core:capture` (Kotlin puro) con
+  `WindowObserver`, `OfferCaptureSession`, `OfferSnapshot` (simulado),
+  `FakeParser`, `CaptureRepository` (en memoria), `OfferCaptureCoordinator`
+  (desacoplado), Feature Flags (`ACCESSIBILITY`, `OVERLAY`, `CAPTURE`,
+  `PARSER`, `DEBUG_PANEL`) y `SircLogger`. Sin OCR/ML/IA/regex/interpretación.
+  `SircAccessibilityService` reenvía cambios de ventana sin interpretar;
+  `AccessibilityWindowObserver`/`AndroidSircLogger`/`CaptureModule` en
+  `:feature:overlay`; Panel de depuración (destino `Debug`) en `:app`.
 - **SPRINT 3 completado**: Configuración Inicial del Conductor (ver
   `docs/ROADMAP.md`). Onboarding de 6 pasos (perfil, vehículo, costos,
   plataformas, objetivos, resumen) que persiste `DriverConfig` en Room
@@ -50,10 +64,12 @@ Service **nunca** interactúa con otras apps.
   `SircSpacing`, `SircElevations`, `ProfitState`, `ProfitIndicator`,
   `OverlayCard`/`OverlayCardContent`, `MetricCell`, etc. Todos con `@Preview`,
   KDoc y prueba unitaria de paleta/estados.
-- MVP compilable (ver `docs/PROJECT.md`); 9 módulos Gradle (`:feature:onboarding`
-  agregado); `:domain` y `:core:platform` son **Kotlin puro** (sin Android).
-- Pruebas unitarias JUnit 4: `:domain`, `:core:platform`, `:core:ui` y `:data`.
-- ktlint + lint + CI (GitHub Actions) en verde.
+- MVP compilable (ver `docs/PROJECT.md`); 10 módulos Gradle (`:core:capture`
+  agregado); `:domain`, `:core:platform` y `:core:capture` son **Kotlin puro**
+  (sin Android).
+- Pruebas unitarias JUnit 4: `:domain`, `:core:platform`, `:core:capture`,
+  `:core:ui` y `:data`.
+- ktlint + lint + CI (GitHub Actions) en verde (CI corre `./gradlew test`).
 - Repositorio git en rama `main`, sincronizado con
   `origin https://github.com/TheJeivi02/SIRC-Android.git`.
 - Decisiones de diseño registradas en `.ai/DECISIONS.md`.
@@ -73,6 +89,7 @@ app ──► feature:overlay ──► core:platform ─► domain
   ├──► feature:settings ─► data
   ├──► feature:history  ─► data
   ├──► feature:onboarding ─► data
+  ├──► core:capture ─────► domain
   └──► core:ui ──────────► domain (tipos)
 ```
 
@@ -82,15 +99,18 @@ app ──► feature:overlay ──► core:platform ─► domain
 - `data`: Room + repositorios concretos + Hilt (`DatabaseModule` con migración
   1→2, `RepositoryModule`).
 - `core:platform`: parser y extractores multi-plataforma.
+- `core:capture`: plataforma de captura (observador, sesión/snapshot, parser
+  fake, repositorio en memoria, coordinador, feature flags, logging).
 - `core:ui`: design system.
-- `feature:overlay`: accesibilidad + overlay + pipeline de evaluación. Estado
-  del overlay vía `OverlayDataSource` (simulado); permisos y control vía
-  `PermissionManager` y `OverlayManager`.
+- `feature:overlay`: accesibilidad + overlay + pipeline de evaluación + piezas
+  Android de captura (`AccessibilityWindowObserver`, `AndroidSircLogger`,
+  `CaptureModule`). Estado del overlay vía `OverlayDataSource` (simulado);
+  permisos y control vía `PermissionManager` y `OverlayManager`.
 - `feature:onboarding`: flujo de configuración inicial (6 pasos) que persiste
   `DriverConfig`; gating en `app` (`RootViewModel`/`SircRoot`).
 - `feature:settings` / `feature:history`: UI.
-- `app`: entrada, gating de onboarding y navegación (4 destinos, incluido
-  Diagnóstico).
+- `app`: entrada, gating de onboarding, navegación (5 destinos, incluido
+  Diagnóstico y Debug) y arranque del `OfferCaptureCoordinator`.
 
 ## Comandos de verificación (Windows / PowerShell)
 
@@ -98,7 +118,7 @@ app ──► feature:overlay ──► core:platform ─► domain
 $env:JAVA_HOME = "C:\Users\Jeivi\AppData\Local\Temp\opencode\jdk17\jdk-17.0.20+8"
 $env:ANDROID_HOME = "C:\Users\Jeivi\AppData\Local\Temp\opencode\sdk"
 .\gradlew.bat ktlintCheck --console=plain --max-workers=2
-.\gradlew.bat lintDebug assembleDebug testDebugUnitTest :domain:test :core:platform:test --console=plain --max-workers=2
+.\gradlew.bat lintDebug assembleDebug testDebugUnitTest :domain:test :core:platform:test :core:capture:test --console=plain --max-workers=2
 ```
 
 - `ktlintFormat` NO desactiva reglas: si rompe `@Inject constructor`, es que

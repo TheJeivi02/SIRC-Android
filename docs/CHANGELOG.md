@@ -3,6 +3,61 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Las versiones siguen [SemVer](https://semver.org/lang/es/).
 
+## [v0.5.0] — 2026-07-31
+
+### Añadido
+
+- **Nuevo módulo `:core:capture`** (Kotlin puro): Plataforma de Captura
+  (infraestructura) lista para conectar en el futuro el parser real, OCR y el
+  `ProfitEngine`. NO implementa OCR, ML Kit, IA, regex ni interpretación de
+  pantallas.
+  - `WindowObserver`: contrato de observación de ventanas que emite eventos
+    mediante Flow (`CaptureWindowEvent`).
+  - `OfferParser` (interfaz) + `FakeParser`: genera snapshots simulados para
+    validar el flujo completo; no interpreta pantallas reales.
+  - `OfferSnapshot` (inmutable) con `SnapshotSource.FAKE`/`REAL` y campo
+    `rawData` reservado; `OfferCaptureSession` con estado ACTIVE/CLOSED.
+  - `CaptureRepository` (interfaz) + `InMemoryCaptureRepository` (buffer de 50
+    snapshots), preparado para una futura implementación persistente.
+  - `OfferCaptureCoordinator`: coordina captura de extremo a extremo
+    (eventos → sesión → parser → repositorio), completamente desacoplado de
+    Android; expone `CaptureState` (sesión activa, último snapshot, tiempo de
+    procesamiento, eventos recientes).
+  - **Feature Flags** (`FeatureFlag`, `FeatureFlags` + `InMemoryFeatureFlags`):
+    `ACCESSIBILITY`, `OVERLAY`, `CAPTURE`, `PARSER`, `DEBUG_PANEL`, todos
+    configurables en caliente.
+  - **Logging centralizado** (`SircLogger`), deshabilitable en producción.
+- **Implementación Android de captura** en `:feature:overlay`:
+  `AccessibilityWindowObserver` (publica los eventos del servicio como Flow) y
+  `AndroidSircLogger` (solo emite en builds de desarrollo). El
+  `SircAccessibilityService` reenvía cada cambio de ventana relevante al
+  pipeline de captura sin interpretar nada y sin tocar el flujo existente.
+  DI en `CaptureModule` (`@Binds`).
+- **Panel de depuración** en `:app`: destino `Debug` (icono de llave) con
+  estado de Accessibility/Overlay/Captura/Parser, toggles de Feature Flags,
+  último snapshot, tiempo de procesamiento, memoria aproximada y eventos
+  recientes. Visible solo si `DEBUG_PANEL` está habilitado.
+- `OfferCaptureCoordinator.start()` se ejecuta al arrancar la app
+  (`SircApplication`); el panel puede iniciar/detener/limpiar la captura.
+- Pruebas unitarias de `:core:capture` (12): coordinador (sesión, flags,
+  reset, start/stop), parser simulado, repositorio en memoria y feature flags.
+- CI: el paso "Unit tests" ahora corre `./gradlew test` (incluye los módulos
+  JVM puros).
+
+### Cambiado
+
+- `settings.gradle.kts`: se registra `:core:capture` (10 módulos).
+- `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`, `.ai/CONTEXT.md` y
+  `.ai/DECISIONS.md` actualizados.
+- Nuevo `docs/testing/SPRINT_04_MANUAL_TEST.md` con el manual de prueba.
+
+### Notas técnicas
+
+- `:core:capture` es Kotlin puro (depende de `:domain`, coroutines y
+  `javax.inject`), igual que `:domain` y `:core:platform`.
+- Los flags default a `true` en memoria (entorno de desarrollo); la
+  implementación queda lista para deshabilitar piezas en producción.
+
 ## [v0.4.0] — 2026-07-31
 
 ### Añadido

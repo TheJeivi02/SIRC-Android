@@ -23,6 +23,7 @@
 | `:domain` | Domain | `kotlin("jvm")` | Modelos, `ProfitEngine`, use cases, contratos de repositorio. **Sin Android.** |
 | `:data` | Data | `com.android.library` | Room (`SircDatabase`, entidades, DAOs), repositorios concretos, DI de datos. |
 | `:core:platform` | Core | `kotlin("jvm")` | Parser de texto y extractores por plataforma. **Sin Android.** |
+| `:core:capture` | Core | `kotlin("jvm")` | Plataforma de captura: observador de ventanas, sesión/snapshot, parser (fake), repositorio, coordinador, feature flags y logging. **Sin Android.** |
 | `:core:ui` | Core | `com.android.library` | Design system Compose: tema y componentes. |
 | `:feature:overlay` | Feature | `com.android.library` | Accessibility Service, Overlay Service, pipeline de evaluación y UI del overlay. |
 | `:feature:settings` | Feature | `com.android.library` | Configuración de costos, umbrales e indicadores. |
@@ -38,6 +39,7 @@ app ──► feature:overlay ──► core:platform ─► domain
   ├──► feature:settings ─► data
   ├──► feature:history  ─► data
   ├──► feature:onboarding ─► data
+  ├──► core:capture ─────► domain
   └──► core:ui ──────────► domain (solo tipos)
 ```
 
@@ -47,6 +49,8 @@ Reglas derivadas del grafo real:
 - `data` implementa los contratos de `domain` con Room; ningún módulo depende de
   `data` por encima de su capa (los features sí usan `data` directamente).
 - `core:platform` (puro Kotlin) desacopla las plataformas del producto.
+- `core:capture` (puro Kotlin) desacopla la infraestructura de captura de
+  Android: el servicio de accesibilidad solo alimenta un `WindowObserver`.
 - `core:ui` provee el design system Compose y depende de `domain` solo para
   tipos (`Decision`).
 - La UI de cada feature depende de su ViewModel; los ViewModels dependen de
@@ -93,6 +97,44 @@ Reglas derivadas del grafo real:
 - **Agregar una plataforma** = agregar `RidePlatform` + descriptor de palabras
   clave; no requiere tocar el núcleo.
 
+### Core:capture (`:core:capture`) — Kotlin puro
+
+Plataforma de captura (SPRINT 4, infraestructura): observa los cambios de
+ventana de las plataformas y produce snapshots simulados, sin interpretar nada
+aún.
+
+Flujo de captura:
+
+```
+SircAccessibilityService (solo lectura, no interpreta)
+      ▼ emite cambios de ventana
+AccessibilityWindowObserver (:feature:overlay, Flow)
+      ▼
+OfferCaptureCoordinator ──► WindowObserver.windowEvents (Flow)
+      · mantiene la OfferCaptureSession activa
+      · OfferParser (FakeParser hoy) → OfferSnapshot (FAKE)
+      · CaptureRepository (InMemoryCaptureRepository)
+      · CaptureState: sesión, último snapshot, tiempo de procesamiento,
+        eventos recientes
+```
+
+- `model/` — `CaptureWindowEvent`, `WindowEventType`, `OfferCaptureSession`
+  (ACTIVE/CLOSED), `OfferSnapshot` (inmutable, `SnapshotSource.FAKE`/`REAL`),
+  `CaptureState`.
+- `observer/WindowObserver` — contrato: expone `windowEvents: Flow`; la
+  implementación Android (`AccessibilityWindowObserver`) vive en
+  `:feature:overlay`.
+- `parser/OfferParser` + `FakeParser` — el fake genera snapshots simulados para
+  validar el flujo completo; la interfaz está lista para un parser/OCR real.
+- `repository/CaptureRepository` + `InMemoryCaptureRepository` — guardado
+  temporal (buffer 50); la interfaz admite una implementación persistente.
+- `coordinator/OfferCaptureCoordinator` — orquesta la captura de extremo a
+  extremo; sin dependencias de Android (solo interfaces + modelos).
+- `flag/` — `FeatureFlag` (ACCESSIBILITY, OVERLAY, CAPTURE, PARSER,
+  DEBUG_PANEL) y `FeatureFlags`/`InMemoryFeatureFlags` (configurables).
+- `log/SircLogger` — logging centralizado; `AndroidSircLogger` solo emite en
+  builds de desarrollo.
+
 ### Core:ui (`:core:ui`)
 
 - Tema SIRC: `SircTheme`, paleta `SircColors` (semáforo), `SircTypography`,
@@ -127,6 +169,13 @@ Pipeline real (Accessibility) — persiste historial; aún sin UI conectada:
 SircAccessibilityService (solo lectura) → OfferEventBus → OfferEvaluator
       → EvaluateOfferUseCase → ProfitEngine
       → AddOfferHistoryUseCase → Room offer_history
+```
+
+Captura (SPRINT 4, aditiva y sin interpretar):
+
+```
+SircAccessibilityService → AccessibilityWindowObserver (Flow)
+      → OfferCaptureCoordinator → OfferSnapshot (FakeParser) → CaptureRepository
 ```
 
 Permisos y control:
@@ -179,9 +228,10 @@ Detalles de diseño del overlay:
 
 ### App (`:app`)
 
-- `SircApplication` (`@HiltAndroidApp`), `MainActivity` (`@AndroidEntryPoint`),
-  `SircRoot` (gating de onboarding) y navegación con `Scaffold` + `TopAppBar` +
-  `NavigationBar` (4 destinos: Home, Historial, Ajustes, Diagnóstico) y `NavHost`.
+- `SircApplication` (`@HiltAndroidApp`, arranca `OfferCaptureCoordinator`),
+  `MainActivity` (`@AndroidEntryPoint`), `SircRoot` (gating de onboarding) y
+  navegación con `Scaffold` + `TopAppBar` + `NavigationBar` (5 destinos: Home,
+  Historial, Ajustes, Diagnóstico, Debug) y `NavHost`.
 - `RootViewModel`: expone `observeIsConfigured()` como `StateFlow<Boolean?>`;
   `SircRoot` muestra spinner → `OnboardingScreen` → `SircApp`.
 - `HomeViewModel` (`@HiltViewModel`) expone estado de permisos (overlay,
@@ -190,6 +240,10 @@ Detalles de diseño del overlay:
 - `DiagnosisViewModel` + `DiagnosisScreen`: indicadores 🟢/🔴 de los 5
   requisitos del overlay y vista previa con datos simulados
   (`OverlayViewModel`).
+- `DebugPanelViewModel` + `DebugPanelScreen` (desarrollo): estado de la
+  infraestructura de captura, toggles de Feature Flags (el destino Debug se
+  oculta si `DEBUG_PANEL` está desactivado), último snapshot, tiempo de
+  procesamiento, memoria aproximada y eventos recientes.
 
 ## Decisiones técnicas registradas
 
@@ -215,6 +269,12 @@ Detalles de diseño del overlay:
 | Permisos centralizados en `PermissionManager` | Home y Diagnóstico leen el mismo estado; se elimina duplicación en `OverlayController`. |
 | `OverlayManager` fachada → `OverlayController` control del servicio | La UI depende de interfaces, nunca de Android/`Settings` directo. |
 | `ksp.useKSP2=false` | Estabilidad del toolchain con la versión actual de KSP. |
+| Plataforma de captura en `:core:capture` (puro) | Infraestructura de captura desacoplada de Android: el servicio solo alimenta un `WindowObserver`; parser/repositorio/coordinador se prueban con JUnit puro. |
+| `OfferParser` + `FakeParser` | El fake valida el flujo completo sin interpretar pantallas reales; la interfaz queda lista para parser/OCR real. |
+| `CaptureRepository` en memoria | Guardado temporal de snapshots (buffer 50); la interfaz admite una implementación persistente futura. |
+| Feature Flags configurables | `ACCESSIBILITY`, `OVERLAY`, `CAPTURE`, `PARSER`, `DEBUG_PANEL` con toggles en el panel; listos para desactivarse en producción. |
+| Logging centralizado `SircLogger` | `AndroidSircLogger` solo emite en builds de desarrollo; cero logs en producción. |
+| `AccessibilityWindowObserver` en `:feature:overlay` | La implementación Android del observer vive junto al servicio; el coordinador (puro) solo ve el Flow. |
 
 ## Cumplimiento
 

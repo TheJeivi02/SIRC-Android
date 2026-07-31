@@ -4,6 +4,78 @@
 > opción elegida, alternativas descartadas y consecuencias. Se actualiza en
 > cada sprint.
 
+## SPRINT 4 — Plataforma de Captura (Infrastructure First)
+
+### D5.1 — La infraestructura de captura vive en `:core:capture` (Kotlin puro)
+
+**Contexto:** la captura de ofertas necesita observación, sesiones, snapshots,
+parser, repositorio temporal, coordinación, feature flags y logging. Si viviera
+en `:feature:overlay`, la lógica quedaría atada a Android y difícil de probar.
+
+**Decisión:** nuevo módulo `kotlin("jvm")` `:core:capture` con el mismo patrón
+que `:domain`/`:core:platform` (coroutines + `javax.inject`, sin Android). La
+única pieza Android es `AccessibilityWindowObserver` y `AndroidSircLogger`, que
+viven en `:feature:overlay` y se inyectan por Hilt (`CaptureModule` `@Binds`).
+
+**Alternativas descartadas:** implementar todo en `:feature:overlay` (lógica
+crítica no testeable en JVM puro); una capa `data` persistente desde ya (el
+requisito es guardado temporal).
+
+### D5.2 — El Accessibility Service solo observa y reenvía, sin interpretar
+
+**Contexto:** el sprint prohíbe OCR, regex, IA y toda interpretación; el
+servicio existente ya parsea para el flujo legacy (no se modifica).
+
+**Decisión:** `SircAccessibilityService` reenvía cada cambio de ventana
+relevante (evento, paquete, fingerprint, textos acotados) a
+`AccessibilityWindowObserver` sin interpretarlo, manteniendo intacto el flujo
+existente (`OfferEventBus`). `CaptureWindowEvent` transporta metadatos + texto
+visible acotado como materia prima futura.
+
+**Consecuencia:** el flujo legacy y la captura conviven; `FakeParser` ignora el
+contenido y solo valida el flujo.
+
+### D5.3 — `FakeParser` y `CaptureRepository` en memoria para validar el flujo
+
+**Contexto:** el sprint exige "guardar temporalmente" y "generar datos simulados
+para validar el flujo completo".
+
+**Decisión:** `OfferParser` (interfaz) + `FakeParser` (snapshots con valores
+simulados) y `CaptureRepository` (interfaz) + `InMemoryCaptureRepository`
+(buffer de 50). Ambas interfaces quedan preparadas para parser/OCR y
+persistencia reales.
+
+### D5.4 — Feature Flags configurables con default encendido en dev
+
+**Contexto:** se requieren flags de `ACCESSIBILITY`, `OVERLAY`, `CAPTURE`,
+`PARSER` y `DEBUG_PANEL`, todos configurables.
+
+**Decisión:** `FeatureFlag` + `FeatureFlags`/`InMemoryFeatureFlags` (en memoria,
+default `true` en desarrollo). `CAPTURE` y `PARSER` gatean el pipeline; el
+destino Debug se oculta si `DEBUG_PANEL` está desactivado.
+
+**Consecuencia:** listo para deshabilitar piezas en producción; la persistencia
+de flags (p. ej. DataStore) puede añadirse sin romper la interfaz.
+
+### D5.5 — Logging centralizado deshabilitado fuera de debug
+
+**Contexto:** el pipeline de captura loguea progreso; no debe haber logs en
+producción.
+
+**Decisión:** `SircLogger` (interfaz) en `:core:capture`; `AndroidSircLogger` en
+`:feature:overlay` solo emite si la app es `FLAG_DEBUGGABLE`.
+
+### D5.6 — Panel de depuración como destino extra en `:app`
+
+**Contexto:** el panel debe mostrar estado de accesibilidad/overlay/captura/
+parser, último snapshot, tiempo, memoria y eventos.
+
+**Decisión:** `DebugPanelViewModel` + `DebugPanelScreen` en `:app` (destino
+`Debug`, 5º ítem) combinando `OfferCaptureCoordinator.state`,
+`OverlayManager.isRunning`, `FeatureFlags` y `PermissionManager`. El ítem se
+oculta si `DEBUG_PANEL` está desactivado; el coordinador arranca en
+`SircApplication.onCreate`.
+
 ## SPRINT 3 — Configuración Inicial del Conductor
 
 ### D4.1 — `DriverConfig` es un agregado único persistido en una fila
