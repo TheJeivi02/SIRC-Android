@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_label">Análisis de ofertas SIRC</string>
+    <string name="accessibility_service_description">
+        El propósito de este servicio es ayudar a conductores de plataformas de
+        movilidad a decidir si una oferta de viaje es rentable. SIRC únicamente
+        LEE la información visible en pantalla (monto, distancia y duración de la
+        oferta) para calcular indicadores de rentabilidad. SIRC NO interactúa con
+        la interfaz de ninguna aplicación: no toca botones, no acepta ni rechaza
+        viajes y no simula gestos. SIRC solo muestra un indicador propio sobre
+        otras aplicaciones.\n\n
+        This service helps ride-hailing drivers decide whether a trip offer is
+        profitable. SIRC only READS the visible on-screen information (fare,
+        distance and duration) to compute profitability indicators. SIRC does NOT
+        interact with any app interface: it does not tap buttons, does not accept
+        or reject trips and does not simulate gestures. SIRC only displays its
+        own indicators over other apps.
+    </string>
+
+    <string name="overlay_channel_name">Indicador SIRC</string>
+    <string name="overlay_channel_description">Mantiene el indicador de rentabilidad sobre otras aplicaciones.</string>
+    <string name="overlay_notification_title">SIRC activo</string>
+    <string name="overlay_notification_text">Analizando ofertas de viaje…</string>
+</resources>
