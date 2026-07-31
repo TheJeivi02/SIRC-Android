@@ -17,10 +17,9 @@ class ProfitEngineTest {
             costPerKm = 2.0,
             costPerMinute = 0.3,
             costPerTrip = 1.0,
-            currency = "MXN",
         )
 
-    private val thresholds = DecisionThresholds(minProfit = 20.0, minProfitPerHour = 120.0)
+    private val thresholds = DecisionThresholds(minProfitPerKm = 4.0, minProfitPerHour = 120.0)
 
     private fun offer(
         total: Double,
@@ -67,6 +66,17 @@ class ProfitEngineTest {
         // Ganancia 70 pero en 45 min => 93.3/hr < 120
         val evaluation = evaluate(total = 100.0, distanceKm = 10.0, durationMin = 45.0)
 
+        assertEquals(Decision.MARGINAL, evaluation.decision)
+    }
+
+    @Test
+    fun `ganancia por km bajo el umbral produce MARGINAL`() {
+        // Costo = 1 + 40*2 + 30*0.3 = 90; ganancia = 200-90 = 110
+        // Ganancia/hora = 220 >= 120, pero ganancia/km = 2.75 < 4
+        val evaluation = evaluate(total = 200.0, distanceKm = 40.0, durationMin = 30.0)
+
+        assertEquals(110.0, evaluation.metrics.estimatedProfit, 0.001)
+        assertEquals(2.75, evaluation.metrics.profitPerKm, 0.001)
         assertEquals(Decision.MARGINAL, evaluation.decision)
     }
 

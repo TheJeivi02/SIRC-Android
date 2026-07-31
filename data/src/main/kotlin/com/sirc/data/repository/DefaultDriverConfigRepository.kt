@@ -1,10 +1,10 @@
 package com.sirc.data.repository
 
 import com.sirc.data.local.dao.DriverConfigDao
-import com.sirc.data.local.mapper.toDecisionThresholds
-import com.sirc.data.local.mapper.toDriverCosts
+import com.sirc.data.local.mapper.toDriverConfig
 import com.sirc.data.local.mapper.toEntity
 import com.sirc.domain.model.DecisionThresholds
+import com.sirc.domain.model.DriverConfig
 import com.sirc.domain.model.DriverCosts
 import com.sirc.domain.repository.DriverConfigRepository
 import kotlinx.coroutines.flow.Flow
@@ -14,39 +14,34 @@ import javax.inject.Inject
 class DefaultDriverConfigRepository @Inject constructor(
     private val dao: DriverConfigDao,
 ) : DriverConfigRepository {
-    override suspend fun getDriverCosts(): DriverCosts = dao.getConfig()?.toDriverCosts() ?: DEFAULT_COSTS
+    override suspend fun getDriverConfig(): DriverConfig? = dao.getConfig()?.toDriverConfig()
+
+    override fun observeDriverConfig(): Flow<DriverConfig?> = dao.observeConfig().map { it?.toDriverConfig() }
+
+    override fun isConfigured(): Flow<Boolean> = dao.observeConfig().map { it != null }
+
+    override suspend fun save(driverConfig: DriverConfig) {
+        dao.upsert(driverConfig.toEntity())
+    }
+
+    override suspend fun getDriverCosts(): DriverCosts = getDriverConfig()?.costs ?: DriverCosts.default()
 
     override suspend fun getDecisionThresholds(): DecisionThresholds =
-        dao.getConfig()?.toDecisionThresholds() ?: DEFAULT_THRESHOLDS
+        getDriverConfig()?.thresholds ?: DecisionThresholds.default()
 
     override suspend fun save(driverCosts: DriverCosts) {
-        val thresholds = getDecisionThresholds()
-        dao.upsert(driverCosts.toEntity(thresholds))
+        val current = getDriverConfig() ?: DriverConfig.default()
+        dao.upsert(current.copy(costs = driverCosts).toEntity())
     }
 
     override suspend fun save(decisionThresholds: DecisionThresholds) {
-        val costs = getDriverCosts()
-        dao.upsert(costs.toEntity(decisionThresholds))
+        val current = getDriverConfig() ?: DriverConfig.default()
+        dao.upsert(current.copy(thresholds = decisionThresholds).toEntity())
     }
 
     override fun observeDriverCosts(): Flow<DriverCosts> =
-        dao.observeConfig().map { it?.toDriverCosts() ?: DEFAULT_COSTS }
+        dao.observeConfig().map { it?.toDriverConfig()?.costs ?: DriverCosts.default() }
 
     override fun observeDecisionThresholds(): Flow<DecisionThresholds> =
-        dao.observeConfig().map { it?.toDecisionThresholds() ?: DEFAULT_THRESHOLDS }
-
-    companion object {
-        private val DEFAULT_COSTS =
-            DriverCosts(
-                costPerKm = 2.0,
-                costPerMinute = 0.3,
-                costPerTrip = 1.0,
-                currency = "MXN",
-            )
-        private val DEFAULT_THRESHOLDS =
-            DecisionThresholds(
-                minProfit = 20.0,
-                minProfitPerHour = 120.0,
-            )
-    }
+        dao.observeConfig().map { it?.toDriverConfig()?.thresholds ?: DecisionThresholds.default() }
 }

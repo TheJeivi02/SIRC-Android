@@ -3,6 +3,7 @@ package com.sirc.data.di
 import android.content.Context
 import androidx.room.Room
 import com.sirc.data.local.SircDatabase
+import com.sirc.data.local.SircMigrations
 import com.sirc.data.local.dao.DriverConfigDao
 import com.sirc.data.local.dao.OfferHistoryDao
 import com.sirc.data.local.dao.OverlayConfigDao
@@ -25,7 +26,7 @@ object DatabaseModule {
             context,
             SircDatabase::class.java,
             "sirc.db",
-        ).build()
+        ).addMigrations(SircMigrations.MIGRATION_1_2).build()
 
     @Provides
     fun provideDriverConfigDao(db: SircDatabase): DriverConfigDao = db.driverConfigDao()

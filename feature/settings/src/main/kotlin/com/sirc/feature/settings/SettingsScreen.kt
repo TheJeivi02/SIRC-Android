@@ -44,40 +44,38 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         SectionCard(title = "Costos del conductor") {
             NumericField(
                 label = "Costo por km",
-                value = state.driverCosts.costPerKm,
-                onValue = { viewModel.updateCosts(state.driverCosts.copy(costPerKm = it)) },
+                value = state.config.costs.costPerKm,
+                onValue = { viewModel.updateCosts(state.config.costs.copy(costPerKm = it)) },
             )
             NumericField(
                 label = "Costo por minuto",
-                value = state.driverCosts.costPerMinute,
-                onValue = { viewModel.updateCosts(state.driverCosts.copy(costPerMinute = it)) },
+                value = state.config.costs.costPerMinute,
+                onValue = { viewModel.updateCosts(state.config.costs.copy(costPerMinute = it)) },
             )
             NumericField(
                 label = "Costo fijo por viaje",
-                value = state.driverCosts.costPerTrip,
-                onValue = { viewModel.updateCosts(state.driverCosts.copy(costPerTrip = it)) },
+                value = state.config.costs.costPerTrip,
+                onValue = { viewModel.updateCosts(state.config.costs.copy(costPerTrip = it)) },
             )
             TextField(
                 label = "Moneda (ISO 4217)",
-                value = state.driverCosts.currency,
+                value = state.config.profile.currency,
                 onValueChange = {
-                    viewModel.updateCosts(
-                        state.driverCosts.copy(currency = it.uppercase().take(3)),
-                    )
+                    viewModel.updateCurrency(it.uppercase().take(3))
                 },
             )
         }
 
         SectionCard(title = "Umbrales de decisión") {
             NumericField(
-                label = "Ganancia mínima",
-                value = state.thresholds.minProfit,
-                onValue = { viewModel.updateThresholds(state.thresholds.copy(minProfit = it)) },
+                label = "Ganancia mínima por km",
+                value = state.config.thresholds.minProfitPerKm,
+                onValue = { viewModel.updateThresholds(state.config.thresholds.copy(minProfitPerKm = it)) },
             )
             NumericField(
                 label = "Ganancia mínima por hora",
-                value = state.thresholds.minProfitPerHour,
-                onValue = { viewModel.updateThresholds(state.thresholds.copy(minProfitPerHour = it)) },
+                value = state.config.thresholds.minProfitPerHour,
+                onValue = { viewModel.updateThresholds(state.config.thresholds.copy(minProfitPerHour = it)) },
             )
         }
 

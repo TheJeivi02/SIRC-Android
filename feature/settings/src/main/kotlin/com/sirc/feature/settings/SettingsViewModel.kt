@@ -3,6 +3,7 @@ package com.sirc.feature.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sirc.domain.model.DecisionThresholds
+import com.sirc.domain.model.DriverConfig
 import com.sirc.domain.model.DriverCosts
 import com.sirc.domain.model.OverlayConfig
 import com.sirc.domain.usecase.GetDriverConfigUseCase
@@ -26,8 +27,7 @@ class SettingsViewModel @Inject constructor(
     private val saveOverlayConfig: SaveOverlayConfigUseCase,
 ) : ViewModel() {
     data class UiState(
-        val driverCosts: DriverCosts = DriverCosts(2.0, 0.3, 1.0, "MXN"),
-        val thresholds: DecisionThresholds = DecisionThresholds(20.0, 120.0),
+        val config: DriverConfig = DriverConfig.default(),
         val overlayConfig: OverlayConfig = OverlayConfig(),
         val saved: Boolean = false,
     )
@@ -38,13 +38,11 @@ class SettingsViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             combine(
-                getDriverConfig.observeDriverCosts(),
-                getDriverConfig.observeDecisionThresholds(),
+                getDriverConfig.observeDriverConfig(),
                 getOverlayConfig.observeConfig(),
-            ) { costs, thresholds, overlay ->
+            ) { config, overlay ->
                 UiState(
-                    driverCosts = costs,
-                    thresholds = thresholds,
+                    config = config ?: DriverConfig.default(),
                     overlayConfig = overlay,
                     saved = false,
                 )
@@ -53,11 +51,15 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun updateCosts(costs: DriverCosts) {
-        _state.update { it.copy(driverCosts = costs) }
+        _state.update { it.copy(config = it.config.copy(costs = costs)) }
     }
 
     fun updateThresholds(thresholds: DecisionThresholds) {
-        _state.update { it.copy(thresholds = thresholds) }
+        _state.update { it.copy(config = it.config.copy(thresholds = thresholds)) }
+    }
+
+    fun updateCurrency(currency: String) {
+        _state.update { it.copy(config = it.config.copy(profile = it.config.profile.copy(currency = currency))) }
     }
 
     fun updateOverlay(config: OverlayConfig) {
@@ -67,8 +69,7 @@ class SettingsViewModel @Inject constructor(
     fun save() {
         viewModelScope.launch {
             val current = _state.value
-            saveDriverConfig.saveDriverCosts(current.driverCosts)
-            saveDriverConfig.saveDecisionThresholds(current.thresholds)
+            saveDriverConfig.save(current.config)
             saveOverlayConfig(current.overlayConfig)
             _state.update { it.copy(saved = true) }
         }

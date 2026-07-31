@@ -4,6 +4,68 @@
 > opción elegida, alternativas descartadas y consecuencias. Se actualiza en
 > cada sprint.
 
+## SPRINT 3 — Configuración Inicial del Conductor
+
+### D4.1 — `DriverConfig` es un agregado único persistido en una fila
+
+**Contexto:** el sprint captura perfil, vehículo, costos, plataformas y
+objetivos. Antes existían `DriverCosts` y `DecisionThresholds` en la misma fila
+`driver_config`, pero sin perfil/vehículo ni "configurado" (una fila existía con
+valores por defecto siempre).
+
+**Decisión:** se crea `DriverConfig` (agregado con `DriverProfile`,
+`DriverVehicle`, `DriverCosts`, `AdditionalCost`, `Set<RidePlatform>` y
+`DecisionThresholds`) persistido en una única fila de `driver_config`. "Estar
+configurado" = existe la fila (`observeIsConfigured()`). `DriverConfig.blank()`
+inicia el onboarding y `DriverConfig.default()` es el respaldo legado.
+
+**Alternativas descartadas:** una tabla por concepto (sobredimensiona el
+problema y complica la transacción del onboarding); mantener costos/umbrales
+fuera del agregado (dificulta guardar todo en un solo `save`).
+
+### D4.2 — Persistencia codificada de listas sin TypeConverters
+
+**Contexto:** `platforms` (Set) y `additionalCosts` (List) no son tipos nativos
+de Room.
+
+**Decisión:** se persisten como texto: plataformas separadas por coma
+(nombres estables del enum) y costos adicionales con separadores de control
+`\u001F`/`\u001E` (seguros frente a texto libre). La codificación vive en
+`Mappers.kt` como funciones puras, cubiertas por `DriverConfigCodecTest`, sin
+dependencias nuevas ni JSON.
+
+**Consecuencia:** ampliar costos configurables es solo agregar más filas a la
+lista; el motor futuro sumará `fuelPrice`, `maintenanceCostPerKm` y cada
+`AdditionalCost`.
+
+### D4.3 — Migración Room 1→2 con reconstrucción de tabla
+
+**Contexto:** `driver_config` cambia de esquema (nuevas columnas y
+`minProfit` → `minProfitPerKm`). SQLite < 3.25 (API < 30) no soporta
+`RENAME COLUMN`.
+
+**Decisión:** migración manual con tabla nueva + `INSERT ... SELECT` + `DROP` +
+`RENAME TO`, compatible con minSdk 24. `minProfit` se repurposa a
+`minProfitPerKm` conservando el valor anterior.
+
+### D4.4 — Gating de onboarding en la raíz de la app
+
+**Contexto:** el criterio de aceptación exige mostrar el onboarding solo la
+primera vez.
+
+**Decisión:** `RootViewModel` (`:app`) expone `observeIsConfigured()` como
+`StateFlow<Boolean?>` (null = cargando). `SircRoot` muestra spinner,
+`OnboardingScreen` o `SircApp`. Al guardar, la fila existe y el flujo cambia a la
+app principal sin navegación manual.
+
+### D4.5 — `DriverCosts` deja de guardar moneda
+
+**Contexto:** la moneda se captura en el perfil; `DriverCosts.currency` duplicaba
+ese dato con riesgo de desincronización.
+
+**Decisión:** la única fuente de moneda es `DriverProfile.currency`. Ajustes la
+edita desde el perfil y el onboarding la captura al inicio.
+
 ## SPRINT 2 — Design System + Overlay Foundation
 
 ### D3.1 — Design System en `:core:ui` con tokens propios

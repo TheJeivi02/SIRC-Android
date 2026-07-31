@@ -27,6 +27,7 @@
 | `:feature:overlay` | Feature | `com.android.library` | Accessibility Service, Overlay Service, pipeline de evaluación y UI del overlay. |
 | `:feature:settings` | Feature | `com.android.library` | Configuración de costos, umbrales e indicadores. |
 | `:feature:history` | Feature | `com.android.library` | Historial de ofertas evaluadas. |
+| `:feature:onboarding` | Feature | `com.android.library` | Flujo de configuración inicial del conductor. |
 
 ## Grafo de dependencias
 
@@ -36,6 +37,7 @@ app ──► feature:overlay ──► core:platform ─► domain
   │          └──────► data ────┘  (data implementa contratos de domain)
   ├──► feature:settings ─► data
   ├──► feature:history  ─► data
+  ├──► feature:onboarding ─► data
   └──► core:ui ──────────► domain (solo tipos)
 ```
 
@@ -56,9 +58,11 @@ Reglas derivadas del grafo real:
 
 - `model/` — `TripOffer`, `RidePlatform`, `ProfitMetrics`, `ProfitEvaluation`,
   `Decision`, `DriverCosts`, `DecisionThresholds`, `OverlayConfig`,
-  `OfferHistoryEntry`.
+  `OfferHistoryEntry`, `DriverConfig`, `DriverProfile`, `DriverVehicle`,
+  `FuelType`, `AdditionalCost`.
 - `engine/ProfitEngine` — función pura: oferta + costos + umbrales → evaluación.
-  Sin estado ni I/O; 100 % testeable.
+  Sin estado ni I/O; 100 % testeable. Decide con ganancia/km y ganancia/hora
+  (`DecisionThresholds`).
 - `repository/` — contratos: `DriverConfigRepository`, `OverlayConfigRepository`,
   `OfferHistoryRepository`.
 - `usecase/` — orquestación fina: `EvaluateOfferUseCase`,
@@ -68,10 +72,15 @@ Reglas derivadas del grafo real:
 ### Data (`:data`)
 
 - Room: `SircDatabase` (tablas `driver_config`, `overlay_config`,
-  `offer_history`), entidades, DAOs y mappers (`Mappers.kt`).
+  `offer_history`), entidades, DAOs y mappers (`Mappers.kt`). Versión 2 con
+  migración 1→2 (reconstrucción de tabla, compatible con SQLite antiguo).
+- `driver_config` guarda el agregado `DriverConfig` en una fila: perfil,
+  vehículo, costos (combustible, mantenimiento, adicionales codificados),
+  plataformas (codificadas) y umbrales. La existencia de la fila = conductor
+  configurado.
 - Repositorios concretos `Default*Repository` implementan los contratos de
   dominio y aplican valores por defecto si no existe fila.
-- DI: `DatabaseModule` (DB + DAOs) y `RepositoryModule` (`@Binds`).
+- DI: `DatabaseModule` (DB + DAOs + migraciones) y `RepositoryModule` (`@Binds`).
 - Esquema Room versionado en `data/schemas/` (`exportSchema = true`).
 
 ### Core:platform (`:core:platform`) — Kotlin puro
@@ -159,11 +168,22 @@ Detalles de diseño del overlay:
 - `HistoryScreen`: lista `LazyColumn` con insignia de decisión, resumen,
   ganancia formateada y timestamp; estado vacío.
 
+### Feature:onboarding (`:feature:onboarding`)
+
+- `OnboardingViewModel` (`@HiltViewModel`): mantiene el borrador `DriverConfig`
+  y un índice de paso; `save()` persiste el agregado completo.
+- `OnboardingScreen`: 6 pasos (Perfil, Vehículo, Costos, Plataformas, Objetivos,
+  Resumen) con validación por paso y barra de progreso. Los "otros costos" se
+  editan como lista (arquitectura extensible).
+- Solo es visible en la primera apertura (ver gating en `:app`).
+
 ### App (`:app`)
 
 - `SircApplication` (`@HiltAndroidApp`), `MainActivity` (`@AndroidEntryPoint`),
-  navegación con `Scaffold` + `TopAppBar` + `NavigationBar` (4 destinos: Home,
-  Historial, Ajustes, Diagnóstico) y `NavHost`.
+  `SircRoot` (gating de onboarding) y navegación con `Scaffold` + `TopAppBar` +
+  `NavigationBar` (4 destinos: Home, Historial, Ajustes, Diagnóstico) y `NavHost`.
+- `RootViewModel`: expone `observeIsConfigured()` como `StateFlow<Boolean?>`;
+  `SircRoot` muestra spinner → `OnboardingScreen` → `SircApp`.
 - `HomeViewModel` (`@HiltViewModel`) expone estado de permisos (overlay,
   accesibilidad, notificaciones, batería) y ejecución del overlay; acciones para
   iniciar/detener el overlay y abrir ajustes.
@@ -183,6 +203,11 @@ Detalles de diseño del overlay:
 | Indicadores ≤ 4 | Restricción de producto: el conductor decide en <3 s. |
 | `OfferEventBus` en memoria | Puente simple entre servicios sin persistencia ni I/O innecesaria. |
 | `OverlayDataSource` como única fuente del estado del overlay | `OverlayService` y pantallas comparten el mismo estado; FGS no depende de un ViewModel con ciclo de vida. |
+| `DriverConfig` agregado en una fila | Perfil/vehículo/costos/plataformas/umbrales persisten atómicos; fila existente = configurado. |
+| Listas codificadas como texto | Sin TypeConverters ni JSON; funciones puras probadas en `DriverConfigCodecTest`. |
+| Migración Room con reconstrucción de tabla | Compatible con SQLite < 3.25 (minSdk 24). |
+| Gating de onboarding en la raíz | Onboarding solo la primera vez; app principal cuando la fila existe. |
+| `minProfitPerKm` como indicador del MVP | Ganancia mínima por km y por hora: los dos umbrales principales. |
 | Design System y tokens en `:core:ui` | Única fuente de colores/espaciados/elevaciones/estados; componentes con `@Preview` y KDoc. |
 | `OverlayCard`/`OverlayCardContent` presentacionales | Reutilizables en overlay y pantallas; no conocen de dominio (slots). |
 | `ProfitState` como semántica de decisión | `Decision` → etiqueta/color única para overlay, historial y diagnóstico. |

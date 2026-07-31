@@ -3,6 +3,41 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Las versiones siguen [SemVer](https://semver.org/lang/es/).
 
+## [v0.4.0] — 2026-07-31
+
+### Añadido
+
+- **Flujo de configuración inicial (onboarding)** en nuevo módulo
+  `:feature:onboarding`: 6 pasos (Perfil, Vehículo, Costos, Plataformas,
+  Objetivos, Resumen) que capturan perfil, vehículo, combustible, otros costos,
+  plataformas activas y ganancias mínimas por km/hora.
+- **Modelos de dominio**: `DriverConfig` (agregado completo), `DriverProfile`,
+  `DriverVehicle`, `FuelType`, `AdditionalCost`.
+- **Persistencia completa en Room**: `driver_config` (v2) almacena toda la
+  configuración en una fila; migración 1→2 con reconstrucción de tabla
+  (compatible con SQLite antiguo). Codecs de texto para plataformas y costos
+  adicionales en `Mappers.kt`.
+- **Gating de onboarding**: `RootViewModel` + `SircRoot` en `:app` muestran el
+  onboarding en la primera apertura y la app principal solo cuando el conductor
+  ya está configurado (`observeIsConfigured()`).
+- Use cases ampliados: `GetDriverConfigUseCase` (config completa +
+  `observeIsConfigured`) y `SaveDriverConfigUseCase.save(config)`.
+- Objetivo de ganancia mínima por **km** como segundo indicador del MVP
+  (`DecisionThresholds.minProfitPerKm`).
+- Pruebas del codec de persistencia (`DriverConfigCodecTest` en `:data`) y del
+  nuevo umbral por km (`ProfitEngineTest`).
+
+### Cambiado
+
+- `DecisionThresholds.minProfit` → `minProfitPerKm`; `ProfitEngine` decide con
+  ganancia/km y ganancia/hora.
+- `DriverCosts` deja de guardar `currency` (única fuente: `DriverProfile`).
+- `SettingsViewModel` opera sobre el `DriverConfig` completo (preserva perfil,
+  vehículo y plataformas al guardar costos/umbrales); Ajustes edita moneda
+  desde el perfil.
+- `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`, `.ai/CONTEXT.md` y
+  `.ai/DECISIONS.md` actualizados.
+
 ## [v0.3.0] — 2026-07-31
 
 ### Añadido

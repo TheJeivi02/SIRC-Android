@@ -42,6 +42,24 @@ transporte.
 
 - Estado: **completado**.
 
+## Sprint 3 — Configuración Inicial del Conductor ✅
+
+Flujo de onboarding que alimenta al motor de rentabilidad con datos reales.
+
+- **Perfil**: nombre (opcional), país, ciudad, moneda.
+- **Vehículo**: nombre, marca, modelo, año, tipo de combustible, consumo (km/L).
+- **Costos básicos**: precio del combustible, mantenimiento por km y otros
+  costos configurables (arquitectura lista para ampliarlos).
+- **Plataformas**: selección múltiple (Uber, DiDi, InDrive, Cabify).
+- **Objetivos**: ganancia mínima por km y por hora (indicadores del MVP).
+- Persistencia local en Room (`driver_config` v2, migración 1→2) y exposición
+  vía casos de uso.
+- Gating en el arranque: onboarding solo la primera vez; app principal cuando
+  el conductor ya está configurado.
+- Sin OCR, sin IA, sin extracción de datos, sin fórmulas complejas.
+
+- Estado: **completado**.
+
 ## Sprint 3 — Accessibility
 
 Canal de lectura del contenido visible de las plataformas.

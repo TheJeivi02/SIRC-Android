@@ -59,10 +59,10 @@ class ProfitEngine @Inject constructor() {
         metrics: ProfitMetrics,
         thresholds: DecisionThresholds,
     ): Decision {
-        val meetsProfit = metrics.estimatedProfit >= thresholds.minProfit
+        val meetsPerKm = metrics.profitPerKm >= thresholds.minProfitPerKm
         val meetsHourly = metrics.profitPerHour >= thresholds.minProfitPerHour
         return when {
-            meetsProfit && meetsHourly -> Decision.PROFITABLE
+            meetsPerKm && meetsHourly -> Decision.PROFITABLE
             metrics.estimatedProfit <= 0.0 -> Decision.NOT_PROFITABLE
             else -> Decision.MARGINAL
         }
@@ -73,8 +73,8 @@ class ProfitEngine @Inject constructor() {
         thresholds: DecisionThresholds,
     ): List<String> {
         val reasons = mutableListOf<String>()
-        if (metrics.estimatedProfit < thresholds.minProfit) {
-            reasons.add("Ganancia menor al mínimo configurado")
+        if (metrics.profitPerKm < thresholds.minProfitPerKm) {
+            reasons.add("Ganancia/km menor al mínimo configurado")
         }
         if (metrics.profitPerHour < thresholds.minProfitPerHour) {
             reasons.add("Ganancia/hora menor al mínimo configurado")

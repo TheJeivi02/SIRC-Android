@@ -57,6 +57,7 @@ dependencies {
     implementation(project(":feature:overlay"))
     implementation(project(":feature:settings"))
     implementation(project(":feature:history"))
+    implementation(project(":feature:onboarding"))
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

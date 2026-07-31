@@ -37,17 +37,22 @@ Service **nunca** interactúa con otras apps.
 
 ## Estado del proyecto
 
-- **SPRINT 2 completado**: Design System + Overlay Foundation (ver
-  `docs/ROADMAP.md`). El overlay se alimenta de `SimulatedOverlayDataSource`
-  (ofertas simuladas cada 20 s evaluadas con el `ProfitEngine` real); el flujo
-  de accesibilidad persiste historial pero su UI no está conectada aún.
+- **SPRINT 3 completado**: Configuración Inicial del Conductor (ver
+  `docs/ROADMAP.md`). Onboarding de 6 pasos (perfil, vehículo, costos,
+  plataformas, objetivos, resumen) que persiste `DriverConfig` en Room
+  (`driver_config` v2, migración 1→2) y se muestra solo la primera vez
+  (`RootViewModel`/`SircRoot` en `:app`).
+- **SPRINT 2 completado**: Design System + Overlay Foundation. El overlay se
+  alimenta de `SimulatedOverlayDataSource` (ofertas simuladas cada 20 s
+  evaluadas con el `ProfitEngine` real); el flujo de accesibilidad persiste
+  historial pero su UI no está conectada aún.
 - Design system en `:core:ui`: `SircTheme`, `SircColors`, `SircTypography`,
   `SircSpacing`, `SircElevations`, `ProfitState`, `ProfitIndicator`,
   `OverlayCard`/`OverlayCardContent`, `MetricCell`, etc. Todos con `@Preview`,
   KDoc y prueba unitaria de paleta/estados.
-- MVP compilable (ver `docs/PROJECT.md`); 8 módulos Gradle; `:domain` y
-  `:core:platform` son **Kotlin puro** (sin Android).
-- Pruebas unitarias JUnit 4: `:domain`, `:core:platform` y `:core:ui`.
+- MVP compilable (ver `docs/PROJECT.md`); 9 módulos Gradle (`:feature:onboarding`
+  agregado); `:domain` y `:core:platform` son **Kotlin puro** (sin Android).
+- Pruebas unitarias JUnit 4: `:domain`, `:core:platform`, `:core:ui` y `:data`.
 - ktlint + lint + CI (GitHub Actions) en verde.
 - Repositorio git en rama `main`, sincronizado con
   `origin https://github.com/TheJeivi02/SIRC-Android.git`.
@@ -67,19 +72,25 @@ app ──► feature:overlay ──► core:platform ─► domain
   │          └──────► data ────┘
   ├──► feature:settings ─► data
   ├──► feature:history  ─► data
+  ├──► feature:onboarding ─► data
   └──► core:ui ──────────► domain (tipos)
 ```
 
-- `domain`: modelos, `ProfitEngine`, use cases, contratos de repositorio.
-- `data`: Room + repositorios concretos + Hilt (`DatabaseModule`,
-  `RepositoryModule`).
+- `domain`: modelos (incluye `DriverConfig`/`DriverProfile`/`DriverVehicle`/
+  `FuelType`/`AdditionalCost`), `ProfitEngine`, use cases, contratos de
+  repositorio.
+- `data`: Room + repositorios concretos + Hilt (`DatabaseModule` con migración
+  1→2, `RepositoryModule`).
 - `core:platform`: parser y extractores multi-plataforma.
 - `core:ui`: design system.
 - `feature:overlay`: accesibilidad + overlay + pipeline de evaluación. Estado
   del overlay vía `OverlayDataSource` (simulado); permisos y control vía
   `PermissionManager` y `OverlayManager`.
+- `feature:onboarding`: flujo de configuración inicial (6 pasos) que persiste
+  `DriverConfig`; gating en `app` (`RootViewModel`/`SircRoot`).
 - `feature:settings` / `feature:history`: UI.
-- `app`: entrada y navegación (4 destinos, incluido Diagnóstico).
+- `app`: entrada, gating de onboarding y navegación (4 destinos, incluido
+  Diagnóstico).
 
 ## Comandos de verificación (Windows / PowerShell)
 
