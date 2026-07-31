@@ -73,6 +73,7 @@ fun DebugPanelScreen(viewModel: DebugPanelViewModel = hiltViewModel()) {
             StatusRow(label = "Overlay en ejecución", active = state.overlayRunning)
             StatusRow(label = "Captura activa", active = state.isCapturing)
             StatusRow(label = "Parser", active = state.parserEnabled)
+            StatusRow(label = "OCR", active = state.ocrEnabled)
         }
 
         SectionCard(title = "Captura") {
@@ -102,6 +103,10 @@ fun DebugPanelScreen(viewModel: DebugPanelViewModel = hiltViewModel()) {
             LabeledValue(
                 label = "Tiempo de procesamiento",
                 value = "${formatMillis(state.lastProcessingTimeMillis)} ms",
+            )
+            LabeledValue(
+                label = "Estado del pipeline",
+                value = state.overlayState.name,
             )
             LabeledValue(
                 label = "Memoria aproximada",

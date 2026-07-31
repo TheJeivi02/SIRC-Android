@@ -4,6 +4,84 @@
 > opción elegida, alternativas descartadas y consecuencias. Se actualiza en
 > cada sprint.
 
+## SPRINT 5 — Primer Pipeline de Captura + OCR
+
+### D6.1 — `CaptureAccessibilityService` dedicado y desacoplado de la UI
+
+**Contexto:** el objetivo es un servicio de captura "desacoplado de la UI". El
+`SircAccessibilityService` existente sirve al overlay (`OfferEventBus`) y además
+reenvía eventos al pipeline de Sprint 4; tocarlo era un riesgo de regresión.
+
+**Decisión:** se crea `CaptureAccessibilityService` (segundo servicio de
+accesibilidad, `:feature:overlay`) que solo construye `CaptureRequest` y los
+envía al `CapturePipeline`. No publica en el overlay ni conoce estados de
+interfaz. Reutiliza la misma `accessibility_service_config.xml` (mismos
+paquetes, `canRetrieveWindowContent=true`, `canPerformGestures=false`).
+
+**Consecuencia:** dos servicios conviven sin regresión; la captura queda lista
+para reemplazar al reenvío del `SircAccessibilityService` en un sprint futuro.
+
+### D6.2 — `OverlayState` con estados mínimos en el pipeline
+
+**Contexto:** el objetivo pide estados `Disabled`, `Waiting`, `Capturing`,
+`Processing`, `Error` para el ciclo de vida del overlay/captura.
+
+**Decisión:** enum `OverlayState` en `:core:capture` (puro). `CapturePipeline`
+lo expone como `StateFlow` y lo transiciona a lo largo del proceso; el panel de
+depuración lo observa. `OverlayService`/`OverlayManager` conservan su
+arquitectura independiente (Sprint 2).
+
+### D6.3 — `CapturePipeline` como orquestador puro en `:core:capture`
+
+**Contexto:** el flujo objetivo es AccessibilityEvent → CaptureRequest →
+ScreenCapture → OCR → OfferParser → OfferRepository.
+
+**Decisión:** `CapturePipeline`/`DefaultCapturePipeline` en `:core:capture`
+(puro) orquesta `ScreenCapture` → OCR (solo si hay imagen) → `OfferParser` →
+`CaptureRepository`, reutilizando `OfferParser` y `CaptureRepository`
+existentes. Falsos de prueba cubren cada etapa con JUnit puro.
+
+**Alternativas descartadas:** orquestar en `:feature:overlay` (no testeable en
+JVM puro); introducir un parser paralelo (duplicaba `OfferParser`).
+
+### D6.4 — OCR bajo la abstracción `OcrEngine` (ML Kit sustituible)
+
+**Contexto:** integrar ML Kit pero permitir sustituciones y pruebas.
+
+**Decisión:** `OcrEngine` (interfaz, `:core:capture`) con `MlKitOcrEngine`
+(`:feature:overlay`, `com.google.mlkit:text-recognition:16.0.1`, texto latino).
+El pipeline solo invoca OCR si la solicitud lleva `imageData`; hoy la
+accesibilidad aporta texto, así que la ruta OCR queda validada por pruebas con
+falso OCR y por las imágenes de prueba.
+
+**Consecuencia:** añadir captura de imagen (MediaProjection) no toca el
+pipeline; la dependencia Android queda aislada en `:feature:overlay`.
+
+### D6.5 — Flag `OCR` añadido a los Feature Flags
+
+**Contexto:** igual que `PARSER`, el OCR debe poder desactivarse en caliente.
+
+**Decisión:** nuevo valor `FeatureFlag.OCR` (default habilitado en dev). El
+panel de depuración lo lista automáticamente (se itera sobre `entries`).
+
+### D6.6 — Imágenes de prueba en recursos y tests del pipeline
+
+**Contexto:** el objetivo pide un conjunto inicial de imágenes de prueba y
+pruebas unitarias para el parser y el pipeline.
+
+**Decisión:** PNGs por plataforma en `core/capture/src/test/resources/test-images/`
+(Uber, DiDi, Cabify, InDrive). `DefaultCapturePipelineTest` los carga como
+`ByteArray` reales y los hace recorrer el pipeline (falso OCR), validando
+también el caso con imagen real + OCR, flags y fallos (captura/OCR/parser).
+
+### D6.7 — `DebugPanelScreen.kt`: incidencias de ktlint ya resueltas
+
+**Contexto:** el sprint pedía corregir un import sin usar y líneas >120 chars.
+
+**Decisión:** quedaron resueltas en v0.5.0; `ktlintCheck` verifica que no
+quedan incidencias. En este sprint solo se añade la fila `OCR` y el `Estado del
+pipeline` al panel.
+
 ## SPRINT 4 — Plataforma de Captura (Infrastructure First)
 
 ### D5.1 — La infraestructura de captura vive en `:core:capture` (Kotlin puro)

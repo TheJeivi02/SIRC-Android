@@ -3,7 +3,42 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Las versiones siguen [SemVer](https://semver.org/lang/es/).
 
-## [v0.5.0] — 2026-07-31
+## [v0.6.0] — 2026-07-31
+
+### Añadido
+
+- **`CaptureAccessibilityService`** en `:feature:overlay`: servicio de
+  accesibilidad dedicado a la captura, completamente desacoplado de la UI (no
+  publica en el overlay ni conoce estados de interfaz). Solo observa, construye
+  `CaptureRequest` y los envía al pipeline. Reutiliza la configuración de
+  accesibilidad existente (solo lectura, `canPerformGestures=false`).
+- **`OverlayState`** (`:core:capture`): estados mínimos del ciclo de vida —
+  `DISABLED`, `WAITING`, `CAPTURING`, `PROCESSING`, `ERROR`.
+- **`CapturePipeline`** (`:core:capture`): pipeline de captura de extremo a
+  extremo desacoplado de Android.
+  - `CaptureRequest` / `ScreenFrame`: modelos de entrada y contenido capturado.
+  - `ScreenCapture` (contrato): captura el frame; `AccessibilityScreenCapture`
+    (Android) usa el texto observado; el contrato queda listo para
+    MediaProjection.
+  - `OcrEngine` (contrato) + `MlKitOcrEngine` (Android): reconocimiento óptico
+    con **ML Kit** (`com.google.mlkit:text-recognition:16.0.1`) a través de una
+    abstracción sustituible y testeable.
+  - `DefaultCapturePipeline`: ScreenCapture → OCR (si hay imagen) → OfferParser
+    → CaptureRepository; expone `OverlayState` y Feature Flag `OCR`.
+- **Imágenes de prueba** en `core/capture/src/test/resources/test-images/` y
+  pruebas unitarias del pipeline (con falso OCR/captura/parser): flujo con
+  texto, con imagen + OCR, flags `CAPTURE`/`OCR`, fallos de captura/OCR/parser
+  y carga de imagen real desde recursos.
+- **Panel de depuración** (`:app`): fila `OCR` en infraestructura y `Estado del
+  pipeline` (`OverlayState`); el flag `OCR` aparece en los toggles.
+- Dependencia **ML Kit OCR** en `gradle/libs.versions.toml` y
+  `feature/overlay/build.gradle.kts`.
+
+### Corregido
+
+- Las incidencias de ktlint en `DebugPanelScreen.kt` (import sin usar y líneas
+  > 120) ya quedaron resueltas en v0.5.0; `ktlintCheck` pasa sin incidencias.
+
 
 ### Añadido
 

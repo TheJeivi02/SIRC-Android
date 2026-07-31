@@ -22,6 +22,13 @@ es rentable.
 > simulados (`FakeParser`) para validar el flujo; el parser/OCR real y su
 > conexión con `ProfitEngine` vendrán en un sprint futuro. `SircLogger` solo
 > emite en builds de desarrollo.
+>
+> Nota SPRINT 5: `CaptureAccessibilityService` (desacoplado de la UI) alimenta
+> `CapturePipeline` (ScreenCapture → OCR → OfferParser → CaptureRepository).
+> ML Kit OCR está integrado bajo `OcrEngine`, pero el pipeline solo aplica OCR
+> cuando la solicitud lleva imagen (hoy la accesibilidad aporta texto); la
+> captura de imagen real (MediaProjection) y la conexión con el overlay llegan
+> en un sprint futuro.
 
 1. Un **Accessibility Service (solo lectura)** detecta la app de transporte
    visible y recolecta los textos de pantalla (límites duros: 400 nodos, 80
@@ -42,6 +49,15 @@ Service **nunca** interactúa con otras apps.
 
 ## Estado del proyecto
 
+- **SPRINT 5 completado**: Primer Pipeline de Captura + OCR (ver
+  `docs/ROADMAP.md`). `CaptureAccessibilityService` dedicado y desacoplado de
+  la UI; `OverlayState` (DISABLED/WAITING/CAPTURING/PROCESSING/ERROR);
+  `CapturePipeline`/`DefaultCapturePipeline` (ScreenCapture → OCR → OfferParser
+  → CaptureRepository) en `:core:capture` (puro); `ScreenCapture` +
+  `AccessibilityScreenCapture`, `OcrEngine` + `MlKitOcrEngine` (ML Kit
+  `text-recognition:16.0.1`); flag `OCR`; imágenes de prueba en
+  `core/capture/src/test/resources/test-images/` y tests del pipeline. Panel de
+  depuración muestra `Estado del pipeline` y fila `OCR`.
 - **SPRINT 4 completado**: Plataforma de Captura (Infrastructure First, ver
   `docs/ROADMAP.md`). Nuevo módulo `:core:capture` (Kotlin puro) con
   `WindowObserver`, `OfferCaptureSession`, `OfferSnapshot` (simulado),
@@ -67,8 +83,11 @@ Service **nunca** interactúa con otras apps.
 - MVP compilable (ver `docs/PROJECT.md`); 10 módulos Gradle (`:core:capture`
   agregado); `:domain`, `:core:platform` y `:core:capture` son **Kotlin puro**
   (sin Android).
+- Dependencia Android nueva: ML Kit OCR (`com.google.mlkit:text-recognition:16.0.1`)
+  solo en `:feature:overlay`.
 - Pruebas unitarias JUnit 4: `:domain`, `:core:platform`, `:core:capture`,
-  `:core:ui` y `:data`.
+  `:core:ui` y `:data`; imágenes de prueba en
+  `core/capture/src/test/resources/test-images/`.
 - ktlint + lint + CI (GitHub Actions) en verde (CI corre `./gradlew test`).
 - Repositorio git en rama `main`, sincronizado con
   `origin https://github.com/TheJeivi02/SIRC-Android.git`.
@@ -99,13 +118,16 @@ app ──► feature:overlay ──► core:platform ─► domain
 - `data`: Room + repositorios concretos + Hilt (`DatabaseModule` con migración
   1→2, `RepositoryModule`).
 - `core:platform`: parser y extractores multi-plataforma.
-- `core:capture`: plataforma de captura (observador, sesión/snapshot, parser
-  fake, repositorio en memoria, coordinador, feature flags, logging).
+- `core:capture`: plataforma de captura (pipeline ScreenCapture → OCR → parser
+  → repositorio, observador, sesión/snapshot, `OverlayState`, coordinador,
+  feature flags, logging).
 - `core:ui`: design system.
-- `feature:overlay`: accesibilidad + overlay + pipeline de evaluación + piezas
-  Android de captura (`AccessibilityWindowObserver`, `AndroidSircLogger`,
-  `CaptureModule`). Estado del overlay vía `OverlayDataSource` (simulado);
-  permisos y control vía `PermissionManager` y `OverlayManager`.
+- `feature:overlay`: accesibilidad (2 servicios: `SircAccessibilityService` +
+  `CaptureAccessibilityService`), overlay + pipeline de evaluación + piezas
+  Android de captura (`AccessibilityWindowObserver`, `AccessibilityScreenCapture`,
+  `MlKitOcrEngine`, `AndroidSircLogger`, `CaptureModule`). Estado del overlay
+  vía `OverlayDataSource` (simulado); permisos y control vía `PermissionManager`
+  y `OverlayManager`.
 - `feature:onboarding`: flujo de configuración inicial (6 pasos) que persiste
   `DriverConfig`; gating en `app` (`RootViewModel`/`SircRoot`).
 - `feature:settings` / `feature:history`: UI.

@@ -15,6 +15,7 @@ junit = "4.13.2"
 androidxTestJunit = "1.2.1"
 espresso = "3.6.1"
 ktlintPlugin = "12.1.2"
+mlkitTextRecognition = "16.0.1"
 
 [libraries]
 # Core
@@ -52,6 +53,9 @@ room-compiler = { group = "androidx.room", name = "room-compiler", version.ref =
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-test-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestJunit" }
 androidx-espresso = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso" }
+
+# ML Kit OCR
+mlkit-text-recognition = { group = "com.google.mlkit", name = "text-recognition", version.ref = "mlkitTextRecognition" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

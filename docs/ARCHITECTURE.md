@@ -23,7 +23,7 @@
 | `:domain` | Domain | `kotlin("jvm")` | Modelos, `ProfitEngine`, use cases, contratos de repositorio. **Sin Android.** |
 | `:data` | Data | `com.android.library` | Room (`SircDatabase`, entidades, DAOs), repositorios concretos, DI de datos. |
 | `:core:platform` | Core | `kotlin("jvm")` | Parser de texto y extractores por plataforma. **Sin Android.** |
-| `:core:capture` | Core | `kotlin("jvm")` | Plataforma de captura: observador de ventanas, sesión/snapshot, parser (fake), repositorio, coordinador, feature flags y logging. **Sin Android.** |
+| `:core:capture` | Core | `kotlin("jvm")` | Plataforma de captura: pipeline de extremo a extremo (screen capture, OCR, parser, repositorio), observador de ventanas, sesión/snapshot, estados del overlay, coordinador, feature flags y logging. **Sin Android.** |
 | `:core:ui` | Core | `com.android.library` | Design system Compose: tema y componentes. |
 | `:feature:overlay` | Feature | `com.android.library` | Accessibility Service, Overlay Service, pipeline de evaluación y UI del overlay. |
 | `:feature:settings` | Feature | `com.android.library` | Configuración de costos, umbrales e indicadores. |
@@ -99,11 +99,11 @@ Reglas derivadas del grafo real:
 
 ### Core:capture (`:core:capture`) — Kotlin puro
 
-Plataforma de captura (SPRINT 4, infraestructura): observa los cambios de
-ventana de las plataformas y produce snapshots simulados, sin interpretar nada
-aún.
+Plataforma de captura (SPRINT 4 infraestructura + SPRINT 5 pipeline): observa los
+cambios de ventana de las plataformas, captura contenido, aplica OCR si hay
+imagen y produce snapshots; desacoplado por completo de Android.
 
-Flujo de captura:
+Flujo de captura (coordinador, SPRINT 4):
 
 ```
 SircAccessibilityService (solo lectura, no interpreta)
@@ -118,19 +118,42 @@ OfferCaptureCoordinator ──► WindowObserver.windowEvents (Flow)
         eventos recientes
 ```
 
+Pipeline de captura (SPRINT 5, preparado para OCR):
+
+```
+CaptureAccessibilityService (solo lectura, desacoplado de la UI)
+      ▼ CaptureRequest (textos y, en el futuro, imagen)
+CapturePipeline (DefaultCapturePipeline)
+      1. ScreenCapture → ScreenFrame            (hoy texto de accesibilidad;
+                                                 futuro MediaProjection + imagen)
+      2. si hay imagen → OcrEngine → textos     (ML Kit, abstraído)
+      3. OfferParser → OfferSnapshot
+      4. CaptureRepository
+      ▼
+OverlayState (StateFlow): DISABLED → WAITING → CAPTURING → PROCESSING → ERROR
+```
+
 - `model/` — `CaptureWindowEvent`, `WindowEventType`, `OfferCaptureSession`
   (ACTIVE/CLOSED), `OfferSnapshot` (inmutable, `SnapshotSource.FAKE`/`REAL`),
-  `CaptureState`.
+  `CaptureState`, `CaptureRequest`, `ScreenFrame`, `OverlayState`
+  (DISABLED/WAITING/CAPTURING/PROCESSING/ERROR).
 - `observer/WindowObserver` — contrato: expone `windowEvents: Flow`; la
   implementación Android (`AccessibilityWindowObserver`) vive en
   `:feature:overlay`.
+- `screen/ScreenCapture` — captura el frame; `AccessibilityScreenCapture`
+  (Android) usa el texto observado; el contrato admite una futura captura de
+  imagen (MediaProjection).
+- `ocr/OcrEngine` — reconoce texto en una imagen; `MlKitOcrEngine` (Android)
+  implementa ML Kit; el pipeline solo lo invoca si la solicitud lleva imagen.
 - `parser/OfferParser` + `FakeParser` — el fake genera snapshots simulados para
-  validar el flujo completo; la interfaz está lista para un parser/OCR real.
+  validar el flujo completo; la interfaz está lista para un parser real.
 - `repository/CaptureRepository` + `InMemoryCaptureRepository` — guardado
   temporal (buffer 50); la interfaz admite una implementación persistente.
-- `coordinator/OfferCaptureCoordinator` — orquesta la captura de extremo a
-  extremo; sin dependencias de Android (solo interfaces + modelos).
-- `flag/` — `FeatureFlag` (ACCESSIBILITY, OVERLAY, CAPTURE, PARSER,
+- `coordinator/OfferCaptureCoordinator` — orquesta la captura vía observer;
+  sin dependencias de Android (solo interfaces + modelos).
+- `pipeline/CapturePipeline` + `DefaultCapturePipeline` — orquesta el flujo
+  ScreenCapture → OCR → OfferParser → CaptureRepository y expone `OverlayState`.
+- `flag/` — `FeatureFlag` (ACCESSIBILITY, OVERLAY, CAPTURE, PARSER, OCR,
   DEBUG_PANEL) y `FeatureFlags`/`InMemoryFeatureFlags` (configurables).
 - `log/SircLogger` — logging centralizado; `AndroidSircLogger` solo emite en
   builds de desarrollo.
@@ -177,6 +200,20 @@ Captura (SPRINT 4, aditiva y sin interpretar):
 SircAccessibilityService → AccessibilityWindowObserver (Flow)
       → OfferCaptureCoordinator → OfferSnapshot (FakeParser) → CaptureRepository
 ```
+
+Pipeline de captura (SPRINT 5, desacoplado de la UI):
+
+```
+CaptureAccessibilityService (solo lectura)
+      → CaptureRequest → CapturePipeline
+      → ScreenCapture → (OCR si hay imagen) → OfferParser → CaptureRepository
+      → OverlayState
+```
+
+El `OverlayService` y el `OverlayManager` tienen arquitectura independiente del
+pipeline: el servicio (FGS `specialUse`) dibuja el `ComposeView`, y el manager
+controla su ciclo de vida vía `OverlayController` + `PermissionManager`. El
+estado del pipeline (`OverlayState`) es observado por el panel de depuración.
 
 Permisos y control:
 
@@ -242,8 +279,9 @@ Detalles de diseño del overlay:
   (`OverlayViewModel`).
 - `DebugPanelViewModel` + `DebugPanelScreen` (desarrollo): estado de la
   infraestructura de captura, toggles de Feature Flags (el destino Debug se
-  oculta si `DEBUG_PANEL` está desactivado), último snapshot, tiempo de
-  procesamiento, memoria aproximada y eventos recientes.
+  oculta si `DEBUG_PANEL` está desactivado), estado del pipeline
+  (`OverlayState`), último snapshot, tiempo de procesamiento, memoria
+  aproximada y eventos recientes.
 
 ## Decisiones técnicas registradas
 
@@ -272,9 +310,15 @@ Detalles de diseño del overlay:
 | Plataforma de captura en `:core:capture` (puro) | Infraestructura de captura desacoplada de Android: el servicio solo alimenta un `WindowObserver`; parser/repositorio/coordinador se prueban con JUnit puro. |
 | `OfferParser` + `FakeParser` | El fake valida el flujo completo sin interpretar pantallas reales; la interfaz queda lista para parser/OCR real. |
 | `CaptureRepository` en memoria | Guardado temporal de snapshots (buffer 50); la interfaz admite una implementación persistente futura. |
-| Feature Flags configurables | `ACCESSIBILITY`, `OVERLAY`, `CAPTURE`, `PARSER`, `DEBUG_PANEL` con toggles en el panel; listos para desactivarse en producción. |
+| Feature Flags configurables | `ACCESSIBILITY`, `OVERLAY`, `CAPTURE`, `PARSER`, `OCR`, `DEBUG_PANEL` con toggles en el panel; listos para desactivarse en producción. |
 | Logging centralizado `SircLogger` | `AndroidSircLogger` solo emite en builds de desarrollo; cero logs en producción. |
 | `AccessibilityWindowObserver` en `:feature:overlay` | La implementación Android del observer vive junto al servicio; el coordinador (puro) solo ve el Flow. |
+| `CapturePipeline` en `:core:capture` (puro) | Orquesta ScreenCapture → OCR → Parser → Repository sin conocer Android; los falsos de prueba validan cada etapa con JUnit puro. |
+| `OcrEngine` como abstracción de ML Kit | Facilita sustituciones y pruebas (falso OCR) sin tocar el pipeline; el motor real vive en `:feature:overlay`. |
+| `ScreenCapture` como contrato | Hoy usa el texto de accesibilidad; en el futuro MediaProjection solo añadirá la imagen (el pipeline ya la procesa con OCR). |
+| `CaptureAccessibilityService` dedicado | Desacopla la captura de la UI: no publica en el overlay ni conoce estados de interfaz; reutiliza la config de accesibilidad (mismos paquetes, solo lectura, `canPerformGestures=false`). |
+| `OverlayState` en el pipeline | Estados mínimos (Disabled/Waiting/Capturing/Processing/Error) observables desde el panel de depuración. |
+| Test images en recursos de prueba | `core/capture/src/test/resources/test-images/` alimentan el pipeline con una imagen real en pruebas unitarias. |
 
 ## Cumplimiento
 

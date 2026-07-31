@@ -9,5 +9,6 @@ enum class FeatureFlag {
     OVERLAY,
     CAPTURE,
     PARSER,
+    OCR,
     DEBUG_PANEL,
 }

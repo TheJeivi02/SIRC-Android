@@ -9,6 +9,8 @@ import com.sirc.capture.model.CaptureState
 import com.sirc.capture.model.CaptureWindowEvent
 import com.sirc.capture.model.OfferCaptureSession
 import com.sirc.capture.model.OfferSnapshot
+import com.sirc.capture.model.OverlayState
+import com.sirc.capture.pipeline.CapturePipeline
 import com.sirc.feature.overlay.OverlayManager
 import com.sirc.feature.overlay.PermissionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,6 +26,7 @@ import javax.inject.Inject
 @HiltViewModel
 class DebugPanelViewModel @Inject constructor(
     private val captureCoordinator: OfferCaptureCoordinator,
+    private val capturePipeline: CapturePipeline,
     private val featureFlags: FeatureFlags,
     private val overlayManager: OverlayManager,
     private val permissions: PermissionManager,
@@ -38,8 +41,10 @@ class DebugPanelViewModel @Inject constructor(
         val overlayRunning: Boolean = false,
         val captureEnabled: Boolean = true,
         val parserEnabled: Boolean = true,
+        val ocrEnabled: Boolean = true,
         val debugPanelEnabled: Boolean = true,
         val overlayFlagEnabled: Boolean = true,
+        val overlayState: OverlayState = OverlayState.DISABLED,
         val isCapturing: Boolean = false,
         val activeSession: OfferCaptureSession? = null,
         val lastSnapshot: OfferSnapshot? = null,
@@ -56,13 +61,19 @@ class DebugPanelViewModel @Inject constructor(
         combine(
             refreshTick,
             captureCoordinator.state,
+            capturePipeline.state,
             overlayManager.isRunning,
-        ) { _, capture, overlayRunning ->
-            build(capture, overlayRunning)
+        ) { _, capture, pipelineState, overlayRunning ->
+            build(capture, pipelineState, overlayRunning)
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = build(captureCoordinator.state.value, overlayManager.isRunning.value),
+            initialValue =
+                build(
+                    captureCoordinator.state.value,
+                    capturePipeline.state.value,
+                    overlayManager.isRunning.value,
+                ),
         )
 
     fun toggleFlag(flag: FeatureFlag) {
@@ -91,6 +102,7 @@ class DebugPanelViewModel @Inject constructor(
 
     private fun build(
         capture: CaptureState,
+        pipelineState: OverlayState,
         overlayRunning: Boolean,
     ): UiState {
         val flags = FeatureFlag.entries.map { FlagStatus(it, featureFlags.isEnabled(it)) }
@@ -99,8 +111,10 @@ class DebugPanelViewModel @Inject constructor(
             overlayRunning = overlayRunning,
             captureEnabled = featureFlags.isEnabled(FeatureFlag.CAPTURE),
             parserEnabled = featureFlags.isEnabled(FeatureFlag.PARSER),
+            ocrEnabled = featureFlags.isEnabled(FeatureFlag.OCR),
             debugPanelEnabled = featureFlags.isEnabled(FeatureFlag.DEBUG_PANEL),
             overlayFlagEnabled = featureFlags.isEnabled(FeatureFlag.OVERLAY),
+            overlayState = pipelineState,
             isCapturing = capture.isCapturing,
             activeSession = capture.activeSession,
             lastSnapshot = capture.lastSnapshot,

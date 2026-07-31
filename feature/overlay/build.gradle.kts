@@ -46,6 +46,8 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)
 
+    implementation(libs.mlkit.text.recognition)
+
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 

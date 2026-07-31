@@ -83,6 +83,29 @@ el futuro. NO se implementó OCR, ML Kit, IA, regex ni interpretación de texto.
 
 - Estado: **completado**.
 
+## Sprint 5 — Primer Pipeline de Captura + OCR ✅
+
+Primer pipeline completo de captura de ofertas (Uber Driver) preparado para
+OCR, con el servicio de accesibilidad desacoplado de la UI.
+
+- **`CaptureAccessibilityService`** dedicado a la captura (solo lectura,
+  desacoplado de la UI), reutilizando la config de accesibilidad existente.
+- **`OverlayState`** (`:core:capture`): `DISABLED`, `WAITING`, `CAPTURING`,
+  `PROCESSING`, `ERROR`.
+- **`CapturePipeline`** (`:core:capture`, puro): `CaptureRequest` →
+  `ScreenCapture` → OCR (`OcrEngine`) → `OfferParser` → `CaptureRepository`,
+  exponiendo el `OverlayState`. `OverlayService`/`OverlayManager` mantienen su
+  arquitectura independiente.
+- **ML Kit OCR** integrado bajo la abstracción `OcrEngine` (`MlKitOcrEngine`),
+  sustituible y testeable; flag `OCR` nuevo.
+- **Imágenes de prueba** (`core/capture/src/test/resources/test-images/`) y
+  pruebas unitarias del pipeline y del parser.
+- Panel de depuración: `Estado del pipeline` (`OverlayState`) y fila `OCR`.
+- Corrección de las incidencias de ktlint de `DebugPanelScreen.kt` (resueltas
+  en v0.5.0; verificadas sin incidencias).
+
+- Estado: **completado**.
+
 ## Sprint 3 — Accessibility
 
 Canal de lectura del contenido visible de las plataformas.

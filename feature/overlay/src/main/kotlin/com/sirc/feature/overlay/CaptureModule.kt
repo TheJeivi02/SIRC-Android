@@ -4,10 +4,14 @@ import com.sirc.capture.flag.FeatureFlags
 import com.sirc.capture.flag.InMemoryFeatureFlags
 import com.sirc.capture.log.SircLogger
 import com.sirc.capture.observer.WindowObserver
+import com.sirc.capture.ocr.OcrEngine
 import com.sirc.capture.parser.FakeParser
 import com.sirc.capture.parser.OfferParser
+import com.sirc.capture.pipeline.CapturePipeline
+import com.sirc.capture.pipeline.DefaultCapturePipeline
 import com.sirc.capture.repository.CaptureRepository
 import com.sirc.capture.repository.InMemoryCaptureRepository
+import com.sirc.capture.screen.ScreenCapture
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -37,4 +41,16 @@ abstract class CaptureModule {
     @Binds
     @Singleton
     abstract fun bindSircLogger(impl: AndroidSircLogger): SircLogger
+
+    @Binds
+    @Singleton
+    abstract fun bindScreenCapture(impl: AccessibilityScreenCapture): ScreenCapture
+
+    @Binds
+    @Singleton
+    abstract fun bindOcrEngine(impl: MlKitOcrEngine): OcrEngine
+
+    @Binds
+    @Singleton
+    abstract fun bindCapturePipeline(impl: DefaultCapturePipeline): CapturePipeline
 }
