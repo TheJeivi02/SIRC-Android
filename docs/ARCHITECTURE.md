@@ -20,7 +20,7 @@
 | Módulo | Capa | Tipo | Responsabilidad |
 |---|---|---|---|
 | `:app` | Presentation (entrada) | `com.android.application` | `SircApplication`, `MainActivity`, navegación (`SircApp`), Home. |
-| `:domain` | Domain | `kotlin("jvm")` | Modelos, `ProfitEngine`, use cases, contratos de repositorio. **Sin Android.** |
+| `:domain` | Domain | `kotlin("jvm")` | Modelos, `ProfitEngine`, motores de evaluación y recomendación, use cases, contratos de repositorio. **Sin Android.** |
 | `:data` | Data | `com.android.library` | Room (`SircDatabase`, entidades, DAOs), repositorios concretos, DI de datos. |
 | `:core:platform` | Core | `kotlin("jvm")` | Parser de texto y extractores por plataforma. **Sin Android.** |
 | `:core:capture` | Core | `kotlin("jvm")` | Plataforma de captura: pipeline de extremo a extremo (screen capture, OCR, parser, repositorio), observador de ventanas, sesión/snapshot, estados del overlay, coordinador, caché de frames, debounce, métricas, feature flags y logging. **Sin Android.** |
@@ -66,13 +66,30 @@ Reglas derivadas del grafo real:
 - `model/` — `TripOffer`, `RidePlatform`, `ProfitMetrics`, `ProfitEvaluation`,
   `Decision`, `DriverCosts`, `DecisionThresholds`, `OverlayConfig`,
   `OfferHistoryEntry`, `DriverConfig`, `DriverProfile`, `DriverVehicle`,
-  `FuelType`, `AdditionalCost`.
+  `FuelType`, `AdditionalCost`, y los de evaluación (SPRINT 7):
+  `Recommendation` (ACCEPT/REJECT/WARNING), `ProfitBreakdown` (costo total y por
+  componente), `ProfitEvaluationDetailed` (evaluación + desglose),
+  `OfferRecommendation` (recomendación + motivo principal + métricas usadas +
+  % de confianza), `OfferEvaluationResult` y `OfferEvaluationRecord` (registro
+  del historial en memoria).
 - `engine/ProfitEngine` — función pura: oferta + costos + umbrales → evaluación.
   Sin estado ni I/O; 100 % testeable. Decide con ganancia/km y ganancia/hora
   (`DecisionThresholds`).
+- `engine/ProfitEvaluationEngine` — motor de evaluación detallada (SPRINT 7):
+  **delega en `ProfitEngine`** (no duplica fórmulas) y deriva los costos desde
+  `DriverConfig`: `costPerKm` = combustible + mantenimiento + costos
+  adicionales; `costPerMinute` y `costPerTrip` pasan de la configuración. Los
+  umbrales de decisión se toman **solo de `DriverConfig.thresholds`** (sin
+  constantes), respetando los objetivos del conductor.
+- `engine/RecommendationEngine` — de `Decision` + `ProfitMetrics` obtiene la
+  recomendación accionable `ACCEPT`/`REJECT`/`WARNING` con motivo principal,
+  métricas usadas y % de confianza (`(50 + margen/3).coerceIn(50, 98)`;
+  WARNING = 50).
 - `repository/` — contratos: `DriverConfigRepository`, `OverlayConfigRepository`,
-  `OfferHistoryRepository`.
+  `OfferHistoryRepository` y `OfferEvaluationRepository` (SPRINT 7).
 - `usecase/` — orquestación fina: `EvaluateOfferUseCase`,
+  `EvaluateDetailedOfferUseCase` (evalúa una oferta completa con motores + costos
+  derivados y devuelve `OfferEvaluationResult`),
   `Get/SaveOverlayConfigUseCase`, `Get/SaveDriverConfigUseCase`,
   `Observe/Clear/AddOfferHistoryUseCase`.
 
@@ -156,7 +173,10 @@ snapshots (SharedFlow) · lastMetrics (StateFlow: captura/OCR/parseo/total)
 - `scheduler/DebounceCaptureScheduler` — coalesce los `CaptureRequest` y emite
   solo el último tras el debounce (400 ms por defecto).
 - `metrics/` — `CaptureMetrics` (interfaz, `NoOpCaptureMetrics`) y
-  `ProcessingMetrics` (tiempos por etapa) expuestos por el pipeline.
+  `ProcessingMetrics` (tiempos por etapa) expuestos por el pipeline;
+  `OfferTiming` (captura/OCR/parseo/evaluación/overlay/total) y
+  `OfferPerformanceTracker` + `InMemoryOfferPerformanceTracker` (SPRINT 7):
+  retiene las últimas 100 ofertas y expone promedios de las últimas 20.
 - `ocr/OcrEngine` — reconoce texto en una imagen; `MlKitOcrEngine` (Android)
   implementa ML Kit; el pipeline solo lo invoca si la solicitud lleva imagen.
 - `parser/OfferParser` + `FakeParser` — el fake genera snapshots simulados para
@@ -210,21 +230,26 @@ la UI y del pipeline puro:
 
 ### Feature:overlay (`:feature:overlay`) — el corazón del MVP
 
-Flujo de datos del overlay (SPRINT 6 — estado real del pipeline):
+Flujo de datos del overlay (SPRINT 6 + SPRINT 7 — estado y evaluación reales):
 
 ```
 OverlayDataSource (interfaz: StateFlow<OverlayUiState>, start/stop)
       │
       └── PipelineOverlayDataSource (Singleton)
             · consume CapturePipeline.state → OverlayUiState.status (OverlayState)
-            · consume CapturePipeline.snapshots → evalúa con EvaluateOfferUseCase
-              (ProfitEngine real) → OverlayUiState.evaluation
+            · consume CapturePipeline.snapshots → mapea OfferSnapshot → TripOffer
+              (texts de OCR; rawData como respaldo) → EvaluateDetailedOfferUseCase
+              → OverlayUiState.evaluation + recommendation
+            · registra OfferTiming (evaluación/overlay) en OfferPerformanceTracker
+            · persiste OfferEvaluationRecord en OfferEvaluationRepository (memoria,
+              últimas 100) — historial "Última oferta" del panel de depuración
             · visible = status != DISABLED || evaluation != null
-            · oculta el resultado tras OverlayConfig.ttlSeconds
+            · oculta el resultado tras OverlayConfig.ttlSeconds (MIN 10 s)
       ▼
 OverlayService (Foreground Service, TYPE_APPLICATION_OVERLAY)
       └── ComposeView liviano: máximo 4 indicadores
-          (decisión, ganancia, ganancia/hora, ganancia/km, resumen)
+          (recomendación, precio, ganancia, ganancia/hora, ganancia/km,
+           costo estimado, resumen, motivo + % de confianza)
           · StatusLabel: Esperando / Capturando / Analizando / Error
           · arrastrable · ocultable · TTL configurable
 ```
@@ -334,8 +359,13 @@ Detalles de diseño del overlay:
   infraestructura de captura, toggles de Feature Flags (el destino Debug se
   oculta si `DEBUG_PANEL` está desactivado), estado del pipeline
   (`OverlayState`), último snapshot, **métricas por etapa**
-  (`pipeline.lastMetrics`: Captura/OCR/Parseo/Total), tiempo de procesamiento,
-  memoria aproximada y eventos recientes.
+  (`pipeline.lastMetrics`: Captura/OCR/Parseo/Total), **"Última oferta"**
+  (recomendación con confianza, plataforma, precio, distancia, duración,
+  motivo, texto OCR truncado a 200 chars, parser y timestamp desde
+  `OfferEvaluationRepository`), **"Rendimiento (promedio últimas 20 ofertas)"**
+  (captura/OCR/parseo/evaluación/overlay/total desde
+  `OfferPerformanceTracker.averages`), tiempo de procesamiento, memoria
+  aproximada y eventos recientes.
 
 ## Decisiones técnicas registradas
 
@@ -380,6 +410,12 @@ Detalles de diseño del overlay:
 | `DebounceCaptureScheduler` | Coalesce los `CaptureRequest` de accesibilidad (muy frecuentes) y emite solo el último tras 400 ms; el OCR no se ejecuta por cada evento. |
 | Métricas por etapa en el pipeline | `ProcessingMetrics` (captura/OCR/parseo/total) expuestas para el panel de depuración; `CaptureMetrics` solo loguea en debug. |
 | `PipelineOverlayDataSource` conecta el pipeline al overlay | El overlay muestra el estado real (WAITING/CAPTURING/PROCESSING/ERROR) y el resultado evaluado con el motor real; sustituye a los datos simulados. |
+| `ProfitEvaluationEngine` delega en `ProfitEngine` | Reutiliza el motor probado (decisión/margen/umbrales) y solo añade la derivación de costos desde `DriverConfig`; sin duplicar fórmulas. |
+| Umbrales solo desde `DriverConfig.thresholds` | La decisión respeta siempre los objetivos del conductor; el motor no define constantes propias. |
+| Recomendación `ACCEPT`/`REJECT`/`WARNING` | El conductor decide en <3 s: el overlay muestra qué hacer, el motivo principal y el % de confianza derivado del margen. |
+| Historial en memoria `OfferEvaluationRepository` | `InMemoryOfferEvaluationRepository` (100 ofertas) alimenta el overlay y el panel de depuración en tiempo real, sin I/O de Room en el camino crítico; el historial persistente de `:feature:history` se mantiene aparte. |
+| `OfferPerformanceTracker` con promedio de 20 | Retiene las últimas 100 ofertas (memoria acotada) y expone promedios móviles por etapa para medir el rendimiento real de captura/OCR/parseo/evaluación/overlay. |
+| `OfferSnapshot.texts` | El snapshot transporta los textos OCR además de la imagen cruda, para que el overlay evalúe el contenido visible real de la oferta. |
 
 ## Cumplimiento
 

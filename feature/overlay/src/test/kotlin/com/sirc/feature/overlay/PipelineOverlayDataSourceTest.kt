@@ -3,6 +3,7 @@ package com.sirc.feature.overlay
 import com.sirc.capture.flag.FeatureFlag
 import com.sirc.capture.flag.InMemoryFeatureFlags
 import com.sirc.capture.log.SircLogger
+import com.sirc.capture.metrics.InMemoryOfferPerformanceTracker
 import com.sirc.capture.metrics.ProcessingMetrics
 import com.sirc.capture.model.CaptureRequest
 import com.sirc.capture.model.OfferSnapshot
@@ -10,18 +11,22 @@ import com.sirc.capture.model.OverlayState
 import com.sirc.capture.model.SnapshotSource
 import com.sirc.capture.pipeline.CapturePipeline
 import com.sirc.domain.engine.ProfitEngine
+import com.sirc.domain.engine.ProfitEvaluationEngine
+import com.sirc.domain.engine.RecommendationEngine
 import com.sirc.domain.model.DecisionThresholds
 import com.sirc.domain.model.DriverCosts
 import com.sirc.domain.model.OverlayConfig
+import com.sirc.domain.model.Recommendation
 import com.sirc.domain.model.RidePlatform
 import com.sirc.domain.repository.DriverConfigRepository
 import com.sirc.domain.repository.OverlayConfigRepository
-import com.sirc.domain.usecase.EvaluateOfferUseCase
+import com.sirc.domain.usecase.EvaluateDetailedOfferUseCase
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -34,9 +39,12 @@ import org.junit.Test
 class PipelineOverlayDataSourceTest {
     private val pipeline = FakeCapturePipeline()
     private val featureFlags = InMemoryFeatureFlags()
+    private val performanceTracker = InMemoryOfferPerformanceTracker()
+    private val historyRepository = InMemoryOfferEvaluationRepository()
     private val evaluateUseCase =
-        EvaluateOfferUseCase(
-            engine = ProfitEngine(),
+        EvaluateDetailedOfferUseCase(
+            profitEvaluationEngine = ProfitEvaluationEngine(engine = ProfitEngine()),
+            recommendationEngine = RecommendationEngine(),
             configRepository = FakeDriverConfigRepository(),
         )
 
@@ -47,6 +55,8 @@ class PipelineOverlayDataSourceTest {
             configRepository = FakeOverlayConfigRepository(),
             featureFlags = featureFlags,
             logger = FakeLogger(),
+            performanceTracker = performanceTracker,
+            historyRepository = historyRepository,
         )
 
     @Test
@@ -55,6 +65,7 @@ class PipelineOverlayDataSourceTest {
             assertEquals(OverlayState.DISABLED, dataSource.uiState.value.status)
             assertFalse(dataSource.uiState.value.visible)
             assertNull(dataSource.uiState.value.evaluation)
+            assertNull(dataSource.uiState.value.recommendation)
         }
 
     @Test
@@ -79,14 +90,32 @@ class PipelineOverlayDataSourceTest {
         }
 
     @Test
-    fun `snapshot evaluado muestra la evaluación y mantiene el overlay visible`() =
+    fun `snapshot evaluado muestra evaluación y recomendación ACCEPT`() =
         runBlocking {
             pipeline.snapshots.tryEmit(snapshot())
 
             waitFor { dataSource.uiState.value.evaluation != null }
 
             assertNotNull(dataSource.uiState.value.evaluation)
+            assertNotNull(dataSource.uiState.value.recommendation)
+            assertEquals(Recommendation.ACCEPT, dataSource.uiState.value.recommendation?.recommendation)
             assertTrue(dataSource.uiState.value.visible)
+        }
+
+    @Test
+    fun `snapshot evaluado se registra en el historial temporal`() =
+        runBlocking {
+            pipeline.snapshots.tryEmit(snapshot())
+
+            waitFor { dataSource.uiState.value.evaluation != null }
+
+            val records = historyRepository.observe(limit = 10).first()
+            val latest = records.single()
+            assertEquals(RidePlatform.UBER, latest.platform)
+            assertEquals(125.0, latest.price, 0.001)
+            assertEquals(Recommendation.ACCEPT, latest.recommendation)
+            assertTrue(latest.ocrText.isNotEmpty())
+            assertNotNull(latest.parserResult)
         }
 
     @Test
@@ -100,6 +129,7 @@ class PipelineOverlayDataSourceTest {
             assertEquals(OverlayState.DISABLED, dataSource.uiState.value.status)
             assertFalse(dataSource.uiState.value.visible)
             assertNull(dataSource.uiState.value.evaluation)
+            assertNull(dataSource.uiState.value.recommendation)
         }
 
     @Test
@@ -123,6 +153,8 @@ class PipelineOverlayDataSourceTest {
             estimatedTotal = 125.0,
             distanceKm = 8.5,
             durationMin = 22.0,
+            rawData = "data:test",
+            texts = listOf("UBER", "$125.00", "8.5 km"),
         )
 
     private suspend fun waitFor(condition: () -> Boolean) {

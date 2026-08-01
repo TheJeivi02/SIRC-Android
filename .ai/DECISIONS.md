@@ -4,6 +4,85 @@
 > opción elegida, alternativas descartadas y consecuencias. Se actualiza en
 > cada sprint.
 
+## SPRINT 7 — Evaluación en tiempo real con recomendación
+
+### D8.1 — `ProfitEvaluationEngine` delega en `ProfitEngine` (no duplica fórmulas)
+
+**Contexto:** el sprint pide evaluar la oferta detallada (costos derivados del
+perfil del conductor) y decidir con umbrales; ya existe `ProfitEngine` con la
+fórmula de ganancia/margen/decisión probada.
+
+**Decisión:** `ProfitEvaluationEngine` reutiliza `ProfitEngine` (delegación) y
+solo deriva los costos: `costPerKm` = combustible + mantenimiento + costos
+adicionales (todo desde `DriverConfig`); `costPerMinute` y `costPerTrip` pasan
+de la configuración. No se duplica ninguna fórmula ni umbral.
+
+**Alternativas descartadas:** reescribir el cálculo en un motor nuevo
+(duplicaba lógica crítica probada); tocar `ProfitEngine` para que calcule
+costos (rompía su contrato puro oferta+costos+umbrales).
+
+### D8.2 — Umbrales de decisión SOLO desde `DriverConfig.thresholds`
+
+**Contexto:** el objetivo exige que los umbrales vengan solo de la configuración
+del conductor (sin constantes).
+
+**Decisión:** `ProfitEvaluationEngine` entrega los umbrales configurados
+(`config.thresholds`) a `ProfitEngine`; no define ningún valor por defecto. Si no
+hay conductor configurado, `EvaluateDetailedOfferUseCase` usa
+`DriverConfig.default()` para no romper el flujo.
+
+### D8.3 — Recomendación accionable con motivo y confianza
+
+**Contexto:** el conductor decide en <3 s; la decisión técnica (`Decision`) debe
+traducirse a una acción clara.
+
+**Decisión:** `RecommendationEngine` produce `OfferRecommendation`:
+`ACCEPT`/`REJECT`/`WARNING` según la decisión, motivo principal, métricas usadas
+y % de confianza = `(50 + |margen|/3).coerceIn(50, 98)` (WARNING = 50). La UI lo
+muestra como insignia semáforo con el motivo y el %.
+
+### D8.4 — Historial en memoria para el overlay/Debug (Room se mantiene aparte)
+
+**Contexto:** el objetivo pide historial de 100 ofertas sin Room, para el flujo
+en tiempo real del overlay.
+
+**Decisión:** `OfferEvaluationRepository` (contrato `:domain`) +
+`InMemoryOfferEvaluationRepository` (sincronizado, ids incrementales, retiene 100)
+en `:feature:overlay`. `PipelineOverlayDataSource` persiste cada oferta evaluada
+y `DebugPanelViewModel` lee la última. El historial persistente de
+`:feature:history` (Room) no se toca: dos fuentes con distinto propósito.
+
+### D8.5 — `OfferTiming` + `OfferPerformanceTracker` para medir por oferta
+
+**Contexto:** se necesitan tiempos por etapa (captura/OCR/parseo/evaluación/
+overlay/total) y promedios de las últimas 20 ofertas.
+
+**Decisión:** `OfferTiming` en `:core:capture` (puro) y
+`OfferPerformanceTracker`/`InMemoryOfferPerformanceTracker` (retiene 100,
+promedio de 20, `merge` completa la última entrada cuando falta overlay).
+`DefaultCapturePipeline` registra captura/OCR/parseo/total; el data source
+registra evaluación/overlay. Panel de depuración: "Última oferta" +
+"Rendimiento (promedio últimas 20 ofertas)".
+
+### D8.6 — `OfferSnapshot.texts` transporta los textos OCR
+
+**Contexto:** para evaluar la oferta real el overlay necesita el contenido
+visible (textos OCR), no solo la imagen cruda.
+
+**Decisión:** `OfferSnapshot` añade `texts: List<String> = emptyList()`;
+`FakeParser` los puebla desde el evento de captura y
+`PipelineOverlayDataSource` los mapea al `TripOffer` (con `rawData` como
+respaldo).
+
+### D8.7 — Combines anidados en `DebugPanelViewModel`
+
+**Contexto:** al añadir `performanceTracker.averages` e historial (última
+oferta) se superaban los 5 flows que soporta `Flow.combine`.
+
+**Decisión:** se agrupa el estado base en `PipelineSnapshot` (combine de 5) y el
+par promedio+última en un `performance` (combine de 2), anidando los resultados.
+Sin estados globales ni flows intermedios visibles al resto de la app.
+
 ## SPRINT 6 — Captura de pantalla real con MediaProjection
 
 ### D7.1 — MediaProjection vive en `:core:capture:android` (nuevo módulo Android)

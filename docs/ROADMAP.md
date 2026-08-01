@@ -137,6 +137,32 @@ repositorio → estado del overlay, con caché por hash y métricas de rendimien
 
 - Estado: **completado**.
 
+## Sprint 7 — Evaluación en tiempo real con recomendación ✅
+
+La oferta capturada se evalúa con el motor real y el overlay muestra una
+recomendación accionable con motivo y confianza, con métricas de rendimiento por
+oferta en el panel de depuración.
+
+- **Motor de evaluación detallada** (`ProfitEvaluationEngine`): reutiliza
+  `ProfitEngine` (delega) y deriva los costos desde `DriverConfig`
+  (combustible + mantenimiento + adicionales por km); los umbrales de decisión
+  vienen **solo de `DriverConfig.thresholds`** (O1/O6).
+- **`RecommendationEngine`** (O2): `ACCEPT`/`REJECT`/`WARNING` con motivo
+  principal, métricas usadas y % de confianza.
+- **Historial en memoria** (O4): `OfferEvaluationRepository` +
+  `InMemoryOfferEvaluationRepository` (100 ofertas, sin Room).
+- **Métricas por oferta** (O8): `OfferTiming` + `OfferPerformanceTracker`
+  (últimas 100, promedio de 20) alimentados por el pipeline y el overlay.
+- **Overlay con recomendación** (O3): `RecommendationBadge`, precio, ganancia,
+  $/hora, $/km, costo estimado, motivo y confianza; `OverlayUiState.recommendation`.
+- **Panel de depuración** (O5): sección "Última oferta" (recomendación + texto
+  OCR) y "Rendimiento (promedio últimas 20 ofertas)".
+- **Tests** (O7): engines, tracker, historial, overlay data source y pipeline.
+- Verificación en verde: ktlint, unit tests (todos los módulos), lint,
+  assembleDebug y assembleDebugAndroidTest.
+
+- Estado: **completado**.
+
 ## Sprint 3 — Accessibility
 
 Canal de lectura del contenido visible de las plataformas.

@@ -13,6 +13,17 @@ es rentable.
 
 **Cómo funciona (flujo real):**
 
+> Nota SPRINT 7: la oferta capturada se evalúa en detalle y el overlay muestra
+> una **recomendación accionable**. `PipelineOverlayDataSource` mapea el snapshot
+> a `TripOffer` (con los textos OCR), lo evalúa con `EvaluateDetailedOfferUseCase`
+> (`ProfitEvaluationEngine` delega en `ProfitEngine` y deriva los costos desde
+> `DriverConfig`; los umbrales vienen **solo de `DriverConfig.thresholds`**) y
+> publica `evaluation` + `recommendation` (`ACCEPT`/`REJECT`/`WARNING` con motivo
+> principal y % de confianza). Cada oferta se persiste en
+> `OfferEvaluationRepository` (en memoria, últimas 100) y se cronometra con
+> `OfferPerformanceTracker` (promedio de las últimas 20). El panel de depuración
+> muestra **Última oferta** y **Rendimiento**.
+>
 > Nota SPRINT 6: el overlay consume el **estado real del pipeline**.
 > `PipelineOverlayDataSource` traduce `CapturePipeline.state` (`OverlayState`)
 > y los snapshots a `OverlayUiState` (status + evaluación con el motor real);
@@ -55,6 +66,27 @@ Service **nunca** interactúa con otras apps.
 
 ## Estado del proyecto
 
+- **SPRINT 7 completado**: Evaluación en tiempo real con recomendación (ver
+  `docs/ROADMAP.md`). Nuevos motores en `:domain`: `ProfitEvaluationEngine`
+  (delega en `ProfitEngine`, deriva costos desde `DriverConfig`, umbrales solo
+  de `DriverConfig.thresholds`) y `RecommendationEngine`
+  (`ACCEPT`/`REJECT`/`WARNING` con motivo, métricas usadas y % de confianza).
+  Modelos de evaluación: `Recommendation`, `ProfitBreakdown`,
+  `ProfitEvaluationDetailed`, `OfferRecommendation`, `OfferEvaluationResult`,
+  `OfferEvaluationRecord`. **`PipelineOverlayDataSource` reescrito**: mapea el
+  snapshot a `TripOffer` (textos OCR), evalúa con `EvaluateDetailedOfferUseCase`,
+  persiste en `OfferEvaluationRepository` (`InMemoryOfferEvaluationRepository`,
+  100 ofertas) y cronometra con `OfferPerformanceTracker`
+  (`InMemoryOfferPerformanceTracker`, promedio de 20) vía `OfferTiming`. Overlay
+  con `RecommendationBadge` (ACEPTAR/RECHAZAR/REVISAR), precio, ganancia, $/hora,
+  $/km, costo estimado, motivo y confianza (`OverlayUiState.recommendation`,
+  `ProfitState.fromRecommendation`). Panel de depuración con **Última oferta**
+  (recomendación + texto OCR) y **Rendimiento (promedio últimas 20 ofertas)**.
+  `OfferSnapshot` añade `texts`. Tests nuevos: `ProfitEvaluationEngineTest`,
+  `RecommendationEngineTest`, `InMemoryOfferPerformanceTrackerTest`,
+  `InMemoryOfferEvaluationRepositoryTest`, `PipelineOverlayDataSourceTest`
+  reescrito y `DefaultCapturePipelineTest` ampliado. Verificación en verde
+  (ktlint, unit tests, lint, assembleDebug, assembleDebugAndroidTest).
 - **SPRINT 6 completado**: Captura de pantalla real con MediaProjection (ver
   `docs/ROADMAP.md`). Nuevo módulo **`:core:capture:android`**:
   `ScreenCaptureProvider` + `MediaProjectionScreenCaptureProvider` (token
@@ -138,15 +170,19 @@ app ──► feature:overlay ──► core:platform ─► domain
 ```
 
 - `domain`: modelos (incluye `DriverConfig`/`DriverProfile`/`DriverVehicle`/
-  `FuelType`/`AdditionalCost`), `ProfitEngine`, use cases, contratos de
-  repositorio.
+  `FuelType`/`AdditionalCost` y los de evaluación: `Recommendation`,
+  `ProfitBreakdown`, `ProfitEvaluationDetailed`, `OfferRecommendation`,
+  `OfferEvaluationResult`, `OfferEvaluationRecord`), `ProfitEngine` +
+  `ProfitEvaluationEngine` + `RecommendationEngine`, use cases
+  (`EvaluateOfferUseCase`/`EvaluateDetailedOfferUseCase`), contratos de
+  repositorio (`OfferEvaluationRepository` incluido).
 - `data`: Room + repositorios concretos + Hilt (`DatabaseModule` con migración
   1→2, `RepositoryModule`).
 - `core:platform`: parser y extractores multi-plataforma.
 - `core:capture`: plataforma de captura (pipeline ScreenCapture → OCR → parser
   → repositorio, observador, sesión/snapshot, `OverlayState`, coordinador,
-  caché de frames por hash, debounce de requests, métricas por etapa, feature
-  flags, logging).
+  caché de frames por hash, debounce de requests, métricas por etapa,
+  `OfferTiming` + `OfferPerformanceTracker`, feature flags, logging).
 - `core:capture:android`: captura de pantalla real (MediaProjection):
   `ScreenCaptureProvider`, `MediaProjectionService` (FGS tipo `mediaProjection`),
   `MediaProjectionScreenCapture`, `DebugCaptureMetrics`, `CaptureAndroidModule`.
@@ -167,15 +203,15 @@ app ──► feature:overlay ──► core:platform ─► domain
 ## Comandos de verificación (Windows / PowerShell)
 
 ```powershell
-$env:JAVA_HOME = "C:\Users\Jeivi\AppData\Local\Temp\opencode\jdk17\jdk-17.0.20+8"
-$env:ANDROID_HOME = "C:\Users\Jeivi\AppData\Local\Temp\opencode\sdk"
-.\gradlew.bat ktlintCheck --console=plain --max-workers=2
-.\gradlew.bat lintDebug assembleDebug testDebugUnitTest :domain:test :core:platform:test :core:capture:test --console=plain --max-workers=2
+.\gradlew.bat ktlintCheck --console=plain
+.\gradlew.bat lintDebug assembleDebug testDebugUnitTest :domain:test :core:platform:test :core:capture:test --console=plain
 ```
 
+- JDK 17 (Adoptium) ya es el JVM actual: `.\gradlew.bat` funciona sin prefijar
+  `$env:JAVA_HOME`. Prefijar `$env:JAVA_HOME = ...` en una sola línea puede ser
+  matado por el harness (usar comandos directos).
 - `ktlintFormat` NO desactiva reglas: si rompe `@Inject constructor`, es que
   falta `ktlint_standard_annotation = disabled` en `.editorconfig` (ya presente).
-- Gradle con `--max-workers=2` para evitar fallos de workers de ktlint.
 
 ## Qué NO se debe hacer
 

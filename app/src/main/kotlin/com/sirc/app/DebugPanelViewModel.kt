@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.sirc.capture.coordinator.OfferCaptureCoordinator
 import com.sirc.capture.flag.FeatureFlag
 import com.sirc.capture.flag.FeatureFlags
+import com.sirc.capture.metrics.OfferPerformanceTracker
+import com.sirc.capture.metrics.OfferTiming
 import com.sirc.capture.metrics.ProcessingMetrics
 import com.sirc.capture.model.CaptureState
 import com.sirc.capture.model.CaptureWindowEvent
@@ -12,6 +14,8 @@ import com.sirc.capture.model.OfferCaptureSession
 import com.sirc.capture.model.OfferSnapshot
 import com.sirc.capture.model.OverlayState
 import com.sirc.capture.pipeline.CapturePipeline
+import com.sirc.domain.model.OfferEvaluationRecord
+import com.sirc.domain.repository.OfferEvaluationRepository
 import com.sirc.feature.overlay.OverlayManager
 import com.sirc.feature.overlay.PermissionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -31,6 +35,8 @@ class DebugPanelViewModel @Inject constructor(
     private val featureFlags: FeatureFlags,
     private val overlayManager: OverlayManager,
     private val permissions: PermissionManager,
+    private val performanceTracker: OfferPerformanceTracker,
+    private val historyRepository: OfferEvaluationRepository,
 ) : ViewModel() {
     data class FlagStatus(
         val flag: FeatureFlag,
@@ -58,9 +64,32 @@ class DebugPanelViewModel @Inject constructor(
         val eventsProcessed: Int = 0,
         val recentEvents: List<CaptureWindowEvent> = emptyList(),
         val flags: List<FlagStatus> = emptyList(),
+        val lastOffer: OfferEvaluationRecord? = null,
+        val lastTiming: OfferTiming? = null,
+        val avgCaptureMillis: Double? = null,
+        val avgOcrMillis: Double? = null,
+        val avgParseMillis: Double? = null,
+        val avgEvaluationMillis: Double? = null,
+        val avgOverlayMillis: Double? = null,
+        val avgTotalMillis: Double? = null,
     )
 
     private val refreshTick = MutableStateFlow(0)
+
+    private data class PipelineSnapshot(
+        val capture: CaptureState,
+        val pipelineState: OverlayState,
+        val metrics: ProcessingMetrics,
+        val overlayRunning: Boolean,
+    )
+
+    private val performance =
+        combine(
+            performanceTracker.averages,
+            historyRepository.observe(limit = 1),
+        ) { averages, latest ->
+            averages to latest
+        }
 
     val state: StateFlow<UiState> =
         combine(
@@ -70,7 +99,16 @@ class DebugPanelViewModel @Inject constructor(
             capturePipeline.lastMetrics,
             overlayManager.isRunning,
         ) { _, capture, pipelineState, metrics, overlayRunning ->
-            build(capture, pipelineState, metrics, overlayRunning)
+            PipelineSnapshot(capture, pipelineState, metrics, overlayRunning)
+        }.combine(performance) { snapshot, (averages, latest) ->
+            build(
+                snapshot.capture,
+                snapshot.pipelineState,
+                snapshot.metrics,
+                snapshot.overlayRunning,
+                averages,
+                latest,
+            )
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -80,6 +118,8 @@ class DebugPanelViewModel @Inject constructor(
                     capturePipeline.state.value,
                     capturePipeline.lastMetrics.value,
                     overlayManager.isRunning.value,
+                    performanceTracker.averages.value,
+                    emptyList(),
                 ),
         )
 
@@ -112,8 +152,12 @@ class DebugPanelViewModel @Inject constructor(
         pipelineState: OverlayState,
         metrics: ProcessingMetrics,
         overlayRunning: Boolean,
+        averages: OfferTiming,
+        latest: List<OfferEvaluationRecord>,
     ): UiState {
         val flags = FeatureFlag.entries.map { FlagStatus(it, featureFlags.isEnabled(it)) }
+        val lastOffer = latest.firstOrNull()
+        val lastTiming = performanceTracker.lastOffers.value.lastOrNull()
         return UiState(
             accessibilityEnabled = permissions.hasAccessibilityPermission(),
             overlayRunning = overlayRunning,
@@ -135,6 +179,14 @@ class DebugPanelViewModel @Inject constructor(
             eventsProcessed = capture.eventsProcessed,
             recentEvents = capture.recentEvents,
             flags = flags,
+            lastOffer = lastOffer,
+            lastTiming = lastTiming,
+            avgCaptureMillis = averages.captureMillis,
+            avgOcrMillis = averages.ocrMillis,
+            avgParseMillis = averages.parseMillis,
+            avgEvaluationMillis = averages.evaluationMillis,
+            avgOverlayMillis = averages.overlayMillis,
+            avgTotalMillis = averages.totalMillis,
         )
     }
 

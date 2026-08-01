@@ -19,7 +19,9 @@ import androidx.compose.ui.unit.sp
 import com.sirc.core.ui.theme.ProfitState
 import com.sirc.core.ui.theme.SircColors
 import com.sirc.core.ui.theme.SircTheme
+import com.sirc.core.ui.theme.recommendationLabel
 import com.sirc.domain.model.Decision
+import com.sirc.domain.model.Recommendation
 
 /**
  * Insignia de decisión del motor. Delga en [ProfitIndicator] usando el estado
@@ -33,6 +35,22 @@ fun DecisionBadge(
     ProfitIndicator(
         state = ProfitState.fromDecision(decision),
         compact = compact,
+    )
+}
+
+/**
+ * Insignia de recomendación accionable. Usa el color del estado semáforo
+ * derivado de la [Recommendation] y la etiqueta ACEPTAR/RECHAZAR/REVISAR.
+ */
+@Composable
+fun RecommendationBadge(
+    recommendation: Recommendation,
+    compact: Boolean = false,
+) {
+    ProfitIndicator(
+        state = ProfitState.fromRecommendation(recommendation),
+        compact = compact,
+        label = recommendationLabel(recommendation),
     )
 }
 

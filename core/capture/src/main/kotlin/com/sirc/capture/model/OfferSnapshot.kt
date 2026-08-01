@@ -17,6 +17,7 @@ data class OfferSnapshot(
     val distanceKm: Double,
     val durationMin: Double,
     val rawData: String? = null,
+    val texts: List<String> = emptyList(),
 )
 
 /** Origen de los datos del [OfferSnapshot]. */

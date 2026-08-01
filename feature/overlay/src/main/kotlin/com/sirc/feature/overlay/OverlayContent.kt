@@ -16,18 +16,18 @@ import com.sirc.core.ui.components.DecisionBadge
 import com.sirc.core.ui.components.MetricCell
 import com.sirc.core.ui.components.OverlayCard
 import com.sirc.core.ui.components.OverlayCardContent
+import com.sirc.core.ui.components.RecommendationBadge
 import com.sirc.core.ui.theme.SircColors
 import com.sirc.domain.engine.ProfitEngine
 import com.sirc.domain.model.ProfitMetrics
 
 /**
- * Contenido del Overlay. Máximo cuatro indicadores, extremadamente ligero.
- *
- * Muestra el estado real del pipeline (esperando/capturando/analizando/error)
- * y, cuando hay resultado, la insignia de decisión y las métricas derivadas.
+ * Contenido del Overlay. Muestra el estado real del pipeline y, cuando hay
+ * resultado, la recomendación (ACEPTAR/RECHAZAR/REVISAR), el precio, el costo
+ * estimado y las métricas de rentabilidad (ganancia, por hora, por km).
  *
  * Filosofía: el conductor NO debe leer; debe RECONOCER de un vistazo si el
- * viaje le conviene. Colores semáforo + números grandes + datos derivados.
+ * viaje le conviene. Colores semáforo (del tema) + números grandes.
  */
 @Composable
 fun OverlayContent(
@@ -63,10 +63,24 @@ fun OverlayContent(
                 onDismiss = onDismiss,
             ) {
                 if (evaluation != null) {
-                    DecisionBadge(decision = evaluation.decision, compact = config.compactMode)
+                    val recommendation = state.recommendation
+                    if (recommendation != null) {
+                        RecommendationBadge(
+                            recommendation = recommendation.recommendation,
+                            compact = config.compactMode,
+                        )
+                    } else {
+                        DecisionBadge(decision = evaluation.decision, compact = config.compactMode)
+                    }
 
                     val metrics = evaluation.metrics
                     val color = valueColor(metrics)
+                    MetricCell(
+                        label = "PRECIO",
+                        value = engine.formatCurrency(metrics.estimatedTotal, evaluation.offer.currency),
+                        valueColor = SircColors.OnDark,
+                        compact = config.compactMode,
+                    )
                     if (config.showProfit) {
                         MetricCell(
                             label = "GANANCIA",
@@ -104,6 +118,21 @@ fun OverlayContent(
                                 modifier = Modifier.padding(top = if (config.compactMode) 4.dp else 6.dp),
                             )
                         }
+                        MetricCell(
+                            label = "COSTO EST.",
+                            value = engine.formatCurrency(metrics.totalCost, evaluation.offer.currency),
+                            valueColor = SircColors.OnDarkMuted,
+                            compact = config.compactMode,
+                        )
+                    }
+                    if (recommendation != null) {
+                        Text(
+                            text = "${recommendation.mainReason} · ${recommendation.confidencePercent}% confianza",
+                            color = SircColors.OnDarkMuted,
+                            fontSize = if (config.compactMode) 9.sp else 11.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = if (config.compactMode) 4.dp else 6.dp),
+                        )
                     }
                 } else {
                     StatusLabel(status = state.status, compact = config.compactMode)

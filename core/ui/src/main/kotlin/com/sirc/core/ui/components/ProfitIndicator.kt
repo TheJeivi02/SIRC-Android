@@ -22,12 +22,15 @@ import com.sirc.core.ui.theme.SircTheme
 /**
  * Indicador de rentabilidad: píldora de color semáforo con la etiqueta del
  * estado. Es el elemento que el conductor reconoce de un vistazo (<3 s).
+ *
+ * @param label etiqueta a mostrar; por defecto la del [state].
  */
 @Composable
 fun ProfitIndicator(
     state: ProfitState,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
+    label: String = state.label,
 ) {
     Row(
         modifier =
@@ -42,7 +45,7 @@ fun ProfitIndicator(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = state.label,
+            text = label,
             color = Color.White,
             fontSize = if (compact) 10.sp else 12.sp,
             fontWeight = FontWeight.Bold,

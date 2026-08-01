@@ -5,6 +5,7 @@ import com.sirc.capture.flag.FeatureFlag
 import com.sirc.capture.flag.InMemoryFeatureFlags
 import com.sirc.capture.log.TestLogger
 import com.sirc.capture.metrics.CaptureMetrics
+import com.sirc.capture.metrics.InMemoryOfferPerformanceTracker
 import com.sirc.capture.model.CaptureRequest
 import com.sirc.capture.model.CaptureWindowEvent
 import com.sirc.capture.model.OfferCaptureSession
@@ -38,6 +39,7 @@ class DefaultCapturePipelineTest {
     private val cache = InMemoryCaptureFrameCache()
     private val metrics = RecordingCaptureMetrics()
     private val logger = TestLogger()
+    private val performanceTracker = InMemoryOfferPerformanceTracker()
 
     private val pipeline =
         DefaultCapturePipeline(
@@ -49,6 +51,7 @@ class DefaultCapturePipelineTest {
             cache = cache,
             metrics = metrics,
             logger = logger,
+            performanceTracker = performanceTracker,
         )
 
     @Test
@@ -208,6 +211,18 @@ class DefaultCapturePipelineTest {
             assertNotNull(last.ocrMillis)
             assertNotNull(last.parseMillis)
             assertNotNull(last.totalMillis)
+        }
+
+    @Test
+    fun `snapshot registra tiempos en el tracker de rendimiento`() =
+        runBlocking {
+            pipeline.process(requestFor(texts = listOf("UBER", "$125.00")))
+
+            assertEquals(1, performanceTracker.lastOffers.value.size)
+            val timing = performanceTracker.lastOffers.value.single()
+            assertNotNull(timing.captureMillis)
+            assertNotNull(timing.parseMillis)
+            assertNotNull(timing.totalMillis)
         }
 
     private fun requestFor(

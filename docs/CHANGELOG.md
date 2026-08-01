@@ -3,6 +3,78 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Las versiones siguen [SemVer](https://semver.org/lang/es/).
 
+## [v0.8.0] — 2026-07-31
+
+### Añadido
+
+- **Evaluación detallada con motor real en `:domain`** (O1/O6):
+  `ProfitEvaluationEngine` reutiliza `ProfitEngine` (delega, no duplica
+  fórmulas) y deriva los costos desde `DriverConfig`: `costPerKm` =
+  combustible + mantenimiento + costos adicionales, `costPerMinute` y
+  `costPerTrip` pasan tal cual de la configuración. Los umbrales de decisión se
+  toman **solo de `DriverConfig.thresholds`** (sin constantes), garantizando que
+  la decisión respete los objetivos del conductor.
+- **`RecommendationEngine`** (O2): decisión accionable
+  `ACCEPT`/`REJECT`/`WARNING` a partir de `Decision` +
+  `ProfitMetrics`, con `OfferRecommendation` que incluye motivo principal,
+  métricas usadas (ganancia/km, ganancia/hora) y **% de confianza**
+  (`(50 + margen/3).coerceIn(50, 98)`, WARNING = 50).
+- **Modelos de evaluación**: `ProfitBreakdown` (costo total y por
+  componente), `ProfitEvaluationDetailed` (evaluación + desglose),
+  `OfferEvaluationResult` (evaluación + desglose + recomendación) y
+  `OfferEvaluationRecord` (registro del historial).
+- **`OfferEvaluationRepository`** (O4): contrato en `:domain` +
+  `InMemoryOfferEvaluationRepository` (O(1), sincronizado, retiene las últimas
+  100 ofertas con ids incrementales, sin Room).
+- **Historial conectado al flujo real** (`PipelineOverlayDataSource` reescrito):
+  cada snapshot capturado se mapea a `TripOffer` (con `texts` de OCR),
+  se evalúa con `EvaluateDetailedOfferUseCase`, se persiste en
+  `OfferEvaluationRepository` y se publica en el overlay con su recomendación.
+  `stop()` limpia el estado y cancela el TTL.
+- **Overlay con recomendación** (O3): `OverlayContent` muestra
+  `RecommendationBadge` (ACEPTAR/RECHAZAR/REVISAR con color semáforo), precio,
+  ganancia, $/hora, $/km, resumen del viaje, costo estimado y motivo principal
+  con % de confianza. `OverlayUiState.recommendation` y
+  `ProfitState.fromRecommendation`/`recommendationLabel` en `:core:ui`.
+- **Métricas de rendimiento por oferta** (O8): `OfferTiming`
+  (captura/OCR/parseo/evaluación/overlay/total) registrado por
+  `DefaultCapturePipeline` (tres primeras etapas) y por
+  `PipelineOverlayDataSource` (evaluación/overlay); `OfferPerformanceTracker`
+  + `InMemoryOfferPerformanceTracker` retiene las últimas 100 ofertas y expone
+  **promedios de las últimas 20**.
+- **Panel de depuración ampliado** (O5): sección "Última oferta" (recomendación,
+  plataforma, precio, distancia, duración, motivo, texto OCR truncado a 200
+  chars, parser y timestamp) y "Rendimiento (promedio últimas 20 ofertas)" con
+  captura/OCR/parseo/evaluación/overlay/total en ms.
+- `OfferSnapshot` ahora transporta los **textos OCR** (`texts: List<String>`) y
+  `FakeParser` los puebla desde el evento de captura.
+- **Tests**: `ProfitEvaluationEngineTest` (7), `RecommendationEngineTest` (4),
+  `InMemoryOfferPerformanceTrackerTest` (6, incluye promedio de ventana),
+  `InMemoryOfferEvaluationRepositoryTest` (5, límite 100), reescritura de
+  `PipelineOverlayDataSourceTest` (7, con el caso de uso detallado) y
+  ampliación de `DefaultCapturePipelineTest` (registro de tiempos en el tracker).
+
+### Cambiado
+
+- `PipelineOverlayDataSource` pasa a depender de `EvaluateDetailedOfferUseCase`,
+  `OfferEvaluationRepository` y `OfferPerformanceTracker` (bindings nuevos en
+  `CaptureModule`).
+- `DebugPanelViewModel` reconstruido con combines anidados para agregar
+  `performanceTracker.averages` e `historial (última oferta)` sin superar los 5
+  flows por `combine`.
+- Verificación en verde: `ktlintCheck`, `testDebugUnitTest`, `:core:capture:test`,
+  `:domain:test`, `lintDebug`, `assembleDebug` y
+  `:core:capture:android:assembleDebugAndroidTest`.
+
+### Notas técnicas
+
+- Dos historiales conviven: `OfferHistoryRepository` (Room, persistente, para
+  `:feature:history`) y el nuevo `OfferEvaluationRepository` (memoria, para el
+  overlay y el panel de depuración). El motor de evaluación detallada es el que
+  alimenta al overlay en tiempo real.
+- `EvaluateDetailedOfferUseCase` usa `DriverConfig.default()` si el conductor
+  aún no está configurado (evita el `require` del `ProfitEngine`).
+
 ## [v0.7.0] — 2026-07-31
 
 ### Añadido

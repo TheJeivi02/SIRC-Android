@@ -5,6 +5,8 @@ import com.sirc.capture.flag.FeatureFlag
 import com.sirc.capture.flag.FeatureFlags
 import com.sirc.capture.log.SircLogger
 import com.sirc.capture.metrics.CaptureMetrics
+import com.sirc.capture.metrics.OfferPerformanceTracker
+import com.sirc.capture.metrics.OfferTiming
 import com.sirc.capture.metrics.ProcessingMetrics
 import com.sirc.capture.model.CaptureRequest
 import com.sirc.capture.model.CaptureSessionStatus
@@ -47,6 +49,7 @@ class DefaultCapturePipeline @Inject constructor(
     private val logger: SircLogger,
     private val cache: CaptureFrameCache,
     private val metrics: CaptureMetrics,
+    private val performanceTracker: OfferPerformanceTracker,
 ) : CapturePipeline {
     private val _state = MutableStateFlow(OverlayState.DISABLED)
     private val _snapshots = MutableSharedFlow<OfferSnapshot>(extraBufferCapacity = 8)
@@ -114,15 +117,23 @@ class DefaultCapturePipeline @Inject constructor(
         val snapshot = parser.parse(event, session)
         val parseMillis = elapsedMillis(parseStartNanos)
         metrics.onParse(parseMillis)
+        val totalMillis = elapsedMillis(totalStartNanos)
+        metrics.onTotal(totalMillis)
 
         if (snapshot != null) {
             cache.markProcessed(frame)
             repository.save(snapshot)
+            performanceTracker.record(
+                OfferTiming(
+                    captureMillis = captureMillis,
+                    ocrMillis = if (frame.imageData != null) lastOcrMillis else null,
+                    parseMillis = parseMillis,
+                    totalMillis = totalMillis,
+                ),
+            )
             _snapshots.tryEmit(snapshot)
             logger.debug(TAG, "snapshot ${snapshot.platform} guardado")
         }
-        val totalMillis = elapsedMillis(totalStartNanos)
-        metrics.onTotal(totalMillis)
         _lastMetrics.value =
             ProcessingMetrics(
                 captureMillis = captureMillis,

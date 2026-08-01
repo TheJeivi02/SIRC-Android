@@ -2,6 +2,7 @@ package com.sirc.core.ui.theme
 
 import androidx.compose.ui.graphics.Color
 import com.sirc.domain.model.Decision
+import com.sirc.domain.model.Recommendation
 
 /**
  * Estados de rentabilidad del Design System.
@@ -27,5 +28,20 @@ enum class ProfitState(
                 Decision.MARGINAL -> MARGINAL
                 Decision.NOT_PROFITABLE -> NOT_PROFITABLE
             }
+
+        fun fromRecommendation(recommendation: Recommendation): ProfitState =
+            when (recommendation) {
+                Recommendation.ACCEPT -> PROFITABLE
+                Recommendation.WARNING -> MARGINAL
+                Recommendation.REJECT -> NOT_PROFITABLE
+            }
     }
 }
+
+/** Etiqueta accionable de una [Recommendation] para el overlay. */
+fun recommendationLabel(recommendation: Recommendation): String =
+    when (recommendation) {
+        Recommendation.ACCEPT -> "ACEPTAR"
+        Recommendation.REJECT -> "RECHAZAR"
+        Recommendation.WARNING -> "REVISAR"
+    }

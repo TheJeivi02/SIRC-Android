@@ -3,14 +3,18 @@ package com.sirc.feature.overlay
 import com.sirc.capture.flag.FeatureFlag
 import com.sirc.capture.flag.FeatureFlags
 import com.sirc.capture.log.SircLogger
+import com.sirc.capture.metrics.OfferPerformanceTracker
+import com.sirc.capture.metrics.OfferTiming
 import com.sirc.capture.model.OfferSnapshot
 import com.sirc.capture.model.OverlayState
 import com.sirc.capture.pipeline.CapturePipeline
+import com.sirc.domain.model.OfferEvaluationRecord
+import com.sirc.domain.model.OfferEvaluationResult
 import com.sirc.domain.model.OverlayConfig
-import com.sirc.domain.model.ProfitEvaluation
 import com.sirc.domain.model.TripOffer
+import com.sirc.domain.repository.OfferEvaluationRepository
 import com.sirc.domain.repository.OverlayConfigRepository
-import com.sirc.domain.usecase.EvaluateOfferUseCase
+import com.sirc.domain.usecase.EvaluateDetailedOfferUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -29,18 +33,19 @@ import javax.inject.Singleton
  * Fuente de datos real del overlay: consume el [CapturePipeline].
  *
  * Traduce el estado del pipeline ([OverlayState]) y los snapshots producidos
- * en un [OverlayUiState] con evaluación de rentabilidad real
- * ([EvaluateOfferUseCase]). Reemplaza a la fuente simulada: el overlay muestra
- * ahora el estado real del procesamiento (WAITING/CAPTURING/PROCESSING/ERROR)
- * y el resultado del análisis.
+ * en un [OverlayUiState] con la evaluación real de la oferta
+ * ([EvaluateDetailedOfferUseCase]), su desglose de costos y la recomendación.
+ * También registra el historial temporal y los tiempos por etapa (Debug).
  */
 @Singleton
 class PipelineOverlayDataSource @Inject constructor(
     private val pipeline: CapturePipeline,
-    private val evaluateUseCase: EvaluateOfferUseCase,
+    private val evaluateUseCase: EvaluateDetailedOfferUseCase,
     private val configRepository: OverlayConfigRepository,
     private val featureFlags: FeatureFlags,
     private val logger: SircLogger,
+    private val performanceTracker: OfferPerformanceTracker,
+    private val historyRepository: OfferEvaluationRepository,
 ) : OverlayDataSource {
     private val _uiState = MutableStateFlow(OverlayUiState(config = OverlayConfig()))
     override val uiState: StateFlow<OverlayUiState> = _uiState.asStateFlow()
@@ -69,6 +74,7 @@ class PipelineOverlayDataSource @Inject constructor(
         _uiState.update {
             it.copy(
                 evaluation = null,
+                recommendation = null,
                 status = OverlayState.DISABLED,
                 visible = false,
             )
@@ -88,14 +94,59 @@ class PipelineOverlayDataSource @Inject constructor(
     private fun onSnapshot(snapshot: OfferSnapshot) {
         val offer = snapshot.toTripOffer() ?: return
         scope.launch {
+            val evaluationStart = System.nanoTime()
             runCatching { evaluateUseCase(offer) }
-                .onSuccess { evaluation -> show(evaluation) }
-                .onFailure { error -> logger.error(TAG, "error evaluando oferta: ${error.message}") }
+                .onSuccess { result ->
+                    val evaluationMillis = elapsedMillis(evaluationStart)
+                    logger.debug(METRICS_TAG, "evaluación: ${format(evaluationMillis)} ms")
+                    val overlayStart = System.nanoTime()
+                    persist(snapshot, result)
+                    show(result)
+                    val overlayMillis = elapsedMillis(overlayStart)
+                    performanceTracker.merge(
+                        OfferTiming(
+                            evaluationMillis = evaluationMillis,
+                            overlayMillis = overlayMillis,
+                        ),
+                    )
+                    logger.debug(METRICS_TAG, "overlay: ${format(overlayMillis)} ms")
+                }
+                .onFailure { error ->
+                    logger.error(TAG, "error evaluando oferta: ${error.message}")
+                }
         }
     }
 
-    private fun show(evaluation: ProfitEvaluation) {
-        _uiState.update { it.copy(evaluation = evaluation, visible = true) }
+    private suspend fun persist(
+        snapshot: OfferSnapshot,
+        result: OfferEvaluationResult,
+    ) {
+        val metrics = result.evaluation.metrics
+        historyRepository.add(
+            OfferEvaluationRecord(
+                id = 0L,
+                timestampMillis = snapshot.capturedAtMillis,
+                platform = snapshot.platform,
+                price = metrics.estimatedTotal,
+                distanceKm = metrics.distanceKm,
+                durationMin = metrics.durationMin,
+                ocrText = snapshot.texts,
+                parserResult = snapshot.rawData,
+                evaluation = result.evaluation,
+                recommendation = result.recommendation.recommendation,
+                confidencePercent = result.recommendation.confidencePercent,
+            ),
+        )
+    }
+
+    private fun show(result: OfferEvaluationResult) {
+        _uiState.update {
+            it.copy(
+                evaluation = result.evaluation,
+                recommendation = result.recommendation,
+                visible = true,
+            )
+        }
         hideJob?.cancel()
         val ttlSeconds = _uiState.value.config.ttlSeconds.coerceAtLeast(MIN_TTL_SECONDS)
         hideJob =
@@ -107,12 +158,19 @@ class PipelineOverlayDataSource @Inject constructor(
 
     private fun visibleFor(
         status: OverlayState,
-        evaluation: ProfitEvaluation?,
+        evaluation: com.sirc.domain.model.ProfitEvaluation?,
     ): Boolean = status != OverlayState.DISABLED || evaluation != null
+
+    private fun elapsedMillis(startNanos: Long): Double = (System.nanoTime() - startNanos) / NANOS_PER_MILLI
+
+    private fun format(millis: Double): String = String.format(LOCALE, "%.1f", millis)
 
     companion object {
         private const val TAG = "PipelineOverlay"
+        private const val METRICS_TAG = "OverlayMetrics"
         private const val MIN_TTL_SECONDS = 10L
+        private const val NANOS_PER_MILLI = 1_000_000.0
+        private val LOCALE = java.util.Locale.ROOT
     }
 }
 
@@ -124,5 +182,5 @@ private fun OfferSnapshot.toTripOffer(): TripOffer =
         estimatedTotal = estimatedTotal,
         distanceKm = distanceKm,
         durationMin = durationMin,
-        rawText = listOfNotNull(rawData),
+        rawText = texts.ifEmpty { listOfNotNull(rawData) },
     )

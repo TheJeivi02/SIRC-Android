@@ -28,6 +28,7 @@ class FakeParser @Inject constructor() : OfferParser {
             distanceKm = FAKE_DISTANCE_KM,
             durationMin = FAKE_DURATION_MIN,
             rawData = FAKE_RAW_DATA,
+            texts = event.texts,
         )
     }
 

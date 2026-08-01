@@ -28,9 +28,12 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sirc.capture.model.CaptureWindowEvent
 import com.sirc.capture.model.OfferCaptureSession
+import com.sirc.core.ui.components.DecisionBadge
 import com.sirc.core.ui.components.LabeledValue
+import com.sirc.core.ui.components.RecommendationBadge
 import com.sirc.core.ui.components.SectionCard
 import com.sirc.core.ui.components.StatusDot
+import com.sirc.core.ui.theme.recommendationLabel
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -116,6 +119,70 @@ fun DebugPanelScreen(viewModel: DebugPanelViewModel = hiltViewModel()) {
                 label = "Memoria aproximada",
                 value = "${formatMemory(state.approximateMemoryMb)} MB",
             )
+        }
+
+        SectionCard(title = "Última oferta") {
+            val record = state.lastOffer
+            if (record == null) {
+                Text(
+                    text =
+                        "Sin ofertas evaluadas todavía. Cuando el pipeline detecte y " +
+                            "analice una oferta real, aquí aparece su análisis completo.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    RecommendationBadge(recommendation = record.recommendation)
+                    DecisionBadge(decision = record.evaluation.decision)
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                LabeledValue(
+                    label = "Recomendación",
+                    value =
+                        "${recommendationLabel(record.recommendation)} · " +
+                            "${record.confidencePercent}% confianza",
+                )
+                LabeledValue(label = "Plataforma", value = record.platform.displayName)
+                LabeledValue(label = "Precio", value = formatNumber(record.price))
+                LabeledValue(label = "Distancia", value = "${formatNumber(record.distanceKm)} km")
+                LabeledValue(label = "Duración", value = "${formatNumber(record.durationMin)} min")
+                LabeledValue(
+                    label = "Motivo",
+                    value = record.evaluation.reasons.joinToString(", "),
+                )
+                LabeledValue(
+                    label = "Texto OCR",
+                    value = formatOcr(record.ocrText),
+                )
+                LabeledValue(label = "Parser", value = record.parserResult ?: "—")
+                LabeledValue(
+                    label = "Capturado",
+                    value = formatTimestamp(record.timestampMillis),
+                )
+            }
+        }
+
+        SectionCard(title = "Rendimiento (promedio últimas 20 ofertas)") {
+            LabeledValue(label = "Captura", value = "${formatMillis(state.avgCaptureMillis)} ms")
+            LabeledValue(label = "OCR", value = "${formatMillis(state.avgOcrMillis)} ms")
+            LabeledValue(label = "Parseo", value = "${formatMillis(state.avgParseMillis)} ms")
+            LabeledValue(label = "Evaluación", value = "${formatMillis(state.avgEvaluationMillis)} ms")
+            LabeledValue(label = "Overlay", value = "${formatMillis(state.avgOverlayMillis)} ms")
+            LabeledValue(label = "Total", value = "${formatMillis(state.avgTotalMillis)} ms")
+            val timing = state.lastTiming
+            if (timing != null) {
+                LabeledValue(
+                    label = "Última oferta (ms)",
+                    value =
+                        "E ${formatMillis(timing.evaluationMillis)} · " +
+                            "O ${formatMillis(timing.overlayMillis)} · " +
+                            "T ${formatMillis(timing.totalMillis)}",
+                )
+            }
         }
 
         SectionCard(title = "Último snapshot") {
@@ -227,7 +294,15 @@ private fun formatMemory(value: Double): String = DecimalFormat("#,##0.0").forma
 
 private fun formatNumber(value: Double): String = DecimalFormat("#,##0.0#").format(value).replace(',', '.')
 
+private fun formatOcr(texts: List<String>): String =
+    if (texts.isEmpty()) {
+        "—"
+    } else {
+        texts.joinToString(" | ").take(MAX_OCR_TEXT_LENGTH)
+    }
+
 private fun formatTimestamp(timestampMillis: Long): String =
     SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(timestampMillis))
 
 private const val MAX_VISIBLE_EVENTS = 20
+private const val MAX_OCR_TEXT_LENGTH = 200
