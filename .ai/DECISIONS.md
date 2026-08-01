@@ -4,6 +4,100 @@
 > opción elegida, alternativas descartadas y consecuencias. Se actualiza en
 > cada sprint.
 
+## SPRINT 6 — Captura de pantalla real con MediaProjection
+
+### D7.1 — MediaProjection vive en `:core:capture:android` (nuevo módulo Android)
+
+**Contexto:** la captura de imagen real requiere APIs Android
+(`MediaProjectionManager`, `VirtualDisplay`, `ImageReader`) y un Foreground
+Service, pero `:core:capture` debe seguir siendo Kotlin puro.
+
+**Decisión:** nuevo módulo `:core:capture:android` (Android library, Hilt) que
+implementa `ScreenCaptureProvider`/`MediaProjectionScreenCaptureProvider` (token,
+virtual display, último frame), `MediaProjectionService` (FGS tipo
+`mediaProjection`), `MediaProjectionScreenCapture` (implementa `ScreenCapture`)
+y `DebugCaptureMetrics`. `:feature:overlay` y `:app` dependen de él; el pipeline
+puro solo ve las interfaces de `:core:capture`.
+
+**Alternativas descartadas:** implementar la captura en `:feature:overlay`
+(junto al servicio, pero repetía el problema de lógica no testeable y mezclaba
+responsabilidades); en `:core:capture` (rompía su pureza JVM).
+
+### D7.2 — `ScreenCaptureProvider` desacoplado de la UI
+
+**Contexto:** la UI debe entregar el resultado del consentimiento y controlar la
+proyección, pero no debe tocar `MediaProjectionManager`/`VirtualDisplay`.
+
+**Decisión:** `ScreenCaptureProvider` (interfaz) es el único que posee el token,
+el `VirtualDisplay` y el frame; `OverlayManager` solo expone
+`createScreenCaptureIntent()`, `startProjection(resultCode, data)` y
+`stopProjection()` (delega en el provider) y `projectionActive`. En Android 14+
+el FGS tipo `mediaProjection` debe arrancar antes de pedir el token: el provider
+lo arranca con el `resultCode`/`data` y el servicio completa la proyección.
+
+### D7.3 — `MediaProjectionService` como FGS tipo `mediaProjection`
+
+**Contexto:** Android 14+ exige que la creación del `MediaProjection` ocurra
+dentro de un FGS declarado con `foregroundServiceType="mediaProjection"` (más
+`PROPERTY_SPECIAL_USE_FGS_SUBTYPE`).
+
+**Decisión:** el servicio arranca vía `startForegroundService` desde la
+Activity tras el consentimiento, inicia la proyección en `onStartCommand` y se
+detiene con `stopService` al terminar. Canal de notificación de importancia
+baja (`sirc_capture`).
+
+### D7.4 — Caché de frames por hash de contenido
+
+**Contexto:** la accesibilidad genera eventos muy frecuentes y capturas
+idénticas del mismo frame; reprocesarlas desperdicia OCR, CPU y batería.
+
+**Decisión:** `CaptureFrameCache` + `InMemoryCaptureFrameCache` (LRU de 32
+entradas, clave `img-<contentHashCode>`) en `:core:capture` (puro). El
+`DefaultCapturePipeline` consulta `isNew(frame)` y omite el procesamiento de
+frames repetidos (se devuelve `idle()`).
+
+### D7.5 — `DebounceCaptureScheduler` para coalescer requests de accesibilidad
+
+**Contexto:** cada cambio de ventana de accesibilidad genera un `CaptureRequest`;
+disparar OCR en cada uno es inviable.
+
+**Decisión:** `DebounceCaptureScheduler` (`:core:capture`, puro) con
+`MutableSharedFlow` (DROP_OLDEST, buffer 64) y `debounce(400 ms)`;
+`CaptureAccessibilityService` registra requests y el pipeline se suscribe al
+flujo debounced.
+
+### D7.6 — El overlay consume el estado real del pipeline
+
+**Contexto:** el overlay se alimentaba de `SimulatedOverlayDataSource`; el
+pipeline ya produce estado y snapshots reales.
+
+**Decisión:** `PipelineOverlayDataSource` (`@Singleton`) consume
+`pipeline.state` y `pipeline.snapshots`, evalúa con `EvaluateOfferUseCase`
+(motor real) y expone `OverlayUiState` con `status` (`OverlayState`) y
+`visible` (= status != DISABLED o hay evaluación). `OverlayContent` muestra un
+`StatusLabel` (Esperando oferta…/Capturando pantalla…/Analizando oferta…/Error al
+analizar). Se eliminan `SimulatedOverlayDataSource` y `AccessibilityScreenCapture`.
+
+### D7.7 — Métricas por etapa expuestas por el pipeline
+
+**Contexto:** se necesita medir el rendimiento por etapa (captura/OCR/parseo)
+para cumplir el objetivo de decisión en <3 s.
+
+**Decisión:** `ProcessingMetrics` (tiempos por etapa) en
+`CapturePipeline.lastMetrics: StateFlow` y `CaptureMetrics` (interfaz, solo
+loguea en debug vía `DebugCaptureMetrics`). El panel de depuración muestra las
+filas Captura/OCR/Parseo/Total.
+
+### D7.8 — El permiso de captura se pide en Home y las métricas se ven en Debug
+
+**Contexto:** el usuario debe otorgar el consentimiento de MediaProjection y el
+desarrollador debe poder inspeccionar el rendimiento.
+
+**Decisión:** `HomeViewModel`/`HomeScreen` añaden la sección "Captura de
+pantalla" (lanzador `StartActivityForResult` → `startProjection`,
+`projectionActive`, "Detener captura"); `DebugPanelViewModel`/`DebugPanelScreen`
+consumen `pipeline.lastMetrics`.
+
 ## SPRINT 5 — Primer Pipeline de Captura + OCR
 
 ### D6.1 — `CaptureAccessibilityService` dedicado y desacoplado de la UI

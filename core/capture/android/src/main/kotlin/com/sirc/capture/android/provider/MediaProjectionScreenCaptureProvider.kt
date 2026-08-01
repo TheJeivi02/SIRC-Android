@@ -1,0 +1,190 @@
+package com.sirc.capture.android.provider
+
+import android.app.Activity
+import android.content.Context
+import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.PixelFormat
+import android.hardware.display.DisplayManager
+import android.hardware.display.VirtualDisplay
+import android.media.Image
+import android.media.ImageReader
+import android.media.projection.MediaProjection
+import android.media.projection.MediaProjectionManager
+import android.os.Handler
+import android.os.Looper
+import com.sirc.capture.android.projection.MediaProjectionService
+import com.sirc.capture.log.SircLogger
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import javax.inject.Inject
+import javax.inject.Singleton
+
+/**
+ * Implementación de [ScreenCaptureProvider] basada en MediaProjection.
+ *
+ * Gestiona el token de proyección, el virtual display y el [ImageReader] que
+ * entrega los frames de pantalla. En Android 14+ el token se obtiene desde el
+ * [MediaProjectionService] (FGS `mediaProjection`) para cumplir el requisito
+ * de que la proyección solo se active con un servicio en primer plano.
+ */
+@Singleton
+class MediaProjectionScreenCaptureProvider @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val logger: SircLogger,
+) : ScreenCaptureProvider {
+    private val _isProjecting = MutableStateFlow(false)
+    override val isProjecting: StateFlow<Boolean> = _isProjecting.asStateFlow()
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val frames = Channel<Image>(Channel.CONFLATED)
+
+    private var mediaProjection: MediaProjection? = null
+    private var virtualDisplay: VirtualDisplay? = null
+    private var imageReader: ImageReader? = null
+    private var projectionCallback: MediaProjection.Callback? = null
+
+    override fun onProjectionPermissionGranted(
+        resultCode: Int,
+        data: Intent?,
+    ) {
+        if (resultCode != Activity.RESULT_OK || data == null) {
+            logger.warn(TAG, "permiso de captura de pantalla denegado")
+            return
+        }
+        MediaProjectionService.start(context, resultCode, data)
+    }
+
+    /**
+     * Llamado por el [MediaProjectionService] una vez el FGS está activo
+     * (obligatorio en Android 14+).
+     */
+    fun initializeProjection(
+        resultCode: Int,
+        data: Intent,
+    ) {
+        val manager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        val projection = manager.getMediaProjection(resultCode, data)
+        if (projection == null) {
+            logger.error(TAG, "no se pudo obtener el token de proyección")
+            stopProjection()
+            return
+        }
+
+        releaseResources()
+        mediaProjection = projection
+        val callback =
+            object : MediaProjection.Callback() {
+                override fun onStop() {
+                    logger.info(TAG, "proyección interrumpida por el sistema")
+                    stopProjection()
+                }
+            }
+        projectionCallback = callback
+        projection.registerCallback(callback, mainHandler)
+        startVirtualDisplay(projection)
+        _isProjecting.value = true
+        logger.info(TAG, "captura de pantalla activa")
+    }
+
+    override fun stopProjection() {
+        releaseResources()
+        _isProjecting.value = false
+        MediaProjectionService.stop(context)
+        logger.info(TAG, "captura de pantalla detenida")
+    }
+
+    override suspend fun captureFrame(): Bitmap? {
+        if (!_isProjecting.value) return null
+        return withContext(Dispatchers.Default) {
+            val image =
+                withTimeoutOrNull(CAPTURE_TIMEOUT_MS) { frames.receive() }
+                    ?: return@withContext null
+            try {
+                image.toBitmap()
+            } catch (error: Throwable) {
+                logger.error(TAG, "error convirtiendo frame: ${error.message}")
+                null
+            } finally {
+                image.close()
+            }
+        }
+    }
+
+    private fun startVirtualDisplay(projection: MediaProjection) {
+        val metrics = context.resources.displayMetrics
+        val width = metrics.widthPixels
+        val height = metrics.heightPixels
+        val reader =
+            ImageReader.newInstance(
+                width,
+                height,
+                PixelFormat.RGBA_8888,
+                MAX_IMAGES,
+            )
+        reader.setOnImageAvailableListener(
+            { imageReader ->
+                val image = imageReader.acquireLatestImage()
+                if (image != null) frames.trySend(image)
+            },
+            mainHandler,
+        )
+        imageReader = reader
+
+        val displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+        virtualDisplay =
+            projection.createVirtualDisplay(
+                VIRTUAL_DISPLAY_NAME,
+                width,
+                height,
+                metrics.densityDpi,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                reader.surface,
+                null,
+                mainHandler,
+            )
+    }
+
+    private fun releaseResources() {
+        runCatching { virtualDisplay?.release() }
+        virtualDisplay = null
+        runCatching { imageReader?.close() }
+        imageReader = null
+        projectionCallback?.let { callback ->
+            runCatching { mediaProjection?.unregisterCallback(callback) }
+        }
+        mediaProjection?.stop()
+        mediaProjection = null
+        projectionCallback = null
+    }
+
+    companion object {
+        private const val TAG = "ScreenCaptureProvider"
+        private const val VIRTUAL_DISPLAY_NAME = "SIRC_CAPTURE"
+        private const val MAX_IMAGES = 2
+        private const val CAPTURE_TIMEOUT_MS = 400L
+    }
+}
+
+/**
+ * Convierte un [Image] (RGBA_8888) en un [Bitmap] ARGB_8888, respetando el
+ * stride del plano para pantallas con padding.
+ */
+private fun Image.toBitmap(): Bitmap {
+    val plane = planes[0]
+    val buffer = plane.buffer
+    val pixelStride = plane.pixelStride
+    val rowStride = plane.rowStride
+    val rowPadding = rowStride - pixelStride * width
+    buffer.rewind()
+    val paddedWidth = width + rowPadding / pixelStride
+    val bitmap = Bitmap.createBitmap(paddedWidth, height, Bitmap.Config.ARGB_8888)
+    bitmap.copyPixelsFromBuffer(buffer)
+    return Bitmap.createBitmap(bitmap, 0, 0, width, height)
+}

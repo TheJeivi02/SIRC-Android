@@ -13,22 +13,28 @@ es rentable.
 
 **Cómo funciona (flujo real):**
 
-> Nota SPRINT 2: el overlay aún NO consume el análisis real. Hoy se alimenta de
-> `SimulatedOverlayDataSource` (ofertas simuladas por plataforma cada 20 s,
-> evaluadas con el `ProfitEngine` real). El flujo de accesibilidad persiste el
-> historial pero su UI no está conectada aún.
+> Nota SPRINT 6: el overlay consume el **estado real del pipeline**.
+> `PipelineOverlayDataSource` traduce `CapturePipeline.state` (`OverlayState`)
+> y los snapshots a `OverlayUiState` (status + evaluación con el motor real);
+> sustituyó a `SimulatedOverlayDataSource`. La captura de pantalla real usa
+> **MediaProjection** (`:core:capture:android`): `ScreenCaptureProvider` +
+> FGS tipo `mediaProjection`; el pipeline aplica OCR a la imagen real y degrada
+> al texto de accesibilidad si no hay proyección. Hay debounce de requests
+> (`DebounceCaptureScheduler`, 400 ms), caché de frames por hash de contenido y
+> métricas por etapa en el panel de depuración.
+>
+> Nota SPRINT 2: el overlay ya NO se alimenta de datos simulados (sustituido en
+> SPRINT 6 por `PipelineOverlayDataSource`). El flujo de accesibilidad persiste
+> el historial y el overlay muestra ahora el estado real de la captura.
 >
 > Nota SPRINT 4: la captura observa cambios de ventana y produce snapshots
-> simulados (`FakeParser`) para validar el flujo; el parser/OCR real y su
-> conexión con `ProfitEngine` vendrán en un sprint futuro. `SircLogger` solo
-> emite en builds de desarrollo.
+> simulados (`FakeParser`) para validar el flujo; el parser real aún no existe
+> (el fake se conserva). `SircLogger` solo emite en builds de desarrollo.
 >
 > Nota SPRINT 5: `CaptureAccessibilityService` (desacoplado de la UI) alimenta
 > `CapturePipeline` (ScreenCapture → OCR → OfferParser → CaptureRepository).
-> ML Kit OCR está integrado bajo `OcrEngine`, pero el pipeline solo aplica OCR
-> cuando la solicitud lleva imagen (hoy la accesibilidad aporta texto); la
-> captura de imagen real (MediaProjection) y la conexión con el overlay llegan
-> en un sprint futuro.
+> ML Kit OCR está integrado bajo `OcrEngine`; el pipeline aplica OCR cuando la
+> solicitud lleva imagen (SPRINT 6 la aporta vía MediaProjection).
 
 1. Un **Accessibility Service (solo lectura)** detecta la app de transporte
    visible y recolecta los textos de pantalla (límites duros: 400 nodos, 80
@@ -49,6 +55,22 @@ Service **nunca** interactúa con otras apps.
 
 ## Estado del proyecto
 
+- **SPRINT 6 completado**: Captura de pantalla real con MediaProjection (ver
+  `docs/ROADMAP.md`). Nuevo módulo **`:core:capture:android`**:
+  `ScreenCaptureProvider` + `MediaProjectionScreenCaptureProvider` (token
+  MediaProjection, `VirtualDisplay` + `ImageReader`), `MediaProjectionService`
+  (FGS tipo `mediaProjection`), `MediaProjectionScreenCapture` (ScreenCapture
+  real, degrada a texto) y `DebugCaptureMetrics`. Pipeline real:
+  `CapturePipeline` expone `snapshots` y `lastMetrics`; caché de frames por hash
+  (`InMemoryCaptureFrameCache`, LRU 32); `DebounceCaptureScheduler` (400 ms)
+  usado por `CaptureAccessibilityService`. **`PipelineOverlayDataSource`**
+  conecta el pipeline al overlay (estado real + evaluación con el motor real;
+  sustituye a `SimulatedOverlayDataSource`); `OverlayContent` muestra
+  `StatusLabel` (Esperando/Capturando/Analizando/Error). Home pide el permiso de
+  captura (`createScreenCaptureIntent` → `startProjection`, `projectionActive`).
+  Panel de depuración con métricas por etapa (Captura/OCR/Parseo/Total). Tests
+  nuevos: `DebounceCaptureSchedulerTest`, `InMemoryCaptureFrameCacheTest`,
+  `PipelineOverlayDataSourceTest` + `DefaultCapturePipelineTest` ampliado.
 - **SPRINT 5 completado**: Primer Pipeline de Captura + OCR (ver
   `docs/ROADMAP.md`). `CaptureAccessibilityService` dedicado y desacoplado de
   la UI; `OverlayState` (DISABLED/WAITING/CAPTURING/PROCESSING/ERROR);
@@ -80,11 +102,12 @@ Service **nunca** interactúa con otras apps.
   `SircSpacing`, `SircElevations`, `ProfitState`, `ProfitIndicator`,
   `OverlayCard`/`OverlayCardContent`, `MetricCell`, etc. Todos con `@Preview`,
   KDoc y prueba unitaria de paleta/estados.
-- MVP compilable (ver `docs/PROJECT.md`); 10 módulos Gradle (`:core:capture`
-  agregado); `:domain`, `:core:platform` y `:core:capture` son **Kotlin puro**
-  (sin Android).
-- Dependencia Android nueva: ML Kit OCR (`com.google.mlkit:text-recognition:16.0.1`)
-  solo en `:feature:overlay`.
+- MVP compilable (ver `docs/PROJECT.md`); 11 módulos Gradle (`:core:capture` y
+  `:core:capture:android` agregados); `:domain`, `:core:platform` y
+  `:core:capture` son **Kotlin puro** (sin Android).
+- Dependencias Android nuevas: ML Kit OCR
+  (`com.google.mlkit:text-recognition:16.0.1`) en `:feature:overlay` y el
+  módulo `:core:capture:android` (MediaProjection).
 - Pruebas unitarias JUnit 4: `:domain`, `:core:platform`, `:core:capture`,
   `:core:ui` y `:data`; imágenes de prueba en
   `core/capture/src/test/resources/test-images/`.
@@ -109,6 +132,8 @@ app ──► feature:overlay ──► core:platform ─► domain
   ├──► feature:history  ─► data
   ├──► feature:onboarding ─► data
   ├──► core:capture ─────► domain
+  ├──► core:capture:android ──► core:capture ─► domain
+  │         (y feature:overlay dep. de core:capture:android)
   └──► core:ui ──────────► domain (tipos)
 ```
 
@@ -120,14 +145,19 @@ app ──► feature:overlay ──► core:platform ─► domain
 - `core:platform`: parser y extractores multi-plataforma.
 - `core:capture`: plataforma de captura (pipeline ScreenCapture → OCR → parser
   → repositorio, observador, sesión/snapshot, `OverlayState`, coordinador,
-  feature flags, logging).
+  caché de frames por hash, debounce de requests, métricas por etapa, feature
+  flags, logging).
+- `core:capture:android`: captura de pantalla real (MediaProjection):
+  `ScreenCaptureProvider`, `MediaProjectionService` (FGS tipo `mediaProjection`),
+  `MediaProjectionScreenCapture`, `DebugCaptureMetrics`, `CaptureAndroidModule`.
 - `core:ui`: design system.
 - `feature:overlay`: accesibilidad (2 servicios: `SircAccessibilityService` +
-  `CaptureAccessibilityService`), overlay + pipeline de evaluación + piezas
-  Android de captura (`AccessibilityWindowObserver`, `AccessibilityScreenCapture`,
+  `CaptureAccessibilityService` con debounce), overlay + pipeline de evaluación
+  + piezas Android de captura (`AccessibilityWindowObserver`,
   `MlKitOcrEngine`, `AndroidSircLogger`, `CaptureModule`). Estado del overlay
-  vía `OverlayDataSource` (simulado); permisos y control vía `PermissionManager`
-  y `OverlayManager`.
+  vía `OverlayDataSource` (`PipelineOverlayDataSource`, estado real del
+  pipeline); permisos y control vía `PermissionManager` y `OverlayManager`
+  (incluye proyección de pantalla).
 - `feature:onboarding`: flujo de configuración inicial (6 pasos) que persiste
   `DriverConfig`; gating en `app` (`RootViewModel`/`SircRoot`).
 - `feature:settings` / `feature:history`: UI.

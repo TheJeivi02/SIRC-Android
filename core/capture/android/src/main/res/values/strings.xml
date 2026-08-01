@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="capture_service_label">Captura de pantalla</string>
+    <string name="capture_channel_name">Captura de pantalla</string>
+    <string name="capture_channel_description">SIRC analiza localmente el contenido visible para calcular la rentabilidad.</string>
+    <string name="capture_notification_title">Captura de pantalla activa</string>
+    <string name="capture_notification_text">Analizando ofertas en segundo plano, todo local.</string>
+</resources>

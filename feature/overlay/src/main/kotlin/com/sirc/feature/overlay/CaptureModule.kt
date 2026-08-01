@@ -1,5 +1,7 @@
 package com.sirc.feature.overlay
 
+import com.sirc.capture.cache.CaptureFrameCache
+import com.sirc.capture.cache.InMemoryCaptureFrameCache
 import com.sirc.capture.flag.FeatureFlags
 import com.sirc.capture.flag.InMemoryFeatureFlags
 import com.sirc.capture.log.SircLogger
@@ -11,7 +13,6 @@ import com.sirc.capture.pipeline.CapturePipeline
 import com.sirc.capture.pipeline.DefaultCapturePipeline
 import com.sirc.capture.repository.CaptureRepository
 import com.sirc.capture.repository.InMemoryCaptureRepository
-import com.sirc.capture.screen.ScreenCapture
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -44,13 +45,13 @@ abstract class CaptureModule {
 
     @Binds
     @Singleton
-    abstract fun bindScreenCapture(impl: AccessibilityScreenCapture): ScreenCapture
-
-    @Binds
-    @Singleton
     abstract fun bindOcrEngine(impl: MlKitOcrEngine): OcrEngine
 
     @Binds
     @Singleton
     abstract fun bindCapturePipeline(impl: DefaultCapturePipeline): CapturePipeline
+
+    @Binds
+    @Singleton
+    abstract fun bindCaptureFrameCache(impl: InMemoryCaptureFrameCache): CaptureFrameCache
 }

@@ -106,6 +106,37 @@ OCR, con el servicio de accesibilidad desacoplado de la UI.
 
 - Estado: **completado**.
 
+## Sprint 6 — Captura de pantalla real con MediaProjection ✅
+
+Captura de pantalla real (MediaProjection) integrada con el pipeline de
+extremo a extremo: accesibilidad → debounce → captura de frame → OCR → parser →
+repositorio → estado del overlay, con caché por hash y métricas de rendimiento.
+
+- **Nuevo módulo `:core:capture:android`**: `ScreenCaptureProvider` +
+  `MediaProjectionScreenCaptureProvider` (token MediaProjection, `VirtualDisplay`
+  + `ImageReader`, último frame), `MediaProjectionService` (FGS tipo
+  `mediaProjection` + `PROPERTY_SPECIAL_USE_FGS_SUBTYPE`),
+  `MediaProjectionScreenCapture` (ScreenCapture real), `DebugCaptureMetrics`
+  (solo debug) y test instrumentado de humo.
+- **Pipeline real**: `CapturePipeline` expone `snapshots` (SharedFlow) y
+  `lastMetrics` (StateFlow con captura/OCR/parseo/total);
+  `DefaultCapturePipeline` con caché de frames por hash (`CaptureFrameCache` +
+  `InMemoryCaptureFrameCache`, LRU 32) y métricas por etapa.
+- **Debounce de accesibilidad**: `DebounceCaptureScheduler` (400 ms) consumido
+  por `CaptureAccessibilityService` para no ejecutar OCR en cada evento.
+- **Overlay conectado al pipeline**: `PipelineOverlayDataSource` (estado real +
+  evaluación con el motor real) sustituye a `SimulatedOverlayDataSource`;
+  `OverlayContent` muestra `StatusLabel` (Esperando/Capturando/Analizando/Error);
+  `OverlayService` se muestra según `visible`.
+- **UI**: permiso de captura en Home (lanzador del sistema → `startProjection`,
+  `projectionActive`, stop) y métricas de rendimiento en el panel de depuración.
+- **Tests**: `DebounceCaptureSchedulerTest`, `InMemoryCaptureFrameCacheTest`,
+  `PipelineOverlayDataSourceTest` y ampliación de `DefaultCapturePipelineTest`.
+- Verificación: `ktlintCheck`, `testDebugUnitTest`, `:core:capture:test`,
+  `lintDebug`, `assembleDebug` y `assembleDebugAndroidTest` en verde.
+
+- Estado: **completado**.
+
 ## Sprint 3 — Accessibility
 
 Canal de lectura del contenido visible de las plataformas.

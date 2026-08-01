@@ -35,6 +35,7 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(project(":core:platform"))
     implementation(project(":core:capture"))
+    implementation(project(":core:capture:android"))
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
@@ -52,4 +53,5 @@ dependencies {
     ksp(libs.hilt.compiler)
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

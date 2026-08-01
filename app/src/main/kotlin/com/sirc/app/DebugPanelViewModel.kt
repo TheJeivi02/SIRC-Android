@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.sirc.capture.coordinator.OfferCaptureCoordinator
 import com.sirc.capture.flag.FeatureFlag
 import com.sirc.capture.flag.FeatureFlags
+import com.sirc.capture.metrics.ProcessingMetrics
 import com.sirc.capture.model.CaptureState
 import com.sirc.capture.model.CaptureWindowEvent
 import com.sirc.capture.model.OfferCaptureSession
@@ -49,6 +50,10 @@ class DebugPanelViewModel @Inject constructor(
         val activeSession: OfferCaptureSession? = null,
         val lastSnapshot: OfferSnapshot? = null,
         val lastProcessingTimeMillis: Double? = null,
+        val lastCaptureMillis: Double? = null,
+        val lastOcrMillis: Double? = null,
+        val lastParseMillis: Double? = null,
+        val lastTotalMillis: Double? = null,
         val approximateMemoryMb: Double = 0.0,
         val eventsProcessed: Int = 0,
         val recentEvents: List<CaptureWindowEvent> = emptyList(),
@@ -62,9 +67,10 @@ class DebugPanelViewModel @Inject constructor(
             refreshTick,
             captureCoordinator.state,
             capturePipeline.state,
+            capturePipeline.lastMetrics,
             overlayManager.isRunning,
-        ) { _, capture, pipelineState, overlayRunning ->
-            build(capture, pipelineState, overlayRunning)
+        ) { _, capture, pipelineState, metrics, overlayRunning ->
+            build(capture, pipelineState, metrics, overlayRunning)
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -72,6 +78,7 @@ class DebugPanelViewModel @Inject constructor(
                 build(
                     captureCoordinator.state.value,
                     capturePipeline.state.value,
+                    capturePipeline.lastMetrics.value,
                     overlayManager.isRunning.value,
                 ),
         )
@@ -103,6 +110,7 @@ class DebugPanelViewModel @Inject constructor(
     private fun build(
         capture: CaptureState,
         pipelineState: OverlayState,
+        metrics: ProcessingMetrics,
         overlayRunning: Boolean,
     ): UiState {
         val flags = FeatureFlag.entries.map { FlagStatus(it, featureFlags.isEnabled(it)) }
@@ -119,6 +127,10 @@ class DebugPanelViewModel @Inject constructor(
             activeSession = capture.activeSession,
             lastSnapshot = capture.lastSnapshot,
             lastProcessingTimeMillis = capture.lastProcessingTimeMillis,
+            lastCaptureMillis = metrics.captureMillis,
+            lastOcrMillis = metrics.ocrMillis,
+            lastParseMillis = metrics.parseMillis,
+            lastTotalMillis = metrics.totalMillis,
             approximateMemoryMb = approximateMemoryMb(),
             eventsProcessed = capture.eventsProcessed,
             recentEvents = capture.recentEvents,

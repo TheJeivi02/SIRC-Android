@@ -41,8 +41,28 @@ formulario de Play (ficha de la app), y debe mantenerse sincronizada.
 - El overlay corre en un FGS para no ser detenido al minimizar la app.
 - Android 14+: `foregroundServiceType="specialUse"` con subtipo descriptivo
   declarado vía `PROPERTY_SPECIAL_USE_FGS_SUBTYPE`.
+- El **`MediaProjectionService`** (`:core:capture:android`) corre como FGS de
+  tipo **`mediaProjection`** (Android 14+) con su propio
+  `PROPERTY_SPECIAL_USE_FGS_SUBTYPE`; arranca con
+  `startForegroundService` justo después del consentimiento del usuario y se
+  detiene al terminar la proyección.
 - Notificación obligatoria en un canal de **importancia baja** (`IMPORTANCE_LOW`).
 - Android 13+: se solicita `POST_NOTIFICATIONS` en tiempo de ejecución.
+
+## 3bis. Captura de pantalla (MediaProjection)
+
+- La captura usa **MediaProjection** (`MediaProjectionManager`): la **única**
+  forma de obtener imágenes de pantalla es el consentimiento explícito del
+  sistema mostrado al usuario (nunca se captura en segundo plano sin su
+  permiso).
+- La proyección se solicita solo desde la pantalla Home (botón "Permitir
+  captura de pantalla"); el usuario puede detenerla en cualquier momento.
+- **Uso declarado en Play Console**: analizar localmente el contenido visible
+  de las ofertas para calcular su rentabilidad; todo el procesamiento es
+  local (OCR con ML Kit on-device) y **no se transmite, almacena ni comparte**
+  ninguna imagen ni texto fuera del dispositivo.
+- Sin proyección activa, el pipeline degrada a los textos del servicio de
+  accesibilidad (no hay imagen capturada).
 
 ## 4. Permisos
 
@@ -51,6 +71,7 @@ formulario de Play (ficha de la app), y debe mantenerse sincronizada.
 | `SYSTEM_ALERT_WINDOW` | Dibujar el indicador | Consentimiento explícito del usuario |
 | `BIND_ACCESSIBILITY_SERVICE` | Leer ofertas visibles | Propósito declarado (sección 1) |
 | `FOREGROUND_SERVICE` / `SPECIAL_USE` | Mantener el overlay vivo | Uso declarado (sección 3) |
+| `FOREGROUND_SERVICE` / `MEDIA_PROJECTION` | Mantener viva la captura de pantalla | Consentimiento explícito del sistema (sección 3bis) |
 | `POST_NOTIFICATIONS` | Notificación del FGS | Runtime (Android 13+) |
 | `QUERIES` (platformas) | Visibilidad de paquetes | Sin datos personales |
 
@@ -73,4 +94,7 @@ Antes de subir una versión a Play:
 2. Verificar que el texto de `accessibility_service_config.xml` sigue
    describiendo fielmente el uso.
 3. Confirmar que no hay llamadas a `performAction` ni `dispatchGesture`.
-4. Completar la declaración en Play Console (Data safety): sin datos recolectados.
+4. Verificar que la captura de pantalla solo ocurre tras el diálogo de
+   consentimiento de MediaProjection y que las imágenes nunca salen del
+   dispositivo (sección 3bis).
+5. Completar la declaración en Play Console (Data safety): sin datos recolectados.

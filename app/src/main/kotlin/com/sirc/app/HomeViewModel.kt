@@ -1,5 +1,6 @@
 package com.sirc.app
 
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import com.sirc.feature.overlay.OverlayManager
 import com.sirc.feature.overlay.PermissionManager
@@ -20,10 +21,13 @@ class HomeViewModel @Inject constructor(
         val notificationsGranted: Boolean = false,
         val batteryOptimizationIgnored: Boolean = false,
         val overlayRunning: Boolean = false,
+        val projectionActive: Boolean = false,
     )
 
     private val _state = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = _state.asStateFlow()
+
+    val projectionActive: StateFlow<Boolean> = overlayManager.projectionActive
 
     fun refresh() {
         _state.value =
@@ -33,6 +37,7 @@ class HomeViewModel @Inject constructor(
                 notificationsGranted = permissions.hasNotificationPermission(),
                 batteryOptimizationIgnored = permissions.isIgnoringBatteryOptimizations(),
                 overlayRunning = overlayManager.isRunning.value,
+                projectionActive = overlayManager.projectionActive.value,
             )
     }
 
@@ -53,4 +58,19 @@ class HomeViewModel @Inject constructor(
     fun openNotificationSettings() = permissions.openNotificationSettings()
 
     fun openBatterySettings() = permissions.openBatteryOptimizationSettings()
+
+    fun createScreenCaptureIntent(): Intent = overlayManager.createScreenCaptureIntent()
+
+    fun onProjectionPermissionGranted(
+        resultCode: Int,
+        data: Intent?,
+    ) {
+        overlayManager.startProjection(resultCode, data)
+        refresh()
+    }
+
+    fun stopProjection() {
+        overlayManager.stopProjection()
+        refresh()
+    }
 }

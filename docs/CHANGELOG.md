@@ -3,6 +3,78 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Las versiones siguen [SemVer](https://semver.org/lang/es/).
 
+## [v0.7.0] — 2026-07-31
+
+### Añadido
+
+- **Nuevo módulo `:core:capture:android`** (Android library, Hilt): captura de
+  pantalla real con MediaProjection, desacoplada de la UI.
+  - `ScreenCaptureProvider` (interfaz) + `MediaProjectionScreenCaptureProvider`:
+    posee el token de proyección, el `VirtualDisplay` + `ImageReader` (RGBA_8888)
+    y el último frame; la UI solo entrega el resultado del permiso y lee
+    `isProjecting: StateFlow<Boolean>`.
+  - `MediaProjectionService`: **Foreground Service tipo `mediaProjection`**
+    (Android 14+) con `PROPERTY_SPECIAL_USE_FGS_SUBTYPE`; arranca desde la
+    Activity tras el consentimiento y completa la proyección.
+  - `MediaProjectionScreenCapture` (implementación de `ScreenCapture`): captura
+    el frame real y lo comprime a PNG para el OCR; degrada a `request.texts`
+    cuando no hay proyección o frame.
+  - `DebugCaptureMetrics` (solo loguea en builds `FLAG_DEBUGGABLE`).
+  - Test instrumentado de humo: sin permiso no proyecta ni captura frames.
+- **Captura de pantalla real integrada en el pipeline**: `CapturePipeline`
+  ahora expone `snapshots: SharedFlow<OfferSnapshot>` y
+  `lastMetrics: StateFlow<ProcessingMetrics>` (tiempos por etapa:
+  captura/OCR/parseo/total).
+- **Caché de frames por hash de contenido**
+  (`CaptureFrameCache` + `InMemoryCaptureFrameCache`, LRU de 32 entradas):
+  el pipeline omite capturas idénticas y no repite OCR.
+- **Debounce de requests de accesibilidad**
+  (`DebounceCaptureScheduler`, `:core:capture`): coalesce los
+  `CaptureRequest` de los eventos de accesibilidad (muy frecuentes) y emite
+  solo el último tras 400 ms de silencio; `CaptureAccessibilityService` lo usa.
+- **Overlay conectado al estado real del pipeline**
+  (`PipelineOverlayDataSource`): consume `pipeline.state` y `pipeline.snapshots`,
+  evalúa con `EvaluateOfferUseCase` (motor real) y expone
+  `OverlayUiState.status` (`OverlayState`) + `visible` + `evaluation`. Sustituye
+  a `SimulatedOverlayDataSource`.
+- **Estados del overlay en la UI** (`OverlayContent`): `StatusLabel` para
+  WAITING/CAPTURING/PROCESSING/ERROR (y resultado evaluado cuando existe);
+  `OverlayService` muestra la tarjeta de estado mientras `visible`.
+- **Permiso de captura en Home** (`HomeViewModel`/`HomeScreen`): botón "Permitir
+  captura de pantalla" (lanzador `StartActivityForResult` → `startProjection`)
+  y "Detener captura"; `OverlayManager` expone `projectionActive`,
+  `createScreenCaptureIntent()`, `startProjection(...)`, `stopProjection()`.
+- **Métricas de rendimiento en el panel de depuración**
+  (`DebugPanelViewModel`/`DebugPanelScreen`): filas Captura/OCR/Parseo/Total
+  desde `pipeline.lastMetrics`.
+- Pruebas unitarias nuevas: `DebounceCaptureSchedulerTest`,
+  `InMemoryCaptureFrameCacheTest`, `PipelineOverlayDataSourceTest`; ampliado
+  `DefaultCapturePipelineTest` (caché, snapshots y métricas).
+
+### Cambiado
+
+- `DefaultCapturePipeline` ahora requiere `cache: CaptureFrameCache` y
+  `metrics: CaptureMetrics`; transiciona `WAITING→CAPTURING→PROCESSING→WAITING/ERROR`.
+- `CaptureAccessibilityService` (`:feature:overlay`) reescrito para pasar por el
+  `DebounceCaptureScheduler` (collector en `onCreate`, cancel en `onDestroy`;
+  límites 400 nodos / 200 chars / 80 textos).
+- `CaptureModule` (`:feature:overlay`): elimina el binding de `ScreenCapture`
+  (ahora lo provee `:core:capture:android`) y añade el binding de
+  `CaptureFrameCache`.
+- Eliminados `AccessibilityScreenCapture` y `SimulatedOverlayDataSource`
+  (sustituidos por la captura real y `PipelineOverlayDataSource`).
+- `settings.gradle.kts`: registrado `:core:capture:android` (11 módulos);
+  `gradle/libs.versions.toml`: añadido `kotlinx-coroutines-test`.
+
+### Notas técnicas
+
+- `:core:capture` sigue siendo Kotlin puro: la caché, el scheduler, las métricas
+  y el pipeline no dependen de Android; las piezas Android viven en
+  `:core:capture:android`.
+- Todo el análisis es local; la captura de pantalla solo ocurre tras el
+  consentimiento explícito del sistema (MediaProjection) y no sale nada del
+  dispositivo.
+
 ## [v0.6.0] — 2026-07-31
 
 ### Añadido

@@ -65,6 +65,14 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
         }
     }
 
+    // Consentimiento del sistema para capturar la pantalla (MediaProjection).
+    val projectionLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.StartActivityForResult(),
+        ) { result ->
+            viewModel.onProjectionPermissionGranted(result.resultCode, result.data)
+        }
+
     Column(
         modifier =
             Modifier
@@ -179,6 +187,39 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+        }
+
+        SectionCard(title = "Captura de pantalla") {
+            if (!state.projectionActive) {
+                Text(
+                    text =
+                        "Al conceder el permiso, SIRC analiza el contenido visible " +
+                            "de las ofertas con OCR para calcular la rentabilidad. " +
+                            "Todo el análisis es local, nada sale del dispositivo.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = { projectionLauncher.launch(viewModel.createScreenCaptureIntent()) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Permitir captura de pantalla")
+                }
+            } else {
+                Text(
+                    text = "Captura activa. SIRC analiza las ofertas visibles en menos de 3 segundos.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = viewModel::stopProjection,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Detener captura")
+                }
             }
         }
 

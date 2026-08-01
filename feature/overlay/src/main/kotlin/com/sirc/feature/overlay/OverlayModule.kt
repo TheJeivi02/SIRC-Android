@@ -19,5 +19,5 @@ abstract class OverlayModule {
 
     @Binds
     @Singleton
-    abstract fun bindOverlayDataSource(impl: SimulatedOverlayDataSource): OverlayDataSource
+    abstract fun bindOverlayDataSource(impl: PipelineOverlayDataSource): OverlayDataSource
 }

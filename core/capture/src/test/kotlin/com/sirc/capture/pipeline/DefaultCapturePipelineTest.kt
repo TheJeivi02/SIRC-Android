@@ -1,8 +1,10 @@
 package com.sirc.capture.pipeline
 
+import com.sirc.capture.cache.InMemoryCaptureFrameCache
 import com.sirc.capture.flag.FeatureFlag
 import com.sirc.capture.flag.InMemoryFeatureFlags
 import com.sirc.capture.log.TestLogger
+import com.sirc.capture.metrics.CaptureMetrics
 import com.sirc.capture.model.CaptureRequest
 import com.sirc.capture.model.CaptureWindowEvent
 import com.sirc.capture.model.OfferCaptureSession
@@ -15,7 +17,10 @@ import com.sirc.capture.parser.OfferParser
 import com.sirc.capture.repository.InMemoryCaptureRepository
 import com.sirc.capture.screen.ScreenCapture
 import com.sirc.domain.model.RidePlatform
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.yield
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -30,6 +35,8 @@ class DefaultCapturePipelineTest {
     private val parser = FakeOfferParser()
     private val repository = InMemoryCaptureRepository()
     private val featureFlags = InMemoryFeatureFlags()
+    private val cache = InMemoryCaptureFrameCache()
+    private val metrics = RecordingCaptureMetrics()
     private val logger = TestLogger()
 
     private val pipeline =
@@ -39,6 +46,8 @@ class DefaultCapturePipelineTest {
             parser = parser,
             repository = repository,
             featureFlags = featureFlags,
+            cache = cache,
+            metrics = metrics,
             logger = logger,
         )
 
@@ -151,6 +160,56 @@ class DefaultCapturePipelineTest {
             assertEquals(1, repository.snapshots().size)
         }
 
+    @Test
+    fun `captura idéntica se omite por caché y no repite OCR`() =
+        runBlocking {
+            val image = loadTestImage("test-images/offer_uber_1.png")
+            ocrEngine.recognized = listOf("UBER", "$125.00", "8.5 km")
+
+            pipeline.process(requestFor(imageData = image))
+            assertEquals(1, ocrEngine.calls)
+            assertEquals(1, repository.snapshots().size)
+
+            pipeline.process(requestFor(imageData = image))
+
+            assertEquals(1, ocrEngine.calls)
+            assertEquals(1, repository.snapshots().size)
+        }
+
+    @Test
+    fun `snapshot se emite al flow del pipeline`() =
+        runBlocking {
+            val emitted = mutableListOf<OfferSnapshot>()
+            val collectJob =
+                launch(start = CoroutineStart.UNDISPATCHED) {
+                    pipeline.snapshots.collect { emitted += it }
+                }
+
+            pipeline.process(requestFor(texts = listOf("UBER", "$125.00")))
+            yield()
+            collectJob.cancel()
+
+            assertEquals(1, emitted.size)
+            assertEquals(RidePlatform.UBER, emitted.first().platform)
+        }
+
+    @Test
+    fun `métricas de cada etapa se registran y quedan disponibles`() =
+        runBlocking {
+            ocrEngine.recognized = listOf("UBER", "$125.00")
+
+            pipeline.process(requestFor(imageData = loadTestImage("test-images/offer_uber_1.png")))
+
+            assertTrue(metrics.captureCalls > 0)
+            assertTrue(metrics.ocrCalls > 0)
+            assertTrue(metrics.parseCalls > 0)
+            val last = pipeline.lastMetrics.value
+            assertNotNull(last.captureMillis)
+            assertNotNull(last.ocrMillis)
+            assertNotNull(last.parseMillis)
+            assertNotNull(last.totalMillis)
+        }
+
     private fun requestFor(
         texts: List<String> = emptyList(),
         imageData: ByteArray? = null,
@@ -220,5 +279,28 @@ class DefaultCapturePipelineTest {
                 distanceKm = 8.5,
                 durationMin = 22.0,
             )
+    }
+
+    private class RecordingCaptureMetrics : CaptureMetrics {
+        var captureCalls = 0
+        var ocrCalls = 0
+        var parseCalls = 0
+        var totalCalls = 0
+
+        override fun onCapture(millis: Double) {
+            captureCalls++
+        }
+
+        override fun onOcr(millis: Double) {
+            ocrCalls++
+        }
+
+        override fun onParse(millis: Double) {
+            parseCalls++
+        }
+
+        override fun onTotal(millis: Double) {
+            totalCalls++
+        }
     }
 }

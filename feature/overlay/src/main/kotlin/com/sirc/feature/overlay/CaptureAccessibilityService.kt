@@ -5,11 +5,13 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.sirc.capture.model.CaptureRequest
 import com.sirc.capture.pipeline.CapturePipeline
+import com.sirc.capture.scheduler.DebounceCaptureScheduler
 import com.sirc.domain.model.RidePlatform
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -18,15 +20,26 @@ import javax.inject.Inject
  *
  * Está completamente desacoplado de la UI: no publica en el overlay ni conoce
  * estados de la interfaz. Solo observa los cambios de ventana de las
- * plataformas soportadas, construye [CaptureRequest] y los envía al
- * [CapturePipeline].
+ * plataformas soportadas, construye [CaptureRequest] y los encola en el
+ * [DebounceCaptureScheduler]; el pipeline recibe únicamente el último request
+ * tras un periodo de silencio (evita ejecutar OCR en cada evento).
  */
 @AndroidEntryPoint
 class CaptureAccessibilityService : AccessibilityService() {
     @Inject lateinit var pipeline: CapturePipeline
 
+    @Inject lateinit var scheduler: DebounceCaptureScheduler
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var lastFingerprint: String = ""
+
+    override fun onCreate() {
+        super.onCreate()
+        scope.launch {
+            scheduler.debouncedRequests()
+                .collect { request -> pipeline.process(request) }
+        }
+    }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         val packageName = event.packageName?.toString() ?: return
@@ -53,7 +66,7 @@ class CaptureAccessibilityService : AccessibilityService() {
                 timestampMillis = System.currentTimeMillis(),
                 texts = texts,
             )
-        scope.launch { pipeline.process(request) }
+        scheduler.schedule(request)
     }
 
     /**
@@ -85,6 +98,11 @@ class CaptureAccessibilityService : AccessibilityService() {
     }
 
     override fun onInterrupt() = Unit
+
+    override fun onDestroy() {
+        scope.cancel()
+        super.onDestroy()
+    }
 
     companion object {
         private const val MAX_NODES = 400

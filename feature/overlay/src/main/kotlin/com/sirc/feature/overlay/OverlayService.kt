@@ -44,9 +44,9 @@ class OverlayService : Service() {
     @Inject lateinit var engine: ProfitEngine
 
     /**
-     * Mantiene vivo el pipeline real (accesibilidad → historial) mientras el
-     * overlay consume [OverlayDataSource] con datos simulados. Su `uiState`
-     * aún no alimenta la UI (se reconectará al habilitar el análisis real).
+     * Mantiene la persistencia del historial a partir del flujo real de
+     * accesibilidad; el overlay consume [OverlayDataSource] (estado real del
+     * pipeline + evaluación).
      */
     @Inject lateinit var evaluator: OfferEvaluator
 
@@ -120,7 +120,7 @@ class OverlayService : Service() {
         scope.launch {
             dataSource.uiState.collect { state ->
                 val attached = view.parent != null
-                val shouldShow = state.visible && state.evaluation != null
+                val shouldShow = state.visible
                 when {
                     shouldShow && !attached -> wm.addView(view, params)
                     !shouldShow && attached -> wm.removeView(view)

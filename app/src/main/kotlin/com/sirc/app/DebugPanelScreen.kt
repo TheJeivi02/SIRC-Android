@@ -104,6 +104,10 @@ fun DebugPanelScreen(viewModel: DebugPanelViewModel = hiltViewModel()) {
                 label = "Tiempo de procesamiento",
                 value = "${formatMillis(state.lastProcessingTimeMillis)} ms",
             )
+            LabeledValue(label = "Captura", value = "${formatMillis(state.lastCaptureMillis)} ms")
+            LabeledValue(label = "OCR", value = "${formatMillis(state.lastOcrMillis)} ms")
+            LabeledValue(label = "Parseo", value = "${formatMillis(state.lastParseMillis)} ms")
+            LabeledValue(label = "Total", value = "${formatMillis(state.lastTotalMillis)} ms")
             LabeledValue(
                 label = "Estado del pipeline",
                 value = state.overlayState.name,
