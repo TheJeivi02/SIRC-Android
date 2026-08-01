@@ -16,4 +16,13 @@ interface OfferHistoryDao {
 
     @Query("DELETE FROM offer_history")
     suspend fun clear()
+
+    @Query(
+        "DELETE FROM offer_history WHERE id NOT IN (" +
+            "SELECT id FROM offer_history ORDER BY timestampMillis DESC LIMIT :limit)",
+    )
+    suspend fun trimToLimit(limit: Int)
+
+    @Query("SELECT COUNT(*) FROM offer_history")
+    suspend fun count(): Int
 }

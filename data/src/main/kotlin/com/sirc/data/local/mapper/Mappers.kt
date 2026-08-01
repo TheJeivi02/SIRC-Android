@@ -13,6 +13,7 @@ import com.sirc.domain.model.DriverVehicle
 import com.sirc.domain.model.FuelType
 import com.sirc.domain.model.OfferHistoryEntry
 import com.sirc.domain.model.OverlayConfig
+import com.sirc.domain.model.Recommendation
 import com.sirc.domain.model.RidePlatform
 
 private const val ITEM_SEPARATOR = "\u001E"
@@ -102,6 +103,7 @@ fun OverlayConfigEntity.toDomain(): OverlayConfig =
         ttlSeconds = ttlSeconds,
         positionXPercent = positionXPercent,
         positionYPercent = positionYPercent,
+        historyLimit = historyLimit,
     )
 
 fun OverlayConfig.toEntity(): OverlayConfigEntity =
@@ -116,6 +118,7 @@ fun OverlayConfig.toEntity(): OverlayConfigEntity =
         ttlSeconds = ttlSeconds,
         positionXPercent = positionXPercent,
         positionYPercent = positionYPercent,
+        historyLimit = historyLimit,
     )
 
 fun OfferHistoryEntry.toEntity(): OfferHistoryEntity =
@@ -129,6 +132,15 @@ fun OfferHistoryEntry.toEntity(): OfferHistoryEntity =
         estimatedProfit = estimatedProfit,
         decision = decision.name,
         summary = summary,
+        offerType = offerType,
+        confidencePercent = confidencePercent,
+        confidenceLevel = confidenceLevel,
+        ruleSummary = ruleSummary,
+        reasons = reasons,
+        recommendation = recommendation?.name,
+        processingMillis = processingMillis,
+        evaluationMillis = evaluationMillis,
+        rulesMillis = rulesMillis,
     )
 
 fun OfferHistoryEntity.toDomain(): OfferHistoryEntry =
@@ -142,4 +154,13 @@ fun OfferHistoryEntity.toDomain(): OfferHistoryEntry =
         estimatedProfit = estimatedProfit,
         decision = Decision.valueOf(decision),
         summary = summary,
+        offerType = offerType,
+        confidencePercent = confidencePercent,
+        confidenceLevel = confidenceLevel,
+        ruleSummary = ruleSummary,
+        reasons = reasons,
+        recommendation = recommendation?.let { Recommendation.valueOf(it) },
+        processingMillis = processingMillis,
+        evaluationMillis = evaluationMillis,
+        rulesMillis = rulesMillis,
     )

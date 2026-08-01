@@ -29,6 +29,11 @@ class MediaProjectionService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        provider.onDisplayConfigChanged()
+    }
+
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()

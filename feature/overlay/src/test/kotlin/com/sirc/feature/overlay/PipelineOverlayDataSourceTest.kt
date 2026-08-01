@@ -17,11 +17,15 @@ import com.sirc.domain.engine.RecommendationEngine
 import com.sirc.domain.engine.RuleEngine
 import com.sirc.domain.model.DecisionThresholds
 import com.sirc.domain.model.DriverCosts
+import com.sirc.domain.model.OfferHistoryEntry
 import com.sirc.domain.model.OverlayConfig
 import com.sirc.domain.model.Recommendation
 import com.sirc.domain.model.RidePlatform
 import com.sirc.domain.repository.DriverConfigRepository
+import com.sirc.domain.repository.OfferHistoryRepository
 import com.sirc.domain.repository.OverlayConfigRepository
+import com.sirc.domain.session.CaptureSessionManager
+import com.sirc.domain.session.SessionStatus
 import com.sirc.domain.usecase.EvaluateDetailedOfferUseCase
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -42,7 +46,9 @@ class PipelineOverlayDataSourceTest {
     private val pipeline = FakeCapturePipeline()
     private val featureFlags = InMemoryFeatureFlags()
     private val performanceTracker = InMemoryOfferPerformanceTracker()
-    private val historyRepository = InMemoryOfferEvaluationRepository()
+    private val evaluationRepository = InMemoryOfferEvaluationRepository()
+    private val historyRepository = FakeOfferHistoryRepository()
+    private val sessionManager = CaptureSessionManager()
     private val driverConfigRepository = FakeDriverConfigRepository()
     private val ruleEngine = RuleEngine(RuleEngine.defaultRules())
     private val confidenceEngine = ConfidenceEngine()
@@ -61,10 +67,12 @@ class PipelineOverlayDataSourceTest {
             featureFlags = featureFlags,
             logger = FakeLogger(),
             performanceTracker = performanceTracker,
+            evaluationRepository = evaluationRepository,
             historyRepository = historyRepository,
             driverConfigRepository = driverConfigRepository,
             ruleEngine = ruleEngine,
             confidenceEngine = confidenceEngine,
+            sessionManager = sessionManager,
         )
 
     @Test
@@ -117,7 +125,7 @@ class PipelineOverlayDataSourceTest {
 
             waitFor { dataSource.uiState.value.evaluation != null }
 
-            val records = historyRepository.observe(limit = 10).first()
+            val records = evaluationRepository.observe(limit = 10).first()
             val latest = records.single()
             assertEquals(RidePlatform.UBER, latest.platform)
             assertEquals(125.0, latest.price, 0.001)
@@ -151,6 +159,47 @@ class PipelineOverlayDataSourceTest {
             assertFalse(dataSource.uiState.value.visible)
             assertNull(dataSource.uiState.value.evaluation)
             assertNull(dataSource.uiState.value.recommendation)
+        }
+
+    @Test
+    fun `snapshot evaluado actualiza las estadisticas de sesion`() =
+        runBlocking {
+            pipeline.snapshots.tryEmit(snapshot())
+
+            waitFor { sessionManager.stats.value.offersProcessed == 1 }
+
+            assertEquals(SessionStatus.ACTIVE, sessionManager.stats.value.status)
+            assertEquals(1, sessionManager.stats.value.offersProcessed)
+            assertEquals(1, sessionManager.stats.value.offersAccepted)
+        }
+
+    @Test
+    fun `estado ERROR del pipeline registra un error de sesion`() =
+        runBlocking {
+            pipeline.state.value = OverlayState.ERROR
+
+            waitFor { sessionManager.stats.value.errors == 1 }
+
+            assertEquals(1, sessionManager.stats.value.errors)
+        }
+
+    @Test
+    fun `snapshot evaluado se persiste en el historial`() =
+        runBlocking {
+            pipeline.snapshots.tryEmit(snapshot(rawData = "type=UBER_REQUEST"))
+
+            waitFor { historyRepository.entries.isNotEmpty() }
+
+            val entry = historyRepository.entries.single()
+            assertEquals(RidePlatform.UBER, entry.platform)
+            assertEquals(Recommendation.ACCEPT, entry.recommendation)
+            assertEquals("UBER_REQUEST", entry.offerType)
+            assertNotNull(entry.confidencePercent)
+            assertNotNull(entry.confidenceLevel)
+            assertNotNull(entry.ruleSummary)
+            assertNotNull(entry.processingMillis)
+            assertNotNull(entry.evaluationMillis)
+            assertNotNull(entry.rulesMillis)
         }
 
     @Test
@@ -229,6 +278,24 @@ class PipelineOverlayDataSourceTest {
         }
 
         override fun observeOverlayConfig(): Flow<OverlayConfig> = config.asStateFlow()
+    }
+
+    private class FakeOfferHistoryRepository : OfferHistoryRepository {
+        val entries = mutableListOf<OfferHistoryEntry>()
+
+        override suspend fun add(entry: OfferHistoryEntry) {
+            entries.add(entry)
+        }
+
+        override suspend fun clear() {
+            entries.clear()
+        }
+
+        override suspend fun trimToLimit(limit: Int) {
+            while (entries.size > limit) entries.removeAt(0)
+        }
+
+        override fun observeEntries(limit: Int): Flow<List<OfferHistoryEntry>> = flowOf(entries.take(limit).toList())
     }
 
     private class FakeLogger : SircLogger {

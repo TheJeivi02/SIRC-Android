@@ -14,6 +14,7 @@ import com.sirc.domain.engine.RuleEngine
 import com.sirc.domain.model.DriverConfig
 import com.sirc.domain.model.OfferEvaluationRecord
 import com.sirc.domain.model.OfferEvaluationResult
+import com.sirc.domain.model.OfferHistoryEntry
 import com.sirc.domain.model.OverlayConfig
 import com.sirc.domain.model.RuleContext
 import com.sirc.domain.model.RuleEvaluation
@@ -21,7 +22,9 @@ import com.sirc.domain.model.RuleThresholds
 import com.sirc.domain.model.TripOffer
 import com.sirc.domain.repository.DriverConfigRepository
 import com.sirc.domain.repository.OfferEvaluationRepository
+import com.sirc.domain.repository.OfferHistoryRepository
 import com.sirc.domain.repository.OverlayConfigRepository
+import com.sirc.domain.session.CaptureSessionManager
 import com.sirc.domain.usecase.EvaluateDetailedOfferUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -43,7 +46,8 @@ import javax.inject.Singleton
  * Traduce el estado del pipeline ([OverlayState]) y los snapshots producidos
  * en un [OverlayUiState] con la evaluación real de la oferta
  * ([EvaluateDetailedOfferUseCase]), su desglose de costos y la recomendación.
- * También registra el historial temporal y los tiempos por etapa (Debug).
+ * También registra el historial (temporal + persistente), alimenta la sesión
+ * de captura ([CaptureSessionManager]) y los tiempos por etapa (Debug).
  */
 @Singleton
 class PipelineOverlayDataSource @Inject constructor(
@@ -53,16 +57,19 @@ class PipelineOverlayDataSource @Inject constructor(
     private val featureFlags: FeatureFlags,
     private val logger: SircLogger,
     private val performanceTracker: OfferPerformanceTracker,
-    private val historyRepository: OfferEvaluationRepository,
+    private val evaluationRepository: OfferEvaluationRepository,
+    private val historyRepository: OfferHistoryRepository,
     private val driverConfigRepository: DriverConfigRepository,
     private val ruleEngine: RuleEngine,
     private val confidenceEngine: ConfidenceEngine,
+    private val sessionManager: CaptureSessionManager,
 ) : OverlayDataSource {
     private val _uiState = MutableStateFlow(OverlayUiState(config = OverlayConfig()))
     override val uiState: StateFlow<OverlayUiState> = _uiState.asStateFlow()
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var hideJob: Job? = null
+    private var snapshotInFlight = false
 
     init {
         scope.launch {
@@ -93,6 +100,7 @@ class PipelineOverlayDataSource @Inject constructor(
     }
 
     private fun onPipelineState(state: OverlayState) {
+        if (state == OverlayState.ERROR) sessionManager.recordError()
         val status = if (featureFlags.isEnabled(FeatureFlag.OVERLAY)) state else OverlayState.DISABLED
         _uiState.update {
             it.copy(
@@ -104,43 +112,56 @@ class PipelineOverlayDataSource @Inject constructor(
 
     private fun onSnapshot(snapshot: OfferSnapshot) {
         val offer = snapshot.toTripOffer() ?: return
+        if (snapshotInFlight) return
+        snapshotInFlight = true
+        sessionManager.start()
         scope.launch {
-            val evaluationStart = System.nanoTime()
-            runCatching { evaluateUseCase(offer) }
-                .onSuccess { result ->
-                    val evaluationMillis = elapsedMillis(evaluationStart)
-                    logger.debug(METRICS_TAG, "evaluación: ${format(evaluationMillis)} ms")
-                    val overlayStart = System.nanoTime()
-                    val rulesStart = System.nanoTime()
-                    val analysis = analyze(offer, result, snapshot)
-                    val rulesMillis = elapsedMillis(rulesStart)
-                    show(result, analysis)
-                    persist(snapshot, result)
-                    val overlayMillis = elapsedMillis(overlayStart)
-                    performanceTracker.merge(
-                        OfferTiming(
-                            rulesMillis = rulesMillis,
-                            evaluationMillis = evaluationMillis,
-                            overlayMillis = overlayMillis,
-                        ),
-                    )
-                    logger.debug(
-                        METRICS_TAG,
-                        "reglas: ${format(rulesMillis)} ms · overlay: ${format(overlayMillis)} ms",
-                    )
-                }
-                .onFailure { error ->
-                    logger.error(TAG, "error evaluando oferta: ${error.message}")
-                }
+            try {
+                val evaluationStart = System.nanoTime()
+                val result = evaluateUseCase(offer)
+                val evaluationMillis = elapsedMillis(evaluationStart)
+                logger.debug(METRICS_TAG, "evaluación: ${format(evaluationMillis)} ms")
+                val rulesStart = System.nanoTime()
+                val analysis = analyze(offer, result, snapshot)
+                val rulesMillis = elapsedMillis(rulesStart)
+                val overlayStart = System.nanoTime()
+                show(result, analysis)
+                persist(
+                    snapshot,
+                    result,
+                    analysis,
+                    OfferTiming(rulesMillis = rulesMillis, evaluationMillis = evaluationMillis),
+                )
+                sessionManager.recordOffer(result.evaluation.decision)
+                val overlayMillis = elapsedMillis(overlayStart)
+                performanceTracker.merge(
+                    OfferTiming(
+                        rulesMillis = rulesMillis,
+                        evaluationMillis = evaluationMillis,
+                        overlayMillis = overlayMillis,
+                    ),
+                )
+                logger.debug(
+                    METRICS_TAG,
+                    "reglas: ${format(rulesMillis)} ms · overlay: ${format(overlayMillis)} ms",
+                )
+            } catch (error: Throwable) {
+                sessionManager.recordError()
+                logger.error(TAG, "error evaluando oferta: ${error.message}")
+            } finally {
+                snapshotInFlight = false
+            }
         }
     }
 
     private suspend fun persist(
         snapshot: OfferSnapshot,
         result: OfferEvaluationResult,
+        analysis: Analysis,
+        timing: OfferTiming,
     ) {
         val metrics = result.evaluation.metrics
-        historyRepository.add(
+        evaluationRepository.add(
             OfferEvaluationRecord(
                 id = 0L,
                 timestampMillis = snapshot.capturedAtMillis,
@@ -155,6 +176,27 @@ class PipelineOverlayDataSource @Inject constructor(
                 confidencePercent = result.recommendation.confidencePercent,
             ),
         )
+        historyRepository.add(
+            OfferHistoryEntry(
+                platform = snapshot.platform,
+                timestampMillis = snapshot.capturedAtMillis,
+                estimatedTotal = metrics.estimatedTotal,
+                distanceKm = metrics.distanceKm,
+                durationMin = metrics.durationMin,
+                estimatedProfit = metrics.estimatedProfit,
+                decision = result.evaluation.decision,
+                summary = result.recommendation.mainReason,
+                offerType = analysis.offerType,
+                confidencePercent = analysis.confidence.percent,
+                confidenceLevel = analysis.confidence.level.name,
+                ruleSummary = ruleSummary(analysis),
+                reasons = result.evaluation.reasons.joinToString(", "),
+                recommendation = result.recommendation.recommendation,
+                processingMillis = processingMillis(timing),
+                evaluationMillis = timing.evaluationMillis,
+                rulesMillis = timing.rulesMillis,
+            ),
+        )
     }
 
     private suspend fun analyze(
@@ -164,13 +206,17 @@ class PipelineOverlayDataSource @Inject constructor(
     ): Analysis {
         val driverConfig = driverConfigRepository.getDriverConfig() ?: DriverConfig.default()
         val ruleEvaluation =
-            ruleEngine.evaluate(
-                RuleContext(
-                    offer = offer,
-                    metrics = result.evaluation.metrics,
-                    thresholds = RuleThresholds.from(driverConfig),
-                ),
-            )
+            if (featureFlags.isEnabled(FeatureFlag.RULES)) {
+                ruleEngine.evaluate(
+                    RuleContext(
+                        offer = offer,
+                        metrics = result.evaluation.metrics,
+                        thresholds = RuleThresholds.from(driverConfig),
+                    ),
+                )
+            } else {
+                RuleEvaluation(emptyList())
+            }
         val confidence = confidenceEngine.assess(offer, result.evaluation.metrics, ruleEvaluation)
         return Analysis(offerTypeFrom(snapshot.rawData), ruleEvaluation, confidence)
     }
@@ -206,6 +252,12 @@ class PipelineOverlayDataSource @Inject constructor(
     private fun elapsedMillis(startNanos: Long): Double = (System.nanoTime() - startNanos) / NANOS_PER_MILLI
 
     private fun format(millis: Double): String = String.format(LOCALE, "%.1f", millis)
+
+    private fun ruleSummary(analysis: Analysis): String =
+        analysis.ruleEvaluation.results.joinToString(" | ") { "${it.ruleName}:${it.verdict.name}" }
+
+    private fun processingMillis(timing: OfferTiming): Double =
+        timing.totalMillis ?: ((timing.rulesMillis ?: 0.0) + (timing.evaluationMillis ?: 0.0))
 
     companion object {
         private const val TAG = "PipelineOverlay"

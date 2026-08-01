@@ -14,4 +14,13 @@ data class OfferHistoryEntity(
     val estimatedProfit: Double,
     val decision: String,
     val summary: String,
+    val offerType: String? = null,
+    val confidencePercent: Int? = null,
+    val confidenceLevel: String? = null,
+    val ruleSummary: String? = null,
+    val reasons: String? = null,
+    val recommendation: String? = null,
+    val processingMillis: Double? = null,
+    val evaluationMillis: Double? = null,
+    val rulesMillis: Double? = null,
 )

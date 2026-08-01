@@ -17,7 +17,13 @@ data class OverlayConfig(
     val ttlSeconds: Long = 45,
     val positionXPercent: Float = 50f,
     val positionYPercent: Float = 4f,
+    val historyLimit: Int = DEFAULT_HISTORY_LIMIT,
 ) {
     val activeIndicatorCount: Int
         get() = listOf(showDecision, showProfit, showProfitPerHour, showProfitPerKm, showTripSummary).count { it }
+
+    companion object {
+        /** Registros máximos que se conservan en el historial persistente. */
+        const val DEFAULT_HISTORY_LIMIT = 500
+    }
 }

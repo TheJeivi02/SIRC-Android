@@ -3,6 +3,64 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Las versiones siguen [SemVer](https://semver.org/lang/es/).
 
+## [v1.0.0-beta] — 2026-08-01
+
+### Añadido
+
+- **Sesión de captura** (O1, `:domain`): `CaptureSessionManager` controla el
+  ciclo de vida (iniciar/pausar/reanudar/detener/reset) y acumula
+  `SessionStats` (duración activa en vivo, ofertas procesadas/aceptadas/
+  rechazadas, errores); `SessionStatus` con `IDLE`/`ACTIVE`/`PAUSED`. El reloj
+  es inyectable para pruebas deterministas. `PipelineOverlayDataSource` la
+  alimenta (inicia en cada snapshot, registra decisión o error).
+- **Persistencia completa del historial** (O2): `OfferHistoryEntry` ampliado
+  con tipo de oferta, confianza (%, nivel), resumen de reglas, motivos,
+  recomendación y tiempos (procesamiento/evaluación/reglas). Room pasa a
+  **v3** con migración 1→3: 9 columnas nuevas en `offer_history` y
+  `historyLimit` (default 500) en `overlay_config`; `OfferHistoryDao` con
+  `trimToLimit(limit)`/`count()`. El repositorio recorta automáticamente al
+  insertar usando `OverlayConfig.historyLimit`.
+- **Pantalla Historial completa** (O3, `:feature:history`): `HistoryFilters`/
+  `HistoryFilter` en `:domain`; barra de búsqueda, dropdowns de
+  plataforma/decisión, presets de fecha (Hoy/7/30 días), borrado y **detalle**
+  en diálogo (precio, distancia, duración, ganancia, tipo, confianza,
+  recomendación, reglas, motivos). Ajustes: campo **Límite de registros**.
+- **Dashboard de estadísticas** (O4, `:feature:history`): `HistoryStats` +
+  `HistoryStatsCalculator` en `:domain` (aceptación, ganancia total, $/hora,
+  $/km, procesamiento medio, confianza media, agrupación por día) y
+  `StatsScreen` con gráficos **Canvas** (barras diarias + donut de decisiones);
+  nuevo destino de navegación `STATS`.
+- **Modo Beta** (O8): feature flags `RULES` (gatea `RuleEngine`), `DETAILED_LOGS`
+  (apaga `AndroidSircLogger.debug`) y `METRICS`. **Exportar diagnóstico** en
+  Debug comparte un informe con estado de sesión, promedios, última oferta y
+  estado de cada flag.
+- **Overlay mejorado** (O9): `OverlayContent` con animaciones
+  (`animateFloatAsState` escala/alpha y `AnimatedContent` crossfade
+  estado↔evaluación) y `StatusLabel` con mensajes claros por estado.
+- **Tests de integración** (O7): `CaptureSessionManagerTest`,
+  `HistoryFilterTest`, `HistoryStatsCalculatorTest`,
+  `PipelineOverlayDataSourceTest` ampliado (sesión + persistencia),
+  `OfferHistoryDaoTest` y `SircDatabaseMigrationTest` (migración v1→v3).
+
+### Cambiado
+
+- `OverlayService` reescrito: **una sola vista persistente** (sin
+  agregar/quitar en cada oferta), ocultar = `FLAG_NOT_TOUCHABLE`,
+  `onConfigurationChanged` reclama tamaño/posición, `START_STICKY`.
+- `MediaProjectionService` con `onConfigurationChanged` → el provider recrea el
+  virtual display; `MediaProjectionScreenCaptureProvider` con
+  `onDisplayConfigChanged`/`releaseVirtualDisplay`/`drainFrames` idempotentes.
+- `MlKitOcrEngine` recicla el bitmap y cancela la corrutina si se aborta.
+- `DebugPanelViewModel`/`DebugPanelScreen`: nueva sección **Sesión de captura**
+  (estado, duración, contadores y botones Iniciar/Pausar/Reanudar/Detener) y
+  botón **Exportar diagnóstico**.
+- `OfferHistoryDao.trimToLimit` reformateado; `SircDatabase` versión 3;
+  `DatabaseModule` registra `MIGRATION_2_3`.
+- `SessionStats.activeSeconds` se calcula en vivo con reloj inyectable (sin
+  afectar la igualdad estructural del data class).
+- Dependencias de test: `room-testing`, `androidx.arch.core:core-testing` y
+  `androidx.test.ext:junit` en `:data` (androidTest).
+
 ## [v0.9.0] — 2026-07-31
 
 ### Añadido

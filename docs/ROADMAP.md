@@ -198,6 +198,50 @@ reglas → confianza → overlay con tipo de oferta, confianza y veredicto de re
 
 - Estado: **completado**.
 
+## Sprint 9 — Preparación beta cerrada (v1.0.0-beta) ✅
+
+Preparación de la app para una beta cerrada en dispositivos reales: sesión de
+captura, persistencia e historial completos, dashboard de estadísticas,
+optimización y estabilidad, modo beta con diagnóstico exportable y un overlay
+más estable y claro.
+
+- **Sesión de captura** (O1, `:domain`): `CaptureSessionManager` (iniciar,
+  pausar, reanudar, detener, reset) + `SessionStatus` + `SessionStats`
+  (duración activa en vivo, ofertas procesadas/aceptadas/rechazadas, errores);
+  reloj inyectable para pruebas. El pipeline y el overlay alimentan la sesión.
+- **Persistencia completa del historial** (O2): `OfferHistoryEntry` ampliado
+  (tipo de oferta, confianza, reglas, razones, recomendación y tiempos);
+  Room v3 con migración 1→3 (nuevas columnas y `overlay_config.historyLimit`),
+  DAO con `trimToLimit`/`count`; `OverlayConfig.historyLimit` (default 500)
+  configura el límite desde Ajustes.
+- **Pantalla Historial** (O3): filtros por plataforma/decisión/fecha/prescencia,
+  búsqueda de texto, presets de fecha y detalle en diálogo
+  (`HistoryFilters`/`HistoryFilter` en `:domain`).
+- **Dashboard de estadísticas** (O4): `HistoryStats` +
+  `HistoryStatsCalculator` (aceptación, ganancia/hora, ganancia/km,
+  procesamiento, confianza, agrupación diaria) y pantalla con Canvas
+  (barras diarias + donut de decisiones) en `:feature:history`.
+- **Optimización** (O5): OCR recicla el bitmap y cancela la corrutina;
+  MediaProjection recrea el virtual display ante cambios de configuración
+  (`onDisplayConfigChanged`) y libera/reintenta de forma idempotente.
+- **Estabilidad** (O6): `OverlayService` con vista persistente y
+  `FLAG_NOT_TOUCHABLE`; `onConfigurationChanged` reclama tamaño/posición;
+  manejo de rotación, split screen y revocación de permisos.
+- **Modo Beta** (O8): feature flags `RULES`, `DETAILED_LOGS`, `METRICS`;
+  `AndroidSircLogger.debug` apagado con `DETAILED_LOGS`; **Exportar
+  diagnóstico** (share del estado de sesión, rendimiento y flags).
+- **Overlay mejorado** (O9): `OverlayContent` con `animateFloatAsState`
+  (escala/alpha) y `AnimatedContent` (crossfade estado↔evaluación);
+  `StatusLabel` con mensajes claros.
+- **Tests de integración** (O7): `CaptureSessionManagerTest`,
+  `HistoryFilterTest`, `HistoryStatsCalculatorTest`,
+  `PipelineOverlayDataSourceTest` (sesión + persistencia),
+  `OfferHistoryDaoTest` y `SircDatabaseMigrationTest` (v1→v3) en Room.
+- Verificación en verde: ktlint (todos), unit tests, `lintDebug`,
+  `assembleDebug`, `assembleDebugAndroidTest` y `:data:connectedDebugAndroidTest`.
+
+- Estado: **completado**.
+
 ## Sprint 3 — Accessibility
 
 Canal de lectura del contenido visible de las plataformas.

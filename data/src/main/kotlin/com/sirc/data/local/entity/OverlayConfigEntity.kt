@@ -16,4 +16,5 @@ data class OverlayConfigEntity(
     val ttlSeconds: Long,
     val positionXPercent: Float,
     val positionYPercent: Float,
+    val historyLimit: Int = com.sirc.domain.model.OverlayConfig.DEFAULT_HISTORY_LIMIT,
 )

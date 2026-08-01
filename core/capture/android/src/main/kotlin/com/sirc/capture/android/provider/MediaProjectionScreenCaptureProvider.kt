@@ -100,6 +100,19 @@ class MediaProjectionScreenCaptureProvider @Inject constructor(
         logger.info(TAG, "captura de pantalla detenida")
     }
 
+    /**
+     * Recrea el virtual display tras un cambio de configuración (rotación,
+     * cambio de resolución o pantalla dividida) para que las capturas sigan
+     * el tamaño real de la pantalla.
+     */
+    fun onDisplayConfigChanged() {
+        val projection = mediaProjection ?: return
+        if (!_isProjecting.value) return
+        releaseVirtualDisplay()
+        startVirtualDisplay(projection)
+        logger.info(TAG, "virtual display recreado tras cambio de configuración")
+    }
+
     override suspend fun captureFrame(): Bitmap? {
         if (!_isProjecting.value) return null
         return withContext(Dispatchers.Default) {
@@ -152,16 +165,30 @@ class MediaProjectionScreenCaptureProvider @Inject constructor(
     }
 
     private fun releaseResources() {
+        releaseVirtualDisplay()
+        projectionCallback?.let { callback ->
+            runCatching { mediaProjection?.unregisterCallback(callback) }
+        }
+        runCatching { mediaProjection?.stop() }
+        mediaProjection = null
+        projectionCallback = null
+    }
+
+    private fun releaseVirtualDisplay() {
         runCatching { virtualDisplay?.release() }
         virtualDisplay = null
         runCatching { imageReader?.close() }
         imageReader = null
-        projectionCallback?.let { callback ->
-            runCatching { mediaProjection?.unregisterCallback(callback) }
+        drainFrames()
+    }
+
+    /** Libera los frames pendientes para no retener memoria tras detener la captura. */
+    private fun drainFrames() {
+        runCatching {
+            while (true) {
+                frames.tryReceive().getOrNull()?.close() ?: break
+            }
         }
-        mediaProjection?.stop()
-        mediaProjection = null
-        projectionCallback = null
     }
 
     companion object {
@@ -184,7 +211,11 @@ private fun Image.toBitmap(): Bitmap {
     val rowPadding = rowStride - pixelStride * width
     buffer.rewind()
     val paddedWidth = width + rowPadding / pixelStride
-    val bitmap = Bitmap.createBitmap(paddedWidth, height, Bitmap.Config.ARGB_8888)
-    bitmap.copyPixelsFromBuffer(buffer)
-    return Bitmap.createBitmap(bitmap, 0, 0, width, height)
+    val padded = Bitmap.createBitmap(paddedWidth, height, Bitmap.Config.ARGB_8888)
+    padded.copyPixelsFromBuffer(buffer)
+    val cropped = Bitmap.createBitmap(padded, 0, 0, width, height)
+    if (cropped != padded) {
+        padded.recycle()
+    }
+    return cropped
 }

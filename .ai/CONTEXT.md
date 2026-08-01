@@ -13,6 +13,23 @@ es rentable.
 
 **Cómo funciona (flujo real):**
 
+> Nota SPRINT 9: preparación de la **beta cerrada** (v1.0.0-beta). Nueva
+> **sesión de captura** (`CaptureSessionManager` + `SessionStatus` +
+> `SessionStats`, reloj inyectable) alimentada por el pipeline/overlay
+> (inicia en cada snapshot, registra decisión/error). El **historial ahora se
+> persiste en Room con análisis detallado**: `OfferHistoryEntry` gana tipo de
+> oferta, confianza, reglas, motivos, recomendación y tiempos; base v3 con
+> migración 1→3 y `overlay_config.historyLimit` (default 500, configurable en
+> Ajustes); `OfferHistoryDao.trimToLimit` recorta automáticamente.
+> **Historial** en `:feature:history` con filtros (`HistoryFilters`/
+> `HistoryFilter` en `:domain`), búsqueda, presets de fecha y detalle en
+> diálogo. Nuevo **Dashboard** (`StatsViewModel` + `StatsScreen` con gráficos
+> Canvas) alimentado por `HistoryStatsCalculator`. **Modo Beta**: flags
+> `RULES`/`DETAILED_LOGS`/`METRICS` y **Exportar diagnóstico** (share).
+> **OverlayService** reescrito (vista única persistente, `FLAG_NOT_TOUCHABLE`,
+> `onConfigurationChanged`); `OverlayContent` con animaciones y crossfade;
+> MediaProjection recrea el virtual display ante cambios de configuración.
+>
 > Nota SPRINT 7: la oferta capturada se evalúa en detalle y el overlay muestra
 > una **recomendación accionable**. `PipelineOverlayDataSource` mapea el snapshot
 > a `TripOffer` (con los textos OCR), lo evalúa con `EvaluateDetailedOfferUseCase`
@@ -79,6 +96,22 @@ Service **nunca** interactúa con otras apps.
 
 ## Estado del proyecto
 
+- **SPRINT 9 completado** (v1.0.0-beta): Preparación beta cerrada (ver
+  `docs/ROADMAP.md`). **Sesión** (`CaptureSessionManager`/`SessionStatus`/
+  `SessionStats` en `:domain`). **Room v3** con `OfferHistoryEntry` ampliado
+  (tipo/confianza/reglas/recomendación/tiempos), migración 1→3 y
+  `overlay_config.historyLimit`; DAO con `trimToLimit`. **Historial** con
+  filtros/búsqueda/presets/detalle (`HistoryFilters`/`HistoryFilter`).
+  **Dashboard** con `HistoryStatsCalculator` + `StatsScreen` (Canvas).
+  **Modo Beta**: flags `RULES`/`DETAILED_LOGS`/`METRICS` y exportar
+  diagnóstico. **Overlay mejorado**: `OverlayService` de vista única +
+  `OverlayContent` animado. **Estabilidad**: `onConfigurationChanged` en
+  overlay y MediaProjection. Tests: `CaptureSessionManagerTest`,
+  `HistoryFilterTest`, `HistoryStatsCalculatorTest`,
+  `PipelineOverlayDataSourceTest` ampliado, `OfferHistoryDaoTest` y
+  `SircDatabaseMigrationTest`. Verificación en verde (ktlint, unit tests,
+  lint, assembleDebug, assembleDebugAndroidTest). Documentos:
+  `docs/testing/BETA_TEST_PLAN.md` y `docs/testing/SPRINT_09_MANUAL_TEST.md`.
 - **SPRINT 8 completado**: Motor de análisis de pantallas reales (ver
   `docs/ROADMAP.md`). En `:core:platform`: `OfferDetectionEngine` (detección de
   pantalla → `ScreenType`, solo `REQUEST` produce oferta), `OfferType` +
@@ -237,8 +270,8 @@ app ──► feature:overlay ──► core:platform ─► domain
 - `feature:onboarding`: flujo de configuración inicial (6 pasos) que persiste
   `DriverConfig`; gating en `app` (`RootViewModel`/`SircRoot`).
 - `feature:settings` / `feature:history`: UI.
-- `app`: entrada, gating de onboarding, navegación (5 destinos, incluido
-  Diagnóstico y Debug) y arranque del `OfferCaptureCoordinator`.
+- `app`: entrada, gating de onboarding, navegación (6 destinos, incluido
+  Estadísticas, Diagnóstico y Debug) y arranque del `OfferCaptureCoordinator`.
 
 ## Comandos de verificación (Windows / PowerShell)
 

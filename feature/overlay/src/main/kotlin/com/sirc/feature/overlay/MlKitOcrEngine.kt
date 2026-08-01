@@ -14,6 +14,9 @@ import kotlin.coroutines.resume
 /**
  * Motor OCR basado en ML Kit (reconocimiento de texto latino). Expone una API
  * suspendida para encajar en el pipeline de captura.
+ *
+ * El bitmap decodificado se recicla al terminar para evitar presión de memoria,
+ * y la corrutina se cancela correctamente si el consumidor la abandona.
  */
 @Singleton
 class MlKitOcrEngine @Inject constructor(
@@ -25,14 +28,19 @@ class MlKitOcrEngine @Inject constructor(
         val bitmap = BitmapFactory.decodeByteArray(imageData, 0, imageData.size) ?: return emptyList()
         val image = InputImage.fromBitmap(bitmap, 0)
         return suspendCancellableCoroutine { continuation ->
-            recognizer.process(image)
-                .addOnSuccessListener { result ->
-                    continuation.resume(result.text.lines())
-                }
-                .addOnFailureListener { error ->
-                    logger.error(TAG, "OCR falló: ${error.message}")
-                    continuation.resume(emptyList())
-                }
+            val task = recognizer.process(image)
+            task.addOnSuccessListener { result ->
+                bitmap.recycle()
+                continuation.resume(result.text.lines())
+            }
+            task.addOnFailureListener { error ->
+                bitmap.recycle()
+                logger.error(TAG, "OCR falló: ${error.message}")
+                continuation.resume(emptyList())
+            }
+            continuation.invokeOnCancellation {
+                runCatching { bitmap.recycle() }
+            }
         }
     }
 

@@ -26,7 +26,7 @@ object DatabaseModule {
             context,
             SircDatabase::class.java,
             "sirc.db",
-        ).addMigrations(SircMigrations.MIGRATION_1_2).build()
+        ).addMigrations(SircMigrations.MIGRATION_1_2, SircMigrations.MIGRATION_2_3).build()
 
     @Provides
     fun provideDriverConfigDao(db: SircDatabase): DriverConfigDao = db.driverConfigDao()

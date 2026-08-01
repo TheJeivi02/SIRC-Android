@@ -17,6 +17,8 @@ import com.sirc.capture.pipeline.CapturePipeline
 import com.sirc.domain.model.OfferEvaluationRecord
 import com.sirc.domain.model.RuleVerdict
 import com.sirc.domain.repository.OfferEvaluationRepository
+import com.sirc.domain.session.CaptureSessionManager
+import com.sirc.domain.session.SessionStats
 import com.sirc.feature.overlay.OverlayDataSource
 import com.sirc.feature.overlay.OverlayManager
 import com.sirc.feature.overlay.OverlayUiState
@@ -41,6 +43,7 @@ class DebugPanelViewModel @Inject constructor(
     private val performanceTracker: OfferPerformanceTracker,
     private val historyRepository: OfferEvaluationRepository,
     private val overlayDataSource: OverlayDataSource,
+    private val sessionManager: CaptureSessionManager,
 ) : ViewModel() {
     data class FlagStatus(
         val flag: FeatureFlag,
@@ -90,6 +93,7 @@ class DebugPanelViewModel @Inject constructor(
         val confidenceLevel: String? = null,
         val confidenceReasons: List<String> = emptyList(),
         val ruleResults: List<RuleRow> = emptyList(),
+        val session: SessionStats = SessionStats(),
     )
 
     private val refreshTick = MutableStateFlow(0)
@@ -106,8 +110,9 @@ class DebugPanelViewModel @Inject constructor(
         combine(
             performanceTracker.averages,
             historyRepository.observe(limit = 1),
-        ) { averages, latest ->
-            averages to latest
+            sessionManager.stats,
+        ) { averages, latest, session ->
+            Triple(averages, latest, session)
         }
 
     val state: StateFlow<UiState> =
@@ -127,7 +132,7 @@ class DebugPanelViewModel @Inject constructor(
             )
         }.combine(overlayDataSource.uiState) { snapshot, overlayUi ->
             snapshot.copy(overlayUi = overlayUi)
-        }.combine(performance) { snapshot, (averages, latest) ->
+        }.combine(performance) { snapshot, (averages, latest, session) ->
             build(
                 snapshot.capture,
                 snapshot.pipelineState,
@@ -136,6 +141,7 @@ class DebugPanelViewModel @Inject constructor(
                 averages,
                 latest,
                 snapshot.overlayUi,
+                session,
             )
         }.stateIn(
             scope = viewModelScope,
@@ -149,6 +155,7 @@ class DebugPanelViewModel @Inject constructor(
                     performanceTracker.averages.value,
                     emptyList(),
                     overlayDataSource.uiState.value,
+                    sessionManager.stats.value,
                 ),
         )
 
@@ -176,6 +183,74 @@ class DebugPanelViewModel @Inject constructor(
         refreshTick.update { it + 1 }
     }
 
+    fun startSession() {
+        sessionManager.start()
+        refresh()
+    }
+
+    fun pauseSession() {
+        sessionManager.pause()
+        refresh()
+    }
+
+    fun resumeSession() {
+        sessionManager.resume()
+        refresh()
+    }
+
+    fun stopSession() {
+        sessionManager.stop()
+        refresh()
+    }
+
+    /** Exporta un diagnóstico legible (Modo Beta) para compartir con soporte. */
+    fun buildDiagnosticsReport(): String {
+        val session = sessionManager.stats.value
+        val avg = performanceTracker.averages.value
+        val last = performanceTracker.lastOffers.value.lastOrNull()
+        return buildString {
+            appendLine("SIRC · Informe de diagnóstico")
+            appendLine("Fecha: ${System.currentTimeMillis()}")
+            appendLine()
+            appendLine("== Sesión ==")
+            appendLine("Estado: ${session.status.name}")
+            appendLine("Duración activa: ${session.activeSeconds}s")
+            appendLine("Ofertas procesadas: ${session.offersProcessed}")
+            appendLine("Aceptadas: ${session.offersAccepted} · Rechazadas: ${session.offersRejected}")
+            appendLine("Errores: ${session.errors}")
+            appendLine()
+            appendLine("== Rendimiento (promedio) ==")
+            appendLine("Captura: ${avg.captureMillis ?: "-"} ms")
+            appendLine("OCR: ${avg.ocrMillis ?: "-"} ms")
+            appendLine("Detección: ${avg.detectionMillis ?: "-"} ms")
+            appendLine("Parseo: ${avg.parseMillis ?: "-"} ms")
+            appendLine("Reglas: ${avg.rulesMillis ?: "-"} ms")
+            appendLine("Evaluación: ${avg.evaluationMillis ?: "-"} ms")
+            appendLine("Overlay: ${avg.overlayMillis ?: "-"} ms")
+            appendLine("Total: ${avg.totalMillis ?: "-"} ms")
+            appendLine()
+            appendLine("== Última oferta ==")
+            if (last != null) {
+                appendLine("Captura: ${last.captureMillis ?: "-"} ms")
+                appendLine("OCR: ${last.ocrMillis ?: "-"} ms")
+                appendLine("Parseo: ${last.parseMillis ?: "-"} ms")
+                appendLine("Reglas: ${last.rulesMillis ?: "-"} ms")
+                appendLine("Evaluación: ${last.evaluationMillis ?: "-"} ms")
+                appendLine("Overlay: ${last.overlayMillis ?: "-"} ms")
+                appendLine("Total: ${last.totalMillis ?: "-"} ms")
+            } else {
+                appendLine("Sin datos.")
+            }
+            appendLine()
+            appendLine("== Flags ==")
+            FeatureFlag.entries.forEach { flag ->
+                appendLine("${flag.name}: ${featureFlags.isEnabled(flag)}")
+            }
+            appendLine()
+            appendLine("Memoria aproximada: ${approximateMemoryMb()} MB")
+        }
+    }
+
     private fun build(
         capture: CaptureState,
         pipelineState: OverlayState,
@@ -184,6 +259,7 @@ class DebugPanelViewModel @Inject constructor(
         averages: OfferTiming,
         latest: List<OfferEvaluationRecord>,
         overlayUi: OverlayUiState,
+        session: SessionStats,
     ): UiState {
         val flags = FeatureFlag.entries.map { FlagStatus(it, featureFlags.isEnabled(it)) }
         val lastOffer = latest.firstOrNull()
@@ -229,6 +305,7 @@ class DebugPanelViewModel @Inject constructor(
             confidenceLevel = overlayUi.confidence?.level?.name,
             confidenceReasons = overlayUi.confidence?.reasons.orEmpty(),
             ruleResults = ruleResults,
+            session = session,
         )
     }
 

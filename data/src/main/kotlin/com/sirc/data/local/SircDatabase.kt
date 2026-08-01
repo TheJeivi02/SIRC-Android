@@ -15,7 +15,7 @@ import com.sirc.data.local.entity.OverlayConfigEntity
         OverlayConfigEntity::class,
         OfferHistoryEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class SircDatabase : RoomDatabase() {

@@ -3,6 +3,7 @@ package com.sirc.app
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FactCheck
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
@@ -26,6 +27,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.sirc.feature.history.HistoryScreen
+import com.sirc.feature.history.StatsScreen
 import com.sirc.feature.settings.SettingsScreen
 
 private enum class Destination(
@@ -35,6 +37,7 @@ private enum class Destination(
 ) {
     HOME("home", "Inicio", Icons.Filled.Home),
     HISTORY("history", "Historial", Icons.Filled.History),
+    STATS("stats", "Estadísticas", Icons.Filled.BarChart),
     SETTINGS("settings", "Ajustes", Icons.Filled.Settings),
     DIAGNOSIS("diagnosis", "Diagnóstico", Icons.AutoMirrored.Filled.FactCheck),
     DEBUG("debug", "Debug", Icons.Filled.Build),
@@ -96,6 +99,9 @@ fun SircApp() {
             }
             composable(Destination.HISTORY.route) {
                 HistoryScreen()
+            }
+            composable(Destination.STATS.route) {
+                StatsScreen()
             }
             composable(Destination.SETTINGS.route) {
                 SettingsScreen()

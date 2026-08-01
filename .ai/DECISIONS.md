@@ -100,6 +100,91 @@ en `ParsedOffer`; el pipeline las lleva a `ProcessingMetrics`/`OfferTiming`
 `OfferTextParser` ya viven en el companion object (se compilan una sola vez).
 El panel de depuración muestra Detección y Reglas.
 
+## SPRINT 9 — Preparación beta cerrada (v1.0.0-beta)
+
+### D10.1 — `CaptureSessionManager` como máquina de estados pura en `:domain`
+
+**Contexto:** la beta necesita medir sesiones (duración, ofertas, errores) sin
+atar el estado a Android ni a la UI.
+
+**Decisión:** `CaptureSessionManager` (`@Singleton`, `:domain`) controla
+`SessionStatus` (IDLE/ACTIVE/PAUSED) y acumula `SessionStats`; el reloj es un
+parámetro inyectable (`clock`) que `copy()` conserva y que se excluye de la
+igualdad estructural (`equals`/`hashCode` reescritos) para que los data class
+comparen solo el estado. `PipelineOverlayDataSource` inicia la sesión en cada
+snapshot y registra decisión/error.
+
+**Alternativas descartadas:** reloj global mutable en el companion (estado
+compartido frágil); `activeSeconds` con `System.currentTimeMillis()` directo
+(no determinista en tests).
+
+### D10.2 — Historial persistente ampliado en Room v3 (migración 1→3)
+
+**Contexto:** el historial beta debe conservar el análisis detallado (tipo,
+confianza, reglas, motivos, tiempos) y permitir un límite configurable.
+
+**Decisión:** `OfferHistoryEntry` gana `offerType`, `confidencePercent`/`Level`,
+`ruleSummary`, `reasons`, `recommendation` y tiempos; Room sube a **v3** con
+`MIGRATION_2_3` (ALTER TABLE con 9 columnas) encadenada a la 1→2 existente.
+`overlay_config.historyLimit` (default 500) limita el historial vía
+`OfferHistoryDao.trimToLimit`, que el repositorio invoca tras cada inserción.
+
+**Consecuencia:** el histórico sobrevive a reinicios (Room) y sirve de
+diagnóstico sin depender del panel; `DriverConfigCodecTest` y los tests de
+Room (`OfferHistoryDaoTest`, `SircDatabaseMigrationTest`) cubren la migración.
+
+### D10.3 — Dashboard con gráficos Canvas, sin librería de charting
+
+**Contexto:** el Dashboard necesita visualizar aceptación diaria y distribución
+de decisiones sin añadir dependencias pesadas.
+
+**Decisión:** `HistoryStatsCalculator` (función pura en `:domain`) produce
+`HistoryStats` con `daily: List<DayStat>` y el `StatsScreen` dibuja barras y
+donut con `Canvas`/`drawScope` del propio Compose. Sin librería externa.
+
+### D10.4 — `SessionStats.clock` inyectable sin participar en `equals`
+
+**Contexto:** `activeSeconds` se calcula en vivo, pero en pruebas debe ser
+determinista y los data class deben comparar solo el estado.
+
+**Decisión:** `SessionStats` lleva un `clock: (() -> Long)?` (constructor, lo
+conserva `copy()`, default `System.currentTimeMillis`) y reescribe
+`equals`/`hashCode` excluyéndolo. `CaptureSessionManager.setClockForTesting`
+inyecta el reloj en las instancias que crea.
+
+### D10.5 — `OverlayService` de vista única persistente
+
+**Contexto:** el overlay parpadeaba y consumía recursos al agregar/quitar el
+`ComposeView` en cada oferta.
+
+**Decisión:** una sola vista persistente; ocultar = `FLAG_NOT_TOUCHABLE`
+(cambios de tipo de ventana) y `visible` viaja en el estado. `onConfigurationChanged`
+reclama tamaño/posición y `START_STICKY` ayuda al reinicio tras muerte del
+proceso. `OverlayContent` anima visibilidad con `animateFloatAsState` y hace
+crossfade estado↔evaluación con `AnimatedContent`.
+
+### D10.6 — MediaProjection resiliente a cambios de configuración
+
+**Contexto:** rotación/cambio de resolución podían invalidar el virtual display
+y romper la captura.
+
+**Decisión:** `MediaProjectionService.onConfigurationChanged` llama a
+`provider.onDisplayConfigChanged()`, que recrea el `VirtualDisplay`; el provider
+tiene `releaseVirtualDisplay()`/`drainFrames()` idempotentes. El OCR recicla el
+bitmap y cancela la corrutina al abortar (`invokeOnCancellation`).
+
+### D10.7 — Modo Beta: flags `RULES`/`DETAILED_LOGS`/`METRICS` y diagnóstico exportable
+
+**Contexto:** la beta necesita apagar piezas (reglas, logs, métricas) en caliente
+y enviar un informe a soporte.
+
+**Decisión:** nuevos `FeatureFlag.RULES`/`DETAILED_LOGS`/`METRICS`.
+`PipelineOverlayDataSource` gatea `RuleEngine` con `RULES`;
+`AndroidSircLogger.debug` se apaga con `DETAILED_LOGS`. DebugPanel gana la
+sección "Sesión de captura" y **Exportar diagnóstico** (share vía `Intent.ACTION_SEND`
+con estado de sesión, promedios, última oferta y flags). Los flags siguen en
+memoria (DataStore queda documentado como evolución sin romper la interfaz).
+
 ## SPRINT 7 — Evaluación en tiempo real con recomendación
 
 ### D8.1 — `ProfitEvaluationEngine` delega en `ProfitEngine` (no duplica fórmulas)

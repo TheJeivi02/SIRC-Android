@@ -87,21 +87,35 @@ Reglas derivadas del grafo real:
   WARNING = 50).
 - `repository/` — contratos: `DriverConfigRepository`, `OverlayConfigRepository`,
   `OfferHistoryRepository` y `OfferEvaluationRepository` (SPRINT 7).
+- `session/` (SPRINT 9) — `CaptureSessionManager` (`@Singleton`, máquina de
+  estados pura): iniciar/pausar/reanudar/detener/reset + `SessionStatus`
+  (IDLE/ACTIVE/PAUSED) + `SessionStats` (duración activa en vivo con reloj
+  inyectable, ofertas procesadas/aceptadas/rechazadas, errores).
 - `usecase/` — orquestación fina: `EvaluateOfferUseCase`,
   `EvaluateDetailedOfferUseCase` (evalúa una oferta completa con motores + costos
   derivados y devuelve `OfferEvaluationResult`),
   `Get/SaveOverlayConfigUseCase`, `Get/SaveDriverConfigUseCase`,
-  `Observe/Clear/AddOfferHistoryUseCase`.
+  `Observe/Clear/AddOfferHistoryUseCase`; SPRINT 9: `HistoryFilters`/
+  `HistoryFilter` (filtros del Historial) y `HistoryStatsCalculator`
+  (estadísticas del Dashboard: aceptación, $/hora, $/km, procesamiento,
+  confianza y agrupación diaria).
 
 ### Data (`:data`)
 
 - Room: `SircDatabase` (tablas `driver_config`, `overlay_config`,
-  `offer_history`), entidades, DAOs y mappers (`Mappers.kt`). Versión 2 con
-  migración 1→2 (reconstrucción de tabla, compatible con SQLite antiguo).
+  `offer_history`), entidades, DAOs y mappers (`Mappers.kt`). **Versión 3**
+  (SPRINT 9) con migraciones 1→2 (reconstrucción de tabla) y **2→3**
+  (`offer_history` +9 columnas de análisis detallado; `overlay_config` +
+  `historyLimit` default 500).
 - `driver_config` guarda el agregado `DriverConfig` en una fila: perfil,
   vehículo, costos (combustible, mantenimiento, adicionales codificados),
   plataformas (codificadas) y umbrales. La existencia de la fila = conductor
   configurado.
+- `offer_history` (SPRINT 9) guarda el análisis detallado de cada oferta:
+  tipo, confianza (%, nivel), resumen de reglas, motivos, recomendación y
+  tiempos (procesamiento/evaluación/reglas). `OfferHistoryDao` con
+  `trimToLimit(limit)`/`count()`; `DefaultOfferHistoryRepository` recorta
+  automáticamente al insertar según `OverlayConfig.historyLimit`.
 - Repositorios concretos `Default*Repository` implementan los contratos de
   dominio y aplican valores por defecto si no existe fila.
 - DI: `DatabaseModule` (DB + DAOs + migraciones) y `RepositoryModule` (`@Binds`).
@@ -260,6 +274,10 @@ OverlayDataSource (interfaz: StateFlow<OverlayUiState>, start/stop)
             · registra OfferTiming (evaluación/overlay) en OfferPerformanceTracker
             · persiste OfferEvaluationRecord en OfferEvaluationRepository (memoria,
               últimas 100) — historial "Última oferta" del panel de depuración
+            · SPRINT 9: alimenta la sesión (CaptureSessionManager: start por
+              snapshot, recordOffer/recordError) y persiste OfferHistoryEntry
+              ampliado (tipo, confianza, reglas, motivos, tiempos) en Room;
+              ejecuta RuleEngine solo si FeatureFlag.RULES está activo
             · visible = status != DISABLED || evaluation != null
             · oculta el resultado tras OverlayConfig.ttlSeconds (MIN 10 s)
       ▼
@@ -318,15 +336,20 @@ OverlayManager (interfaz) ← AndroidOverlayManager: fachada para ViewModels
 
 Detalles de diseño del overlay:
 
-- **Un solo `ComposeView`** agregado/retirado de `WindowManager` según estado.
+- **Una sola vista persistente** (SPRINT 9): el `ComposeView` se agrega una vez;
+  ocultar/mostrar usa `FLAG_NOT_TOUCHABLE` en lugar de re-agregar/retirar de
+  `WindowManager`. `onConfigurationChanged` reclama tamaño/posición y
+  `START_STICKY` ayuda al reinicio. `OverlayContent` anima visibilidad
+  (`animateFloatAsState`) y hace crossfade estado↔evaluación
+  (`AnimatedContent`).
 - El servicio arranca/observa en `onStartCommand` (`dataSource.start()`) y
   detiene en `onDestroy` (`dataSource.stop()`).
 - Traversal del árbol de accesibilidad con límites duros (400 nodos, 80 textos,
   textos ≤200 chars) para minimizar memoria y batería.
 - Deduplicación por huella del frame y **caché de frames por hash de contenido**
   en el pipeline: no re-evalúa el mismo contenido.
-- `OverlayConfig` define indicadores visibles, modo compacto, opacidad, TTL y
-  posición; máxima velocidad de lectura.
+- `OverlayConfig` define indicadores visibles, modo compacto, opacidad, TTL,
+  posición y `historyLimit`; máxima velocidad de lectura.
 - `PermissionManager` es la única fuente de verdad de permisos y ajustes; la
   consume `OverlayManager`, `HomeViewModel` y `DiagnosisViewModel`.
 - `OverlayDataSource` es la única fuente de verdad del estado del overlay; la
@@ -337,14 +360,22 @@ Detalles de diseño del overlay:
 - `SettingsViewModel` (`@HiltViewModel`) combina los Flows de `DriverCosts`,
   `DecisionThresholds` y `OverlayConfig`; `save()` persiste los tres.
 - `SettingsScreen`: tarjetas "Costos del conductor", "Umbrales de decisión" y
-  "Overlay" (indicadores, modo compacto, opacidad).
+  "Overlay" (indicadores, modo compacto, opacidad); campo editable
+  **Límite de registros del historial** (`OverlayConfig.historyLimit`, SPRINT 9).
 
 ### Feature:history (`:feature:history`)
 
-- `HistoryViewModel` (`@HiltViewModel`) expone `Flow<List<OfferHistoryEntry>>`
-  (límite 100) y `clearHistory()`.
+- `HistoryViewModel` (`@HiltViewModel`) expone el historial filtrado
+  (`HistoryUiState` con `HistoryFilters`), `select`/`dismissDetail` y
+  `clearHistory()`.
 - `HistoryScreen`: lista `LazyColumn` con insignia de decisión, resumen,
-  ganancia formateada y timestamp; estado vacío.
+  ganancia formateada y timestamp; barra de **búsqueda** y **filtros**
+  (plataforma, decisión, presets de fecha Hoy/7/30 días); **detalle** en
+  diálogo (precio, distancia, duración, ganancia, tipo de oferta, confianza,
+  recomendación, reglas, motivos); estado vacío.
+- **Dashboard (SPRINT 9)**: `StatsViewModel` + `StatsScreen` con gráficos
+  `Canvas` (barras diarias + donut de decisiones) alimentados por
+  `HistoryStatsCalculator` (`:domain`).
 
 ### Feature:onboarding (`:feature:onboarding`)
 
@@ -359,8 +390,8 @@ Detalles de diseño del overlay:
 
 - `SircApplication` (`@HiltAndroidApp`, arranca `OfferCaptureCoordinator`),
   `MainActivity` (`@AndroidEntryPoint`), `SircRoot` (gating de onboarding) y
-  navegación con `Scaffold` + `TopAppBar` + `NavigationBar` (5 destinos: Home,
-  Historial, Ajustes, Diagnóstico, Debug) y `NavHost`.
+  navegación con `Scaffold` + `TopAppBar` + `NavigationBar` (6 destinos: Home,
+  Historial, **Estadísticas**, Ajustes, Diagnóstico, Debug) y `NavHost`.
 - `RootViewModel`: expone `observeIsConfigured()` como `StateFlow<Boolean?>`;
   `SircRoot` muestra spinner → `OnboardingScreen` → `SircApp`.
 - `HomeViewModel` (`@HiltViewModel`) expone estado de permisos (overlay,
@@ -381,7 +412,10 @@ Detalles de diseño del overlay:
   motivo, texto OCR truncado a 200 chars, parser y timestamp desde
   `OfferEvaluationRepository`), **"Rendimiento (promedio últimas 20 ofertas)"**
   (captura/OCR/parseo/evaluación/overlay/total desde
-  `OfferPerformanceTracker.averages`), tiempo de procesamiento, memoria
+  `OfferPerformanceTracker.averages`), **"Sesión de captura"** (estado,
+  duración, contadores y controles Iniciar/Pausar/Reanudar/Detener vía
+  `CaptureSessionManager`), **Exportar diagnóstico** (share del informe con
+  sesión, promedios, última oferta y flags), tiempo de procesamiento, memoria
   aproximada y eventos recientes.
 
 ## Decisiones técnicas registradas
@@ -440,6 +474,14 @@ Detalles de diseño del overlay:
 | `@JvmSuppressWildcards` en listas inyectadas | Kotlin declara `List<? extends T>`; Dagger lo trataría como multibinding; el provider usa `List<@JvmSuppressWildcards T>` explícito. |
 | Constructores con default args sin `@Inject` | Un default arg genera un segundo constructor que Dagger rechaza ("may only contain one injected constructor"); los engines se proveen explícitamente. |
 | Tiempos de detección y reglas por oferta | `detectionMillis` en `ProcessingMetrics`/`OfferTiming` y `rulesMillis` en `OfferTiming`; regex del parser precompiladas (sin recompilar por frame). |
+| `CaptureSessionManager` como máquina de estados pura | La sesión (duración, ofertas, errores) se mide en `:domain` sin Android; el reloj inyectable hace deterministas las pruebas. |
+| Historial persistente ampliado en Room v3 | `offer_history` conserva el análisis detallado (tipo, confianza, reglas, motivos, tiempos) y sobrevive reinicios; migración 1→3. |
+| `OverlayConfig.historyLimit` + `trimToLimit` | El límite de registros es configurable desde Ajustes; el repositorio recorta los más antiguos al insertar. |
+| `HistoryStatsCalculator` + gráficos Canvas | Dashboard sin librería de charting: barras diarias y donut dibujados con `Canvas` de Compose. |
+| `SessionStats.clock` excluido de `equals` | `activeSeconds` en vivo con reloj inyectable sin romper la igualdad estructural del data class. |
+| `OverlayService` de vista única persistente | Oculta con `FLAG_NOT_TOUCHABLE` en vez de re-agregar el `ComposeView` (menos parpadeo y consumo); `onConfigurationChanged` reclama tamaño/posición. |
+| MediaProjection resiliente a configuración | `onDisplayConfigChanged()` recrea el `VirtualDisplay` en rotación/cambio de resolución; liberación idempotente. |
+| Flags `RULES`/`DETAILED_LOGS`/`METRICS` | El Modo Beta apaga reglas y logs detallados en caliente; el diagnóstico exportable permite reportar a soporte sin leer logcat. |
 
 ## Cumplimiento
 

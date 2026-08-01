@@ -8,5 +8,8 @@ interface OfferHistoryRepository {
 
     suspend fun clear()
 
+    /** Elimina los registros más antiguos hasta dejar como máximo [limit]. */
+    suspend fun trimToLimit(limit: Int)
+
     fun observeEntries(limit: Int = 100): Flow<List<OfferHistoryEntry>>
 }

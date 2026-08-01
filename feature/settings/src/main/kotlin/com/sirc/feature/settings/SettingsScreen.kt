@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -132,6 +133,21 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             Text(
                 text = "Se muestran máx. 4 indicadores. Se prioriza la velocidad de lectura.",
                 modifier = Modifier.padding(top = 4.dp),
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            TextField(
+                label = "Límite de registros del historial",
+                value = config.historyLimit.toString(),
+                onValueChange = { new ->
+                    new.toIntOrNull()?.takeIf { it > 0 }?.let {
+                        viewModel.updateOverlay(config.copy(historyLimit = it))
+                    }
+                },
+            )
+            Text(
+                text = "Los registros más antiguos se eliminan automáticamente al superar este límite.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 

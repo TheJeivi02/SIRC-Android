@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
@@ -33,9 +34,12 @@ import javax.inject.Inject
 /**
  * Foreground Service que dibuja el Overlay (TYPE_APPLICATION_OVERLAY).
  *
- * El overlay es una ventana Compose liviana: un solo [ComposeView] que se
- * agrega/retira de WindowManager según el estado de [OverlayDataSource]. No
- * mantiene Views de más, minimizando memoria.
+ * El overlay es una ventana Compose liviana que se agrega una sola vez al
+ * [WindowManager]. Mostrar/ocultar se hace animando la opacidad desde Compose
+ * y marcando la ventana como [WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE]
+ * cuando está oculta (para no bloquear los toques sobre la app de la
+ * plataforma). Así se evita el parpadeo de agregar/quitar la vista en cada
+ * oferta.
  */
 @AndroidEntryPoint
 class OverlayService : Service() {
@@ -77,6 +81,11 @@ class OverlayService : Service() {
         return START_STICKY
     }
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        reclampOverlay()
+    }
+
     override fun onDestroy() {
         overlayView?.let { view ->
             runCatching { windowManager?.removeView(view) }
@@ -116,18 +125,40 @@ class OverlayService : Service() {
                 }
             }
         overlayView = view
+        runCatching { wm.addView(view, params) }
 
         scope.launch {
             dataSource.uiState.collect { state ->
-                val attached = view.parent != null
-                val shouldShow = state.visible
-                when {
-                    shouldShow && !attached -> wm.addView(view, params)
-                    !shouldShow && attached -> wm.removeView(view)
-                    else -> Unit
-                }
+                applyVisibility(state.visible)
             }
         }
+    }
+
+    private fun applyVisibility(visible: Boolean) {
+        val view = overlayView ?: return
+        val params = windowParams ?: return
+        if (view.parent == null) return
+        params.flags =
+            if (visible) {
+                BASE_FLAGS
+            } else {
+                BASE_FLAGS or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            }
+        runCatching { windowManager?.updateViewLayout(view, params) }
+    }
+
+    /** Reajusta tamaño y posición tras rotación / cambio de resolución / split. */
+    private fun reclampOverlay() {
+        val wm = windowManager ?: return
+        val params = windowParams ?: return
+        val view = overlayView ?: return
+        val display = wm.defaultDisplay
+        val metrics = android.util.DisplayMetrics().also { display.getRealMetrics(it) }
+        params.width = (metrics.widthPixels * OVERLAY_WIDTH_RATIO).toInt()
+        val maxX = (metrics.widthPixels - params.width).coerceAtLeast(0)
+        params.x = params.x.coerceIn(0, maxX)
+        params.y = params.y.coerceIn(0, metrics.heightPixels - params.height)
+        runCatching { wm.updateViewLayout(view, params) }
     }
 
     private fun moveOverlay(
@@ -139,27 +170,25 @@ class OverlayService : Service() {
         val view = overlayView ?: return
         val display = wm.defaultDisplay
         val metrics = android.util.DisplayMetrics().also { display.getRealMetrics(it) }
-        params.x = (params.x + deltaX).coerceIn(0, metrics.widthPixels - params.width)
-        params.y = (params.y + deltaY).coerceIn(0, metrics.heightPixels - params.height)
+        params.x = (params.x + deltaX).coerceIn(0, (metrics.widthPixels - params.width).coerceAtLeast(0))
+        params.y = (params.y + deltaY).coerceIn(0, (metrics.heightPixels - params.height).coerceAtLeast(0))
         runCatching { wm.updateViewLayout(view, params) }
     }
 
     private fun buildWindowParams(config: OverlayConfig): WindowManager.LayoutParams {
         val display = (getSystemService(WINDOW_SERVICE) as WindowManager).defaultDisplay
         val metrics = android.util.DisplayMetrics().also { display.getRealMetrics(it) }
-        val width = (metrics.widthPixels * 0.82f).toInt()
+        val width = (metrics.widthPixels * OVERLAY_WIDTH_RATIO).toInt()
 
         return WindowManager.LayoutParams(
             width,
             ViewGroup.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            BASE_FLAGS,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            val maxX = metrics.widthPixels - width
+            val maxX = (metrics.widthPixels - width).coerceAtLeast(0)
             x = ((metrics.widthPixels - width) * (config.positionXPercent / 100f)).toInt().coerceIn(0, maxX)
             y = (metrics.heightPixels * (config.positionYPercent / 100f)).toInt()
         }
@@ -199,6 +228,12 @@ class OverlayService : Service() {
     companion object {
         private const val CHANNEL_ID = "sirc_overlay"
         private const val NOTIFICATION_ID = 9001
+        private const val OVERLAY_WIDTH_RATIO = 0.82f
+
+        private val BASE_FLAGS =
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
 
         fun start(context: Context) {
             ContextCompat.startForegroundService(context, Intent(context, OverlayService::class.java))

@@ -59,4 +59,27 @@ object SircMigrations {
                 db.execSQL("ALTER TABLE `driver_config_new` RENAME TO `driver_config`")
             }
         }
+
+    /**
+     * v2 → v3: `offer_history` incorpora el análisis detallado (tipo de oferta,
+     * confianza, reglas, razones, recomendación y tiempos de procesamiento) y
+     * `overlay_config` incorpora el límite de registros del historial.
+     */
+    val MIGRATION_2_3 =
+        object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `offer_history` ADD COLUMN `offerType` TEXT")
+                db.execSQL("ALTER TABLE `offer_history` ADD COLUMN `confidencePercent` INTEGER")
+                db.execSQL("ALTER TABLE `offer_history` ADD COLUMN `confidenceLevel` TEXT")
+                db.execSQL("ALTER TABLE `offer_history` ADD COLUMN `ruleSummary` TEXT")
+                db.execSQL("ALTER TABLE `offer_history` ADD COLUMN `reasons` TEXT")
+                db.execSQL("ALTER TABLE `offer_history` ADD COLUMN `recommendation` TEXT")
+                db.execSQL("ALTER TABLE `offer_history` ADD COLUMN `processingMillis` REAL")
+                db.execSQL("ALTER TABLE `offer_history` ADD COLUMN `evaluationMillis` REAL")
+                db.execSQL("ALTER TABLE `offer_history` ADD COLUMN `rulesMillis` REAL")
+                db.execSQL(
+                    "ALTER TABLE `overlay_config` ADD COLUMN `historyLimit` INTEGER NOT NULL DEFAULT 500",
+                )
+            }
+        }
 }

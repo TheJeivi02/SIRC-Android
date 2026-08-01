@@ -1,5 +1,6 @@
 package com.sirc.app
 
+import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -36,6 +38,7 @@ import com.sirc.core.ui.components.SectionCard
 import com.sirc.core.ui.components.StatusDot
 import com.sirc.core.ui.theme.recommendationLabel
 import com.sirc.domain.model.RuleVerdict
+import com.sirc.domain.session.SessionStatus
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -70,6 +73,64 @@ fun DebugPanelScreen(viewModel: DebugPanelViewModel = hiltViewModel()) {
         SectionCard(title = "Feature Flags") {
             state.flags.forEach { status ->
                 FlagRow(status = status, onToggle = { viewModel.toggleFlag(status.flag) })
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            val context = LocalContext.current
+            Button(
+                onClick = {
+                    val report = viewModel.buildDiagnosticsReport()
+                    val intent =
+                        Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_SUBJECT, "SIRC diagnóstico")
+                            putExtra(Intent.EXTRA_TEXT, report)
+                        }
+                    runCatching { context.startActivity(Intent.createChooser(intent, "Exportar diagnóstico")) }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Exportar diagnóstico")
+            }
+        }
+
+        SectionCard(title = "Sesión de captura") {
+            LabeledValue(label = "Estado", value = state.session.status.name)
+            LabeledValue(label = "Duración activa", value = "${state.session.activeSeconds} s")
+            LabeledValue(label = "Ofertas procesadas", value = "${state.session.offersProcessed}")
+            LabeledValue(
+                label = "Aceptadas / Rechazadas",
+                value = "${state.session.offersAccepted} / ${state.session.offersRejected}",
+            )
+            LabeledValue(label = "Errores", value = "${state.session.errors}")
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                when (state.session.status) {
+                    SessionStatus.IDLE ->
+                        Button(onClick = viewModel::startSession, modifier = Modifier.weight(1f)) {
+                            Text("Iniciar")
+                        }
+
+                    SessionStatus.ACTIVE -> {
+                        OutlinedButton(onClick = viewModel::pauseSession, modifier = Modifier.weight(1f)) {
+                            Text("Pausar")
+                        }
+                        OutlinedButton(onClick = viewModel::stopSession, modifier = Modifier.weight(1f)) {
+                            Text("Detener")
+                        }
+                    }
+
+                    SessionStatus.PAUSED -> {
+                        Button(onClick = viewModel::resumeSession, modifier = Modifier.weight(1f)) {
+                            Text("Reanudar")
+                        }
+                        OutlinedButton(onClick = viewModel::stopSession, modifier = Modifier.weight(1f)) {
+                            Text("Detener")
+                        }
+                    }
+                }
             }
         }
 
