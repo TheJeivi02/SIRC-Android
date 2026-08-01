@@ -13,6 +13,23 @@ es rentable.
 
 **Cómo funciona (flujo real):**
 
+> Nota SPRINT 10: **hardening RC1** (v1.0.0-rc1). **Modo de validación**:
+> `ValidationRecorder` (`:core:capture`, puro, buffer 500) registra
+> `CaptureError`/`OcrFailed`/`ParseFailed`/`FrameDiscarded`
+> (`CAPTURE_FAILED`/`DUPLICATE`/`NO_TEXTS`/`UNSUPPORTED_PLATFORM`)/
+> `RuleFailed`/`OfferRejected`; el Panel de depuración tiene la sección **Modo
+> validación** con contadores, **Exportar informe de validación** y Limpiar; el
+> informe se adjunta a "Exportar diagnóstico". **Recuperación**: si el OCR
+> falla el pipeline degrada a textos de accesibilidad (ya no entra en `ERROR`);
+> los fallos no controlados registran `CaptureError`. **Logs por niveles**:
+> `ERROR`/`WARNING` siempre (también Release), `INFO`/`DEBUG` solo en
+> desarrollo (`DEBUG` requiere `DETAILED_LOGS`). **Android 15**:
+> `screenBounds()` con `WindowManager.getCurrentWindowMetrics()` (API 30+) y
+> fallback 24–29. **Auditoría**: eliminados `OfferEvaluator`/`OfferEventBus`
+> (historial duplicado); `SircAccessibilityService` conserva solo el reenvío de
+> eventos. Docs: `RELEASE_NOTES_RC1.md`, `KNOWN_ISSUES.md`,
+> `PERFORMANCE_REPORT.md`, `TEST_REPORT.md`.
+>
 > Nota SPRINT 9: preparación de la **beta cerrada** (v1.0.0-beta). Nueva
 > **sesión de captura** (`CaptureSessionManager` + `SessionStatus` +
 > `SessionStats`, reloj inyectable) alimentada por el pipeline/overlay
@@ -77,18 +94,27 @@ es rentable.
 > ML Kit OCR está integrado bajo `OcrEngine`; el pipeline aplica OCR cuando la
 > solicitud lleva imagen (SPRINT 6 la aporta vía MediaProjection).
 
-1. Un **Accessibility Service (solo lectura)** detecta la app de transporte
-   visible y recolecta los textos de pantalla (límites duros: 400 nodos, 80
-   textos, ≤200 chars, deduplicación por huella de texto).
-2. `ExtractorRegistry` → `GenericPlatformExtractor` parsea el texto
-   (`OfferTextParser`) y construye un `TripOffer?` con palabras clave por
-   plataforma.
-3. `OfferEventBus` (StateFlow en memoria) lleva la oferta a `OfferEvaluator`.
-4. `ProfitEngine` (función pura) calcula ganancia, ganancia/hora, ganancia/km y
-   emite `Decision` (`PROFITABLE` / `MARGINAL` / `NOT_PROFITABLE`).
-5. El historial se persiste en Room.
-6. `OverlayService` (Foreground, `TYPE_APPLICATION_OVERLAY`) dibuja un
-   `ComposeView` liviano con la insignia de decisión y hasta 4 indicadores.
+1. Dos **Accessibility Services (solo lectura)** observan las apps de
+   transporte soportadas y recolectan los textos de pantalla (límites duros:
+   400 nodos, 80 textos, ≤200 chars, deduplicación por huella de texto).
+2. `CaptureAccessibilityService` construye `CaptureRequest` y los encola en el
+   `DebounceCaptureScheduler` (400 ms); `SircAccessibilityService` reenvía los
+   cambios de ventana al pipeline/panel de depuración sin interpretar nada.
+3. `CapturePipeline` (`DefaultCapturePipeline`) ejecuta ScreenCapture (frame de
+   MediaProjection o textos) → **OCR** (ML Kit, si hay imagen y flag `OCR`;
+   degrada a textos si falla) → `OfferParserOrchestrator` (detección de pantalla
+   + parsers especializados de Uber + extractor genérico por plataforma) y
+   produce un `OfferSnapshot`.
+4. `PipelineOverlayDataSource` mapea el snapshot a `TripOffer`, lo evalúa con
+   `EvaluateDetailedOfferUseCase` (`ProfitEvaluationEngine` + `RecommendationEngine`),
+   ejecuta **reglas** (`RuleEngine`) y **confianza** (`ConfidenceEngine`), publica
+   el overlay y persiste el historial (Room). Todo queda cronometrado
+   (`OfferPerformanceTracker`) y los incidentes se registran en el
+   `ValidationRecorder`.
+5. `OverlayService` (Foreground, `TYPE_APPLICATION_OVERLAY`) dibuja un
+   `ComposeView` liviano con la recomendación, métricas y semáforo.
+6. Todo el análisis es **100 % local**: sin telemetría, sin backend, sin fuga de
+   contenido de pantalla.
 
 **Filosofía**: NO repetir la información que ya muestra la plataforma; solo
 información derivada (ganancia, métricas) con colores semáforo. El Accessibility
@@ -96,6 +122,16 @@ Service **nunca** interactúa con otras apps.
 
 ## Estado del proyecto
 
+- **SPRINT 10 completado** (v1.0.0-rc1): Hardening RC1 (ver `docs/ROADMAP.md`).
+  **Modo de validación** (`ValidationRecorder` + sección en Debug + exportar
+  informe). **Recuperación**: OCR degrada a textos, `CaptureError` registrado.
+  **Logs por niveles** (ERROR/WARNING siempre; INFO/DEBUG en desarrollo).
+  **Android 15**: `WindowMetrics` en `OverlayService`. **Auditoría**: eliminados
+  `OfferEvaluator`/`OfferEventBus` (historial duplicado). Tests:
+  `ValidationRecorderTest`, pipeline de validación y stress. Docs:
+  `RELEASE_NOTES_RC1.md`/`KNOWN_ISSUES.md`/`PERFORMANCE_REPORT.md`/`TEST_REPORT.md`.
+  Verificación en verde (ktlint, unit tests, lint, assembleDebug,
+  assembleDebugAndroidTest).
 - **SPRINT 9 completado** (v1.0.0-beta): Preparación beta cerrada (ver
   `docs/ROADMAP.md`). **Sesión** (`CaptureSessionManager`/`SessionStatus`/
   `SessionStats` en `:domain`). **Room v3** con `OfferHistoryEntry` ampliado

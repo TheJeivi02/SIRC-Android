@@ -8,6 +8,8 @@ import com.sirc.capture.metrics.OfferTiming
 import com.sirc.capture.model.OfferSnapshot
 import com.sirc.capture.model.OverlayState
 import com.sirc.capture.pipeline.CapturePipeline
+import com.sirc.capture.validation.ValidationEvent
+import com.sirc.capture.validation.ValidationRecorder
 import com.sirc.domain.engine.ConfidenceEngine
 import com.sirc.domain.engine.ConfidenceResult
 import com.sirc.domain.engine.RuleEngine
@@ -16,9 +18,11 @@ import com.sirc.domain.model.OfferEvaluationRecord
 import com.sirc.domain.model.OfferEvaluationResult
 import com.sirc.domain.model.OfferHistoryEntry
 import com.sirc.domain.model.OverlayConfig
+import com.sirc.domain.model.Recommendation
 import com.sirc.domain.model.RuleContext
 import com.sirc.domain.model.RuleEvaluation
 import com.sirc.domain.model.RuleThresholds
+import com.sirc.domain.model.RuleVerdict
 import com.sirc.domain.model.TripOffer
 import com.sirc.domain.repository.DriverConfigRepository
 import com.sirc.domain.repository.OfferEvaluationRepository
@@ -63,6 +67,7 @@ class PipelineOverlayDataSource @Inject constructor(
     private val ruleEngine: RuleEngine,
     private val confidenceEngine: ConfidenceEngine,
     private val sessionManager: CaptureSessionManager,
+    private val validationRecorder: ValidationRecorder,
 ) : OverlayDataSource {
     private val _uiState = MutableStateFlow(OverlayUiState(config = OverlayConfig()))
     override val uiState: StateFlow<OverlayUiState> = _uiState.asStateFlow()
@@ -124,6 +129,7 @@ class PipelineOverlayDataSource @Inject constructor(
                 val rulesStart = System.nanoTime()
                 val analysis = analyze(offer, result, snapshot)
                 val rulesMillis = elapsedMillis(rulesStart)
+                recordValidationEvents(snapshot, result, analysis)
                 val overlayStart = System.nanoTime()
                 show(result, analysis)
                 persist(
@@ -219,6 +225,34 @@ class PipelineOverlayDataSource @Inject constructor(
             }
         val confidence = confidenceEngine.assess(offer, result.evaluation.metrics, ruleEvaluation)
         return Analysis(offerTypeFrom(snapshot.rawData), ruleEvaluation, confidence)
+    }
+
+    /** Registra reglas fallidas y ofertas rechazadas para el modo de validación. */
+    private fun recordValidationEvents(
+        snapshot: OfferSnapshot,
+        result: OfferEvaluationResult,
+        analysis: Analysis,
+    ) {
+        analysis.ruleEvaluation.results
+            .filter { it.verdict == RuleVerdict.FAIL }
+            .forEach { ruleResult ->
+                validationRecorder.record(
+                    ValidationEvent.RuleFailed(
+                        timestampMillis = snapshot.capturedAtMillis,
+                        ruleName = ruleResult.ruleName,
+                        verdict = ruleResult.verdict.name,
+                        message = ruleResult.message,
+                    ),
+                )
+            }
+        if (result.recommendation.recommendation == Recommendation.REJECT) {
+            validationRecorder.record(
+                ValidationEvent.OfferRejected(
+                    timestampMillis = snapshot.capturedAtMillis,
+                    reason = result.recommendation.mainReason,
+                ),
+            )
+        }
     }
 
     private fun show(

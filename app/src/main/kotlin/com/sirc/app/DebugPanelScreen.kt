@@ -278,6 +278,41 @@ fun DebugPanelScreen(viewModel: DebugPanelViewModel = hiltViewModel()) {
             }
         }
 
+        SectionCard(title = "Modo validación") {
+            LabeledValue(label = "Total eventos", value = "${state.validation.total}")
+            LabeledValue(label = "Errores de captura", value = "${state.validation.captureErrors}")
+            LabeledValue(label = "Errores OCR", value = "${state.validation.ocrFailed}")
+            LabeledValue(label = "Errores de parseo", value = "${state.validation.parseFailed}")
+            LabeledValue(label = "Capturas descartadas", value = "${state.validation.discarded}")
+            LabeledValue(label = "Reglas fallidas", value = "${state.validation.ruleFailed}")
+            LabeledValue(label = "Ofertas rechazadas", value = "${state.validation.rejected}")
+            Spacer(modifier = Modifier.height(8.dp))
+            val context = LocalContext.current
+            Button(
+                onClick = {
+                    val report = viewModel.buildValidationReport()
+                    val intent =
+                        Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_SUBJECT, "SIRC informe de validación")
+                            putExtra(Intent.EXTRA_TEXT, report)
+                        }
+                    runCatching {
+                        context.startActivity(Intent.createChooser(intent, "Exportar informe de validación"))
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Exportar informe de validación")
+            }
+            OutlinedButton(
+                onClick = viewModel::clearValidation,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Limpiar eventos")
+            }
+        }
+
         SectionCard(title = "Rendimiento (promedio últimas 20 ofertas)") {
             LabeledValue(label = "Captura", value = "${formatMillis(state.avgCaptureMillis)} ms")
             LabeledValue(label = "OCR", value = "${formatMillis(state.avgOcrMillis)} ms")

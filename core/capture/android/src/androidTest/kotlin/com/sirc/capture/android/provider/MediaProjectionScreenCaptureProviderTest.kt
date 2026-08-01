@@ -3,6 +3,7 @@ package com.sirc.capture.android.provider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.sirc.capture.log.SircLogger
+import com.sirc.capture.validation.ValidationRecorder
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -21,7 +22,7 @@ class MediaProjectionScreenCaptureProviderTest {
     @Test
     fun sinPermisoConcedido_noProyectaNiCapturaFrames() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val provider = MediaProjectionScreenCaptureProvider(context, NoOpSircLogger)
+        val provider = MediaProjectionScreenCaptureProvider(context, NoOpSircLogger, ValidationRecorder())
 
         assertFalse(provider.isProjecting.value)
 

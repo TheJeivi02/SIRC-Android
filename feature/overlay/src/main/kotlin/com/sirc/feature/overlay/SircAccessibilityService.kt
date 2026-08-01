@@ -5,7 +5,6 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.sirc.capture.model.CaptureWindowEvent
 import com.sirc.capture.model.WindowEventType
-import com.sirc.core.platform.ExtractorRegistry
 import com.sirc.domain.model.RidePlatform
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -19,24 +18,19 @@ import javax.inject.Inject
  *  - NO simula toques, NO acepta/rechaza viajes, NO interactúa con ninguna UI.
  *  - Filtrado por paquetes soportados para minimizar consumo de batería.
  *
- * El resultado se publica en [OfferEventBus]; el Overlay Service lo consume.
- * Además, cada cambio de ventana relevante se reenvía al pipeline de captura
- * ([AccessibilityWindowObserver]) sin ninguna interpretación.
+ * Reenvía cada cambio de ventana relevante al pipeline de captura
+ * ([AccessibilityWindowObserver]) sin ninguna interpretación; la persistencia
+ * del historial y el overlay los gestiona el pipeline moderno de captura.
  */
 @AndroidEntryPoint
 class SircAccessibilityService : AccessibilityService() {
-    @Inject lateinit var eventBus: OfferEventBus
-
-    @Inject lateinit var extractorRegistry: ExtractorRegistry
-
     @Inject lateinit var windowObserver: AccessibilityWindowObserver
 
     private var lastFingerprint: String = ""
-    private var activePlatform: RidePlatform? = null
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         val packageName = event.packageName?.toString() ?: return
-        val platform = RidePlatform.fromPackageName(packageName) ?: return
+        if (RidePlatform.fromPackageName(packageName) == null) return
 
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
             event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
@@ -63,19 +57,6 @@ class SircAccessibilityService : AccessibilityService() {
                 texts = texts,
             ),
         )
-
-        val offer =
-            extractorRegistry.forPlatform(platform)
-                .extract(texts, System.currentTimeMillis())
-
-        if (offer != null) {
-            activePlatform = platform
-            eventBus.onOffer(offer)
-        } else if (activePlatform != null) {
-            // La oferta desapareció de la pantalla visible.
-            activePlatform = null
-            eventBus.clearOffer()
-        }
     }
 
     /**
@@ -107,11 +88,6 @@ class SircAccessibilityService : AccessibilityService() {
     }
 
     override fun onInterrupt() = Unit
-
-    override fun onDestroy() {
-        eventBus.clearOffer()
-        super.onDestroy()
-    }
 
     private fun Int.toWindowEventType(): WindowEventType =
         when (this) {

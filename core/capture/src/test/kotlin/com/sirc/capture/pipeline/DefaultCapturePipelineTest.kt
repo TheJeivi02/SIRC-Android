@@ -17,6 +17,9 @@ import com.sirc.capture.ocr.OcrEngine
 import com.sirc.capture.parser.OfferParser
 import com.sirc.capture.repository.InMemoryCaptureRepository
 import com.sirc.capture.screen.ScreenCapture
+import com.sirc.capture.validation.DiscardReason
+import com.sirc.capture.validation.ValidationEvent
+import com.sirc.capture.validation.ValidationRecorder
 import com.sirc.domain.model.RidePlatform
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
@@ -40,6 +43,7 @@ class DefaultCapturePipelineTest {
     private val metrics = RecordingCaptureMetrics()
     private val logger = TestLogger()
     private val performanceTracker = InMemoryOfferPerformanceTracker()
+    private val validationRecorder = ValidationRecorder()
 
     private val pipeline =
         DefaultCapturePipeline(
@@ -52,6 +56,7 @@ class DefaultCapturePipelineTest {
             metrics = metrics,
             logger = logger,
             performanceTracker = performanceTracker,
+            validationRecorder = validationRecorder,
         )
 
     @Test
@@ -127,14 +132,61 @@ class DefaultCapturePipelineTest {
         }
 
     @Test
-    fun `fallo del OCR pasa a ERROR`() =
+    fun `fallo del OCR degrada a textos de accesibilidad y registra OcrFailed`() =
         runBlocking {
             ocrEngine.throwError = true
 
-            val snapshot = pipeline.process(requestFor(imageData = loadTestImage("test-images/offer_uber_1.png")))
+            val snapshot = pipeline.process(requestFor(texts = listOf("UBER", "$125.00"), imageData = byteArrayOf(1)))
+
+            assertNotNull(snapshot)
+            assertEquals(1, repository.snapshots().size)
+            assertTrue(validationRecorder.snapshot().any { it is ValidationEvent.OcrFailed })
+        }
+
+    @Test
+    fun `fallo en la captura registra descarte CAPTURE_FAILED`() =
+        runBlocking {
+            screenCapture.fail = true
+
+            pipeline.process(requestFor(texts = listOf("UBER", "$125.00")))
+
+            assertTrue(
+                validationRecorder.snapshot().any {
+                    it is ValidationEvent.FrameDiscarded && it.reason == DiscardReason.CAPTURE_FAILED
+                },
+            )
+        }
+
+    @Test
+    fun `fallo no controlado en la captura registra CaptureError`() =
+        runBlocking {
+            screenCapture.throwOnCapture = true
+
+            val snapshot = pipeline.process(requestFor(texts = listOf("UBER", "$125.00")))
 
             assertNull(snapshot)
             assertEquals(OverlayState.ERROR, pipeline.state.value)
+            assertTrue(
+                validationRecorder.snapshot().any {
+                    it is ValidationEvent.CaptureError
+                },
+            )
+        }
+
+    @Test
+    fun `frame duplicado registra descarte DUPLICATE`() =
+        runBlocking {
+            val image = loadTestImage("test-images/offer_uber_1.png")
+            ocrEngine.recognized = listOf("UBER", "$125.00")
+
+            pipeline.process(requestFor(imageData = image))
+            pipeline.process(requestFor(imageData = image))
+
+            assertTrue(
+                validationRecorder.snapshot().any {
+                    it is ValidationEvent.FrameDiscarded && it.reason == DiscardReason.DUPLICATE
+                },
+            )
         }
 
     @Test
@@ -225,6 +277,19 @@ class DefaultCapturePipelineTest {
             assertNotNull(timing.totalMillis)
         }
 
+    @Test
+    fun `stress de 200 solicitudes distintas mantiene buffers acotados`() =
+        runBlocking {
+            repeat(200) { index ->
+                val snapshot = pipeline.process(requestFor(texts = listOf("UBER", "$${(100 + index).toDouble()}.00")))
+                assertNotNull(snapshot)
+            }
+
+            assertEquals(100, performanceTracker.lastOffers.value.size)
+            assertEquals(50, repository.snapshots().size)
+            assertTrue(validationRecorder.snapshot().size <= 500)
+        }
+
     private fun requestFor(
         texts: List<String> = emptyList(),
         imageData: ByteArray? = null,
@@ -249,8 +314,10 @@ class DefaultCapturePipelineTest {
 
     private class FakeScreenCapture : ScreenCapture {
         var fail = false
+        var throwOnCapture = false
 
         override suspend fun capture(request: CaptureRequest): ScreenFrame? {
+            if (throwOnCapture) error("capture boom")
             if (fail) return null
             return ScreenFrame(
                 requestId = request.id,

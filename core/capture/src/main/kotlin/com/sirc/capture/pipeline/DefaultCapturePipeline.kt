@@ -20,6 +20,9 @@ import com.sirc.capture.ocr.OcrEngine
 import com.sirc.capture.parser.OfferParser
 import com.sirc.capture.repository.CaptureRepository
 import com.sirc.capture.screen.ScreenCapture
+import com.sirc.capture.validation.DiscardReason
+import com.sirc.capture.validation.ValidationEvent
+import com.sirc.capture.validation.ValidationRecorder
 import com.sirc.domain.model.RidePlatform
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,6 +53,7 @@ class DefaultCapturePipeline @Inject constructor(
     private val cache: CaptureFrameCache,
     private val metrics: CaptureMetrics,
     private val performanceTracker: OfferPerformanceTracker,
+    private val validationRecorder: ValidationRecorder,
 ) : CapturePipeline {
     private val _state = MutableStateFlow(OverlayState.DISABLED)
     private val _snapshots = MutableSharedFlow<OfferSnapshot>(extraBufferCapacity = 8)
@@ -69,6 +73,9 @@ class DefaultCapturePipeline @Inject constructor(
             .getOrElse { error ->
                 _state.value = OverlayState.ERROR
                 logger.error(TAG, "error en el pipeline: ${error.message}")
+                validationRecorder.record(
+                    ValidationEvent.CaptureError(System.currentTimeMillis(), error.message ?: "fallo del pipeline"),
+                )
                 null
             }
     }
@@ -77,23 +84,42 @@ class DefaultCapturePipeline @Inject constructor(
         val totalStartNanos = System.nanoTime()
 
         val captureStartNanos = System.nanoTime()
-        val frame = screenCapture.capture(request) ?: return fail()
+        val frame = screenCapture.capture(request)
+        if (frame == null) {
+            validationRecorder.record(
+                ValidationEvent.FrameDiscarded(System.currentTimeMillis(), DiscardReason.CAPTURE_FAILED),
+            )
+            return fail()
+        }
         val captureMillis = elapsedMillis(captureStartNanos)
         metrics.onCapture(captureMillis)
         _state.value = OverlayState.CAPTURING
 
         if (!cache.isNew(frame)) {
             logger.debug(TAG, "frame idéntico ya procesado, omitido")
+            validationRecorder.record(
+                ValidationEvent.FrameDiscarded(frame.timestampMillis, DiscardReason.DUPLICATE),
+            )
             metrics.onTotal(elapsedMillis(totalStartNanos))
             return idle()
         }
 
         val texts = resolveTexts(frame)
-        if (texts.isEmpty()) return idle()
+        if (texts.isEmpty()) {
+            validationRecorder.record(
+                ValidationEvent.FrameDiscarded(frame.timestampMillis, DiscardReason.NO_TEXTS),
+            )
+            return idle()
+        }
 
         _state.value = OverlayState.PROCESSING
         val platform = RidePlatform.fromPackageName(frame.packageName)
-        if (platform == null) return idle()
+        if (platform == null) {
+            validationRecorder.record(
+                ValidationEvent.FrameDiscarded(frame.timestampMillis, DiscardReason.UNSUPPORTED_PLATFORM),
+            )
+            return idle()
+        }
 
         val session =
             OfferCaptureSession(
@@ -114,7 +140,19 @@ class DefaultCapturePipeline @Inject constructor(
             )
 
         val parseStartNanos = System.nanoTime()
-        val snapshot = parser.parse(event, session)
+        val snapshot =
+            try {
+                parser.parse(event, session)
+            } catch (error: Throwable) {
+                validationRecorder.record(
+                    ValidationEvent.ParseFailed(
+                        System.currentTimeMillis(),
+                        error.message ?: "parseo fallido",
+                    ),
+                )
+                logger.warn(TAG, "parseo fallido: ${error.message}")
+                null
+            }
         val parseMillis = elapsedMillis(parseStartNanos)
         metrics.onParse(parseMillis)
         val totalMillis = elapsedMillis(totalStartNanos)
@@ -151,7 +189,16 @@ class DefaultCapturePipeline @Inject constructor(
         val imageData = frame.imageData ?: return frame.texts
         if (!featureFlags.isEnabled(FeatureFlag.OCR)) return frame.texts
         val ocrStartNanos = System.nanoTime()
-        val texts = ocrEngine.recognize(imageData)
+        val texts =
+            try {
+                ocrEngine.recognize(imageData)
+            } catch (error: Throwable) {
+                validationRecorder.record(
+                    ValidationEvent.OcrFailed(System.currentTimeMillis(), error.message ?: "OCR fallido"),
+                )
+                logger.warn(TAG, "OCR fallido: ${error.message}; se usan los textos de accesibilidad")
+                frame.texts
+            }
         lastOcrMillis = elapsedMillis(ocrStartNanos)
         metrics.onOcr(lastOcrMillis)
         return texts

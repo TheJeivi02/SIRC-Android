@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.PixelFormat
+import android.graphics.Rect
 import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
@@ -46,13 +47,6 @@ class OverlayService : Service() {
     @Inject lateinit var dataSource: OverlayDataSource
 
     @Inject lateinit var engine: ProfitEngine
-
-    /**
-     * Mantiene la persistencia del historial a partir del flujo real de
-     * accesibilidad; el overlay consume [OverlayDataSource] (estado real del
-     * pipeline + evaluación).
-     */
-    @Inject lateinit var evaluator: OfferEvaluator
 
     private var windowManager: WindowManager? = null
     private var overlayView: ComposeView? = null
@@ -152,12 +146,11 @@ class OverlayService : Service() {
         val wm = windowManager ?: return
         val params = windowParams ?: return
         val view = overlayView ?: return
-        val display = wm.defaultDisplay
-        val metrics = android.util.DisplayMetrics().also { display.getRealMetrics(it) }
-        params.width = (metrics.widthPixels * OVERLAY_WIDTH_RATIO).toInt()
-        val maxX = (metrics.widthPixels - params.width).coerceAtLeast(0)
+        val bounds = screenBounds()
+        params.width = (bounds.width() * OVERLAY_WIDTH_RATIO).toInt()
+        val maxX = (bounds.width() - params.width).coerceAtLeast(0)
         params.x = params.x.coerceIn(0, maxX)
-        params.y = params.y.coerceIn(0, metrics.heightPixels - params.height)
+        params.y = params.y.coerceIn(0, bounds.height() - params.height)
         runCatching { wm.updateViewLayout(view, params) }
     }
 
@@ -168,17 +161,15 @@ class OverlayService : Service() {
         val wm = windowManager ?: return
         val params = windowParams ?: return
         val view = overlayView ?: return
-        val display = wm.defaultDisplay
-        val metrics = android.util.DisplayMetrics().also { display.getRealMetrics(it) }
-        params.x = (params.x + deltaX).coerceIn(0, (metrics.widthPixels - params.width).coerceAtLeast(0))
-        params.y = (params.y + deltaY).coerceIn(0, (metrics.heightPixels - params.height).coerceAtLeast(0))
+        val bounds = screenBounds()
+        params.x = (params.x + deltaX).coerceIn(0, (bounds.width() - params.width).coerceAtLeast(0))
+        params.y = (params.y + deltaY).coerceIn(0, (bounds.height() - params.height).coerceAtLeast(0))
         runCatching { wm.updateViewLayout(view, params) }
     }
 
     private fun buildWindowParams(config: OverlayConfig): WindowManager.LayoutParams {
-        val display = (getSystemService(WINDOW_SERVICE) as WindowManager).defaultDisplay
-        val metrics = android.util.DisplayMetrics().also { display.getRealMetrics(it) }
-        val width = (metrics.widthPixels * OVERLAY_WIDTH_RATIO).toInt()
+        val bounds = screenBounds()
+        val width = (bounds.width() * OVERLAY_WIDTH_RATIO).toInt()
 
         return WindowManager.LayoutParams(
             width,
@@ -188,10 +179,25 @@ class OverlayService : Service() {
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            val maxX = (metrics.widthPixels - width).coerceAtLeast(0)
-            x = ((metrics.widthPixels - width) * (config.positionXPercent / 100f)).toInt().coerceIn(0, maxX)
-            y = (metrics.heightPixels * (config.positionYPercent / 100f)).toInt()
+            val maxX = (bounds.width() - width).coerceAtLeast(0)
+            x = ((bounds.width() - width) * (config.positionXPercent / 100f)).toInt().coerceIn(0, maxX)
+            y = (bounds.height() * (config.positionYPercent / 100f)).toInt()
         }
+    }
+
+    /**
+     * Bounds de la pantalla usando `WindowMetrics` (API 30+) y el fallback
+     * clásico de [android.view.Display] para API 24-29. Evita las APIs
+     * deprecadas en Android 15.
+     */
+    private fun screenBounds(): Rect {
+        val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return wm.currentWindowMetrics.bounds
+        }
+        @Suppress("DEPRECATION")
+        val metrics = android.util.DisplayMetrics().also { wm.defaultDisplay.getRealMetrics(it) }
+        return Rect(0, 0, metrics.widthPixels, metrics.heightPixels)
     }
 
     private fun createNotificationChannel() {

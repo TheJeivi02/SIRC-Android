@@ -3,6 +3,56 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Las versiones siguen [SemVer](https://semver.org/lang/es/).
 
+## [v1.0.0-rc1] — 2026-08-01
+
+Hardening y preparación de la Release Candidate. Sin funcionalidades nuevas de
+producto: estabilidad y observabilidad.
+
+### Añadido
+
+- **Modo de validación** (O3): `ValidationRecorder` (`:core:capture`, puro) con
+  buffer acotado (500 eventos) que acumula `CaptureError`, `OcrFailed`,
+  `ParseFailed`, `FrameDiscarded` (`CAPTURE_FAILED`/`DUPLICATE`/`NO_TEXTS`/
+  `UNSUPPORTED_PLATFORM`), `RuleFailed` (FAIL) y `OfferRejected`. Sección
+  **"Modo validación"** en el Panel de depuración con contadores, **Exportar
+  informe de validación** (share) y Limpiar eventos; el informe también se
+  adjunta al final de "Exportar diagnóstico". `ValidationRecorderTest`.
+- **Recuperación ante fallos** (O6): el pipeline degrada a textos de
+  accesibilidad si **el OCR falla** (registra `OcrFailed`, ya no entra en
+  `ERROR`); los fallos no controlados registran `CaptureError`. La
+  infraestructura de MediaProjection registra incidentes (token no disponible,
+  proyección interrumpida por el sistema).
+- **Logs por niveles** (O7): `AndroidSircLogger` emite **ERROR/WARNING siempre**
+  (también en Release), **INFO** solo en desarrollo y **DEBUG** solo en
+  desarrollo con el flag `DETAILED_LOGS`.
+- **Compatibilidad Android 15** (O4): `OverlayService.screenBounds()` usa
+  `WindowManager.getCurrentWindowMetrics()` (API 30+) con fallback para API
+  24–29 (elimina las APIs deprecadas `defaultDisplay.getRealMetrics()`).
+- **Tests de hardening** (O9): `ValidationRecorderTest`, pipeline de validación
+  (OCR degradado, descartes `CAPTURE_FAILED`/`DUPLICATE`, `CaptureError`) y
+  **stress de 200 solicitudes** que verifica buffers acotados (tracker ≤ 100,
+  repositorio ≤ 50, validación ≤ 500).
+- **Documentación RC1** (O10): `docs/RELEASE_NOTES_RC1.md`,
+  `docs/KNOWN_ISSUES.md`, `docs/PERFORMANCE_REPORT.md` y `docs/TEST_REPORT.md`.
+
+### Cambiado
+
+- Eliminados `OfferEvaluator` y `OfferEventBus` (flujo legacy que persistía un
+  historial básico **duplicado**); `SircAccessibilityService` conserva solo su
+  rol de reenvío de eventos de ventana al pipeline/panel de depuración;
+  `OverlayService` deja de inyectar el evaluador. **Fin del historial
+  duplicado** (el pipeline moderno es la única fuente).
+- `ValidationRecorder` inyectado en `DefaultCapturePipeline`,
+  `PipelineOverlayDataSource` y `MediaProjectionScreenCaptureProvider`.
+- `ValidationSummary` incluye `captureErrors`.
+
+### Notas técnicas
+
+- Auditoría O1: sin `TODO`/`FIXME`/`XXX`/`HACK`; recursos y tokens de tema
+  verificados en uso.
+- Verificación en verde: `ktlintCheck`, `lintDebug`, `assembleDebug`,
+  `assembleDebugAndroidTest` y todos los tests unitarios.
+
 ## [v1.0.0-beta] — 2026-08-01
 
 ### Añadido

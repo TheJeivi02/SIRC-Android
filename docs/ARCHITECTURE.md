@@ -289,12 +289,17 @@ OverlayService (Foreground Service, TYPE_APPLICATION_OVERLAY)
           · arrastrable · ocultable · TTL configurable
 ```
 
-Pipeline real (Accessibility) — persiste historial:
+Pipeline de análisis real — persiste historial y alimenta el overlay
+(única fuente desde SPRINT 7/8; eliminado el flujo legacy
+`SircAccessibilityService → OfferEventBus → OfferEvaluator` en RC1):
 
 ```
-SircAccessibilityService (solo lectura) → OfferEventBus → OfferEvaluator
-      → EvaluateOfferUseCase → ProfitEngine
-      → AddOfferHistoryUseCase → Room offer_history
+CaptureAccessibilityService (solo lectura) → DebounceCaptureScheduler (400 ms)
+      → CapturePipeline → OfferSnapshot → PipelineOverlayDataSource
+      → EvaluateDetailedOfferUseCase (ProfitEvaluationEngine + RecommendationEngine)
+      → RuleEngine + ConfidenceEngine → OverlayUiState → OverlayService
+      → OfferEvaluationRepository (memoria) + OfferHistoryRepository (Room)
+      → ValidationRecorder (modo validación RC1)
 ```
 
 Captura (SPRINT 4, aditiva y sin interpretar):
@@ -428,7 +433,7 @@ Detalles de diseño del overlay:
 | `domain` y `core:platform` puros Kotlin | Velocidad de pruebas, cero dependencias Android en la lógica crítica. |
 | Historial en Room (no en memoria) | Sobrevive reinicios y es la base de futuros reportes. |
 | Indicadores ≤ 4 | Restricción de producto: el conductor decide en <3 s. |
-| `OfferEventBus` en memoria | Puente simple entre servicios sin persistencia ni I/O innecesaria. |
+| `ValidationRecorder` en memoria (buffer 500) | Modo de validación RC1: registra `CaptureError`/`OcrFailed`/`ParseFailed`/`FrameDiscarded`/`RuleFailed`/`OfferRejected` y exporta un informe; efímero por diseño (sin desgaste de almacenamiento). |
 | `OverlayDataSource` como única fuente del estado del overlay | `OverlayService` y pantallas comparten el mismo estado; FGS no depende de un ViewModel con ciclo de vida. |
 | `DriverConfig` agregado en una fila | Perfil/vehículo/costos/plataformas/umbrales persisten atómicos; fila existente = configurado. |
 | Listas codificadas como texto | Sin TypeConverters ni JSON; funciones puras probadas en `DriverConfigCodecTest`. |

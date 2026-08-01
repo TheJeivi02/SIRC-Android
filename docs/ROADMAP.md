@@ -242,6 +242,42 @@ más estable y claro.
 
 - Estado: **completado**.
 
+## Sprint 10 — Hardening y Release Candidate (v1.0.0-rc1) ✅
+
+Endurecimiento de la beta para pruebas intensivas en dispositivos reales
+(Android 10–15). No añade funcionalidades de producto: solo estabilidad,
+observabilidad y compatibilidad.
+
+- **Auditoría** (O1): sin `TODO`/`FIXME`/`XXX`/`HACK`; revisión de manifests,
+  strings y recursos; eliminación del flujo legacy `OfferEvaluator`/
+  `OfferEventBus` (persistía historial **duplicado**; el pipeline moderno es la
+  única fuente). `SircAccessibilityService` conserva el reenvío de eventos.
+- **Modo de validación** (O3): `ValidationRecorder` (`:core:capture`, puro,
+  buffer 500) con `CaptureError`/`OcrFailed`/`ParseFailed`/`FrameDiscarded`
+  (`CAPTURE_FAILED`/`DUPLICATE`/`NO_TEXTS`/`UNSUPPORTED_PLATFORM`)/
+  `RuleFailed`/`OfferRejected`; sección en el Panel de depuración con contadores,
+  **Exportar informe de validación** y Limpiar; el informe se adjunta a
+  "Exportar diagnóstico".
+- **Crash recovery** (O6): OCR degrada a textos de accesibilidad (ya no entra en
+  `ERROR`); fallos no controlados registran `CaptureError`; MediaProjection
+  registra token no disponible / proyección interrumpida.
+- **Logs por niveles** (O7): `ERROR`/`WARNING` siempre (también Release);
+  `INFO`/`DEBUG` solo en desarrollo; `DEBUG` requiere el flag `DETAILED_LOGS`.
+- **Compatibilidad Android 15** (O4): `screenBounds()` con
+  `WindowManager.getCurrentWindowMetrics()` (API 30+) y fallback API 24–29.
+- **Rendimiento/consumo** (O2/O5): `docs/PERFORMANCE_REPORT.md`; buffers
+  acotados verificados por el test de stress (tracker ≤ 100, repositorio ≤ 50,
+  validación ≤ 500).
+- **Tests** (O9): `ValidationRecorderTest`, pipeline de validación y stress de
+  200 solicitudes.
+- **Documentación** (O10): `RELEASE_NOTES_RC1.md`, `KNOWN_ISSUES.md`,
+  `PERFORMANCE_REPORT.md`, `TEST_REPORT.md`; CHANGELOG/ROADMAP/CONTEXT/DECISIONS
+  actualizados.
+- Verificación en verde: ktlint (todos), `lintDebug`, `assembleDebug`,
+  `assembleDebugAndroidTest` y todos los tests unitarios.
+
+- Estado: **completado**.
+
 ## Sprint 3 — Accessibility
 
 Canal de lectura del contenido visible de las plataformas.

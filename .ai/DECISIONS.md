@@ -185,6 +185,77 @@ sección "Sesión de captura" y **Exportar diagnóstico** (share vía `Intent.AC
 con estado de sesión, promedios, última oferta y flags). Los flags siguen en
 memoria (DataStore queda documentado como evolución sin romper la interfaz).
 
+## SPRINT 10 — Hardening y Release Candidate (v1.0.0-rc1)
+
+### D11.1 — Eliminación del flujo legacy `OfferEvaluator`/`OfferEventBus`
+
+**Contexto:** desde el Sprint 7/8 el overlay y el historial los alimenta el
+pipeline moderno (`PipelineOverlayDataSource` → Room). El flujo legacy
+(`SircAccessibilityService` → `OfferEventBus` → `OfferEvaluator`) persistía un
+historial **básico y duplicado** (mismo viaje escrito dos veces) y su
+`uiState` no tenía consumidores.
+
+**Decisión:** eliminar `OfferEvaluator` y `OfferEventBus`; `SircAccessibilityService`
+conserva únicamente el reenvío de eventos de ventana (`AccessibilityWindowObserver`
+→ coordinador/panel de depuración) y `OverlayService` deja de inyectar el
+evaluador. El pipeline moderno es la única fuente de historial.
+
+**Consecuencias:** fin del historial duplicado; `ExtractorRegistry`/`OfferTextParser`
+siguen vivos en `OfferParserOrchestrator`; sin cambios de API en `:domain`.
+
+### D11.2 — Modo de validación con `ValidationRecorder` (buffer acotado + informe)
+
+**Contexto:** RC1 necesita observar qué ocurre en campo (errores OCR/parseo,
+descartes, reglas fallidas, rechazos) y poder exportarlo.
+
+**Decisión:** `ValidationRecorder` (`:core:capture`, puro, `@Singleton`) acumula
+eventos tipados (`CaptureError`, `OcrFailed`, `ParseFailed`, `FrameDiscarded`
+con `DiscardReason`, `RuleFailed`, `OfferRejected`) en un buffer de 500 eventos
+recientes; `summary()` y `buildReport()` producen un informe legible. Se inyecta
+en `DefaultCapturePipeline`, `PipelineOverlayDataSource` y
+`MediaProjectionScreenCaptureProvider`. El DebugPanel muestra contadores,
+exporta el informe y permite limpiarlo.
+
+**Alternativas descartadas:** persistir eventos en Room (complejidad y desgaste
+de almacenamiento para un diagnóstico efímero).
+
+### D11.3 — El pipeline degrada a textos si el OCR falla (en lugar de ERROR)
+
+**Contexto:** un frame con imagen que ML Kit no reconoce rompía toda la
+solicitud (`OverlayState.ERROR`) aunque existieran textos de accesibilidad.
+
+**Decisión:** en `resolveTexts`, si el OCR lanza una excepción se registra
+`OcrFailed` y se usan `frame.texts`; los fallos no controlados del pipeline
+registran `CaptureError` y se auto-recuperan en la siguiente solicitud.
+
+**Consecuencia:** más ofertas analizadas en dispositivos reales y menos estados
+de error transitorios; el informe de validación da visibilidad al fallo.
+
+### D11.4 — Logs por niveles con `ERROR`/`WARNING` siempre activos
+
+**Contexto:** la beta apagaba todos los logs en Release, impidiendo diagnosticar
+incidencias de campo.
+
+**Decisión:** `AndroidSircLogger` emite `ERROR`/`WARNING` siempre; `INFO` solo en
+builds de desarrollo; `DEBUG` solo en desarrollo con el flag `DETAILED_LOGS`.
+El modo se determina por `ApplicationInfo.FLAG_DEBUGGABLE` (más fiable que
+`BuildConfig.DEBUG` en librerías).
+
+**Consecuencia:** Release sigue sin logs verbosos (batería/I/O) pero conserva
+errores y advertencias en logcat.
+
+### D11.5 — `screenBounds()` con `WindowMetrics` para Android 15
+
+**Contexto:** `WindowManager.defaultDisplay.getRealMetrics()` está deprecado en
+Android 15 (targetSdk 35).
+
+**Decisión:** `OverlayService.screenBounds()` usa
+`WindowManager.getCurrentWindowMetrics().bounds` en API 30+ y el fallback
+clásico (con `@Suppress("DEPRECATION")`) para API 24–29. `reclampOverlay`,
+`moveOverlay` y `buildWindowParams` lo consumen.
+
+**Consecuencia:** sin warnings de deprecación y preparado para Android 15.
+
 ## SPRINT 7 — Evaluación en tiempo real con recomendación
 
 ### D8.1 — `ProfitEvaluationEngine` delega en `ProfitEngine` (no duplica fórmulas)

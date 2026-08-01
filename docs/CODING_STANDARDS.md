@@ -62,7 +62,7 @@
 ## 4. Principios SOLID
 
 - **S — Responsabilidad única**: clases con un solo motivo de cambio
-  (`OfferEvaluator` orquesta; `ProfitEngine` calcula; `OverlayService` dibuja).
+  (`PipelineOverlayDataSource` orquesta; `ProfitEngine` calcula; `OverlayService` dibuja).
 - **O — Abierto/cerrado**: las plataformas se agregan sin modificar el
   pipeline (extractor + descriptor).
 - **L — Sustitución de Liskov**: los repositorios concretos respetan los
@@ -91,8 +91,8 @@
 - La UI observa el estado con `collectAsStateWithLifecycle()`.
 - Los eventos de una sola vez (navegación, snackbars) se mantienen fuera del
   estado persistente o se modelan explícitamente.
-- El overlay no es MVVM clásico: usa `OfferEvaluator` (Singleton) como fuente de
-  verdad y `OverlayUiState` como estado.
+- El overlay no es MVVM clásico: usa `PipelineOverlayDataSource` (Singleton)
+  como fuente de verdad y `OverlayUiState` como estado.
 
 ## 7. Buenas prácticas
 
@@ -100,8 +100,8 @@
   - Traversal de accesibilidad con límites duros (`MAX_NODES`, `MAX_TEXTS`,
     `MAX_TEXT_LENGTH`).
   - Deduplicación de frames (huella de texto) para no re-evaluar.
-  - Un solo `ComposeView` en el overlay, retirado de `WindowManager` cuando no
-    hay oferta.
+  - Un solo `ComposeView` persistente en el overlay; ocultar = `FLAG_NOT_TOUCHABLE`
+    (no re-agregar/retirar de `WindowManager` en cada oferta).
   - Evitar trabajo en `onAccessibilityEvent` que no sea necesario.
 - **Seguridad y privacidad**:
   - 100 % local: sin backend, sin telemetría, sin anuncios.

@@ -15,6 +15,8 @@ import android.os.Handler
 import android.os.Looper
 import com.sirc.capture.android.projection.MediaProjectionService
 import com.sirc.capture.log.SircLogger
+import com.sirc.capture.validation.ValidationEvent
+import com.sirc.capture.validation.ValidationRecorder
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -38,6 +40,7 @@ import javax.inject.Singleton
 class MediaProjectionScreenCaptureProvider @Inject constructor(
     @ApplicationContext private val context: Context,
     private val logger: SircLogger,
+    private val validationRecorder: ValidationRecorder,
 ) : ScreenCaptureProvider {
     private val _isProjecting = MutableStateFlow(false)
     override val isProjecting: StateFlow<Boolean> = _isProjecting.asStateFlow()
@@ -73,6 +76,9 @@ class MediaProjectionScreenCaptureProvider @Inject constructor(
         val projection = manager.getMediaProjection(resultCode, data)
         if (projection == null) {
             logger.error(TAG, "no se pudo obtener el token de proyección")
+            validationRecorder.record(
+                ValidationEvent.CaptureError(System.currentTimeMillis(), "token de proyección no disponible"),
+            )
             stopProjection()
             return
         }
@@ -83,6 +89,12 @@ class MediaProjectionScreenCaptureProvider @Inject constructor(
             object : MediaProjection.Callback() {
                 override fun onStop() {
                     logger.info(TAG, "proyección interrumpida por el sistema")
+                    validationRecorder.record(
+                        ValidationEvent.CaptureError(
+                            System.currentTimeMillis(),
+                            "proyección interrumpida por el sistema",
+                        ),
+                    )
                     stopProjection()
                 }
             }

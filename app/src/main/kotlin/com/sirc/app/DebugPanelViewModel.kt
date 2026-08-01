@@ -14,6 +14,8 @@ import com.sirc.capture.model.OfferCaptureSession
 import com.sirc.capture.model.OfferSnapshot
 import com.sirc.capture.model.OverlayState
 import com.sirc.capture.pipeline.CapturePipeline
+import com.sirc.capture.validation.ValidationRecorder
+import com.sirc.capture.validation.ValidationSummary
 import com.sirc.domain.model.OfferEvaluationRecord
 import com.sirc.domain.model.RuleVerdict
 import com.sirc.domain.repository.OfferEvaluationRepository
@@ -44,6 +46,7 @@ class DebugPanelViewModel @Inject constructor(
     private val historyRepository: OfferEvaluationRepository,
     private val overlayDataSource: OverlayDataSource,
     private val sessionManager: CaptureSessionManager,
+    private val validationRecorder: ValidationRecorder,
 ) : ViewModel() {
     data class FlagStatus(
         val flag: FeatureFlag,
@@ -94,6 +97,7 @@ class DebugPanelViewModel @Inject constructor(
         val confidenceReasons: List<String> = emptyList(),
         val ruleResults: List<RuleRow> = emptyList(),
         val session: SessionStats = SessionStats(),
+        val validation: ValidationSummary = ValidationSummary(0, 0, 0, 0, 0, 0, 0),
     )
 
     private val refreshTick = MutableStateFlow(0)
@@ -203,6 +207,13 @@ class DebugPanelViewModel @Inject constructor(
         refresh()
     }
 
+    fun clearValidation() {
+        validationRecorder.clear()
+        refresh()
+    }
+
+    fun buildValidationReport(): String = validationRecorder.buildReport()
+
     /** Exporta un diagnóstico legible (Modo Beta) para compartir con soporte. */
     fun buildDiagnosticsReport(): String {
         val session = sessionManager.stats.value
@@ -248,6 +259,8 @@ class DebugPanelViewModel @Inject constructor(
             }
             appendLine()
             appendLine("Memoria aproximada: ${approximateMemoryMb()} MB")
+            appendLine()
+            appendLine(validationRecorder.buildReport())
         }
     }
 
@@ -306,6 +319,7 @@ class DebugPanelViewModel @Inject constructor(
             confidenceReasons = overlayUi.confidence?.reasons.orEmpty(),
             ruleResults = ruleResults,
             session = session,
+            validation = validationRecorder.summary(),
         )
     }
 

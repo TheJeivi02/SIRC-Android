@@ -10,6 +10,7 @@ import com.sirc.capture.model.OfferSnapshot
 import com.sirc.capture.model.OverlayState
 import com.sirc.capture.model.SnapshotSource
 import com.sirc.capture.pipeline.CapturePipeline
+import com.sirc.capture.validation.ValidationRecorder
 import com.sirc.domain.engine.ConfidenceEngine
 import com.sirc.domain.engine.ProfitEngine
 import com.sirc.domain.engine.ProfitEvaluationEngine
@@ -52,6 +53,7 @@ class PipelineOverlayDataSourceTest {
     private val driverConfigRepository = FakeDriverConfigRepository()
     private val ruleEngine = RuleEngine(RuleEngine.defaultRules())
     private val confidenceEngine = ConfidenceEngine()
+    private val validationRecorder = ValidationRecorder()
     private val evaluateUseCase =
         EvaluateDetailedOfferUseCase(
             profitEvaluationEngine = ProfitEvaluationEngine(engine = ProfitEngine()),
@@ -73,6 +75,7 @@ class PipelineOverlayDataSourceTest {
             ruleEngine = ruleEngine,
             confidenceEngine = confidenceEngine,
             sessionManager = sessionManager,
+            validationRecorder = validationRecorder,
         )
 
     @Test
