@@ -24,6 +24,19 @@ es rentable.
 > `OfferPerformanceTracker` (promedio de las últimas 20). El panel de depuración
 > muestra **Última oferta** y **Rendimiento**.
 >
+> Nota SPRINT 8: el parser es un **motor de análisis** de pantallas reales de
+> Uber. `OfferParserOrchestrator` (`:core:platform`) primero **detecta la
+> pantalla** (`OfferDetectionEngine` → `ScreenType`; solo `REQUEST` produce
+> oferta) y luego prueba parsers **especializados por tipo** (`UBER_REQUEST`,
+> `UBER_MOTO`, `UBER_XL`, `UBER_RESERVATION`, `UBER_RADAR`) antes de caer al
+> extractor genérico por plataforma. Tras evaluar, `PipelineOverlayDataSource`
+> ejecuta **`RuleEngine`** (6 reglas con umbrales desde `DriverConfig`) y
+> **`ConfidenceEngine`** (HIGH/MEDIUM/LOW) y expone en `OverlayUiState`
+> `offerType`, `confidence` y `ruleEvaluation`; el overlay muestra tipo +
+> confianza y "Información insuficiente" si no es accionable. El panel de
+> depuración tiene la sección **Análisis** (tipo, confianza, veredicto por
+> regla). Se cronometra detección y reglas (`detectionMillis`/`rulesMillis`).
+>
 > Nota SPRINT 6: el overlay consume el **estado real del pipeline**.
 > `PipelineOverlayDataSource` traduce `CapturePipeline.state` (`OverlayState`)
 > y los snapshots a `OverlayUiState` (status + evaluación con el motor real);
@@ -66,6 +79,27 @@ Service **nunca** interactúa con otras apps.
 
 ## Estado del proyecto
 
+- **SPRINT 8 completado**: Motor de análisis de pantallas reales (ver
+  `docs/ROADMAP.md`). En `:core:platform`: `OfferDetectionEngine` (detección de
+  pantalla → `ScreenType`, solo `REQUEST` produce oferta), `OfferType` +
+  `OfferTypeParser`/`BaseOfferTypeParser` con 5 parsers especializados de Uber
+  (`UberRequestParser`, `UberRadarParser`, `UberReservationParser`,
+  `UberMotoParser`, `UberXlParser`) y `OfferParserOrchestrator`
+  (especializados primero, solo Uber, fallback genérico). En `:domain`:
+  `RuleEngine` + 6 reglas (`RuleVerdict` PASS/WARNING/FAIL, `RuleThresholds`
+  desde `DriverConfig`), `ConfidenceEngine` (HIGH/MEDIUM/LOW con % y razones;
+  LOW = "Información insuficiente") y `OfferValidator`. `:core:capture` depende
+  de `:core:platform`; `PlatformOfferParser` conecta el orquestador al pipeline
+  (snapshot con `detectionMillis` y `rawData = "type={OfferType}"`).
+  `PipelineOverlayDataSource` ejecuta reglas + confianza por oferta y expone
+  `offerType`/`confidence`/`ruleEvaluation` en `OverlayUiState`; el overlay
+  muestra tipo + confianza. Panel de depuración con sección **Análisis** y filas
+  **Detección**/**Reglas** en rendimiento. Dataset `test-images/` con 9 escenarios
+  Uber + README. `PlatformModule` provee detección/parsers/orquestador/`RuleEngine`
+  (`List<@JvmSuppressWildcards ...>`). Tests: `OfferDetectionEngineTest` (12),
+  `OfferParserOrchestratorTest` (9), `RuleEngineTest`, `ConfidenceEngineTest`,
+  `OfferValidatorTest` y `PipelineOverlayDataSourceTest` ampliado (8).
+  Verificación en verde (ktlint, unit tests, lint, assembleDebug).
 - **SPRINT 7 completado**: Evaluación en tiempo real con recomendación (ver
   `docs/ROADMAP.md`). Nuevos motores en `:domain`: `ProfitEvaluationEngine`
   (delega en `ProfitEngine`, deriva costos desde `DriverConfig`, umbrales solo
@@ -172,13 +206,17 @@ app ──► feature:overlay ──► core:platform ─► domain
 - `domain`: modelos (incluye `DriverConfig`/`DriverProfile`/`DriverVehicle`/
   `FuelType`/`AdditionalCost` y los de evaluación: `Recommendation`,
   `ProfitBreakdown`, `ProfitEvaluationDetailed`, `OfferRecommendation`,
-  `OfferEvaluationResult`, `OfferEvaluationRecord`), `ProfitEngine` +
-  `ProfitEvaluationEngine` + `RecommendationEngine`, use cases
-  (`EvaluateOfferUseCase`/`EvaluateDetailedOfferUseCase`), contratos de
+  `OfferEvaluationResult`, `OfferEvaluationRecord`; y los de análisis:
+  `RuleVerdict`/`RuleResult`/`RuleThresholds`/`RuleContext`/`OfferRule`/
+  `RuleEvaluation`/`ValidationResult`), `ProfitEngine` + `ProfitEvaluationEngine`
+  + `RecommendationEngine` + `RuleEngine` + `ConfidenceEngine` + `OfferValidator`,
+  use cases (`EvaluateOfferUseCase`/`EvaluateDetailedOfferUseCase`), contratos de
   repositorio (`OfferEvaluationRepository` incluido).
 - `data`: Room + repositorios concretos + Hilt (`DatabaseModule` con migración
   1→2, `RepositoryModule`).
-- `core:platform`: parser y extractores multi-plataforma.
+- `core:platform`: motor de análisis de pantallas: detección (`OfferDetectionEngine`),
+  parsers especializados por tipo (`OfferTypeParser`/`BaseOfferTypeParser`),
+  `OfferParserOrchestrator` y extractores multi-plataforma (`OfferTextParser`).
 - `core:capture`: plataforma de captura (pipeline ScreenCapture → OCR → parser
   → repositorio, observador, sesión/snapshot, `OverlayState`, coordinador,
   caché de frames por hash, debounce de requests, métricas por etapa,
@@ -192,7 +230,9 @@ app ──► feature:overlay ──► core:platform ─► domain
   + piezas Android de captura (`AccessibilityWindowObserver`,
   `MlKitOcrEngine`, `AndroidSircLogger`, `CaptureModule`). Estado del overlay
   vía `OverlayDataSource` (`PipelineOverlayDataSource`, estado real del
-  pipeline); permisos y control vía `PermissionManager` y `OverlayManager`
+  pipeline; ejecuta reglas + confianza); DI del motor de análisis en
+  `PlatformModule` (`OfferDetectionEngine`, parsers, `OfferParserOrchestrator`,
+  `RuleEngine`); permisos y control vía `PermissionManager` y `OverlayManager`
   (incluye proyección de pantalla).
 - `feature:onboarding`: flujo de configuración inicial (6 pasos) que persiste
   `DriverConfig`; gating en `app` (`RootViewModel`/`SircRoot`).
@@ -204,7 +244,7 @@ app ──► feature:overlay ──► core:platform ─► domain
 
 ```powershell
 .\gradlew.bat ktlintCheck --console=plain
-.\gradlew.bat lintDebug assembleDebug testDebugUnitTest :domain:test :core:platform:test :core:capture:test --console=plain
+.\gradlew.bat lintDebug assembleDebug testDebugUnitTest :domain:test :core:platform:test :core:capture:test :feature:overlay:testDebugUnitTest --console=plain
 ```
 
 - JDK 17 (Adoptium) ya es el JVM actual: `.\gradlew.bat` funciona sin prefijar

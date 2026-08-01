@@ -134,6 +134,23 @@ fun OverlayContent(
                             modifier = Modifier.padding(top = if (config.compactMode) 4.dp else 6.dp),
                         )
                     }
+                    val confidence = state.confidence
+                    if (confidence != null) {
+                        val confidenceText =
+                            if (confidence.isActionable) {
+                                val type = state.offerType ?: "Oferta"
+                                "$type · Confianza ${confidence.percent}% (${confidence.level.name})"
+                            } else {
+                                "Información insuficiente · ${confidence.percent}% confianza"
+                            }
+                        Text(
+                            text = confidenceText,
+                            color = if (confidence.isActionable) SircColors.OnDarkMuted else SircColors.NotProfit,
+                            fontSize = if (config.compactMode) 9.sp else 11.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = if (config.compactMode) 2.dp else 4.dp),
+                        )
+                    }
                 } else {
                     StatusLabel(status = state.status, compact = config.compactMode)
                 }

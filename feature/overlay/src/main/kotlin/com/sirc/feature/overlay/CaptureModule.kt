@@ -9,8 +9,8 @@ import com.sirc.capture.metrics.InMemoryOfferPerformanceTracker
 import com.sirc.capture.metrics.OfferPerformanceTracker
 import com.sirc.capture.observer.WindowObserver
 import com.sirc.capture.ocr.OcrEngine
-import com.sirc.capture.parser.FakeParser
 import com.sirc.capture.parser.OfferParser
+import com.sirc.capture.parser.PlatformOfferParser
 import com.sirc.capture.pipeline.CapturePipeline
 import com.sirc.capture.pipeline.DefaultCapturePipeline
 import com.sirc.capture.repository.CaptureRepository
@@ -36,7 +36,7 @@ abstract class CaptureModule {
 
     @Binds
     @Singleton
-    abstract fun bindOfferParser(impl: FakeParser): OfferParser
+    abstract fun bindOfferParser(impl: PlatformOfferParser): OfferParser
 
     @Binds
     @Singleton

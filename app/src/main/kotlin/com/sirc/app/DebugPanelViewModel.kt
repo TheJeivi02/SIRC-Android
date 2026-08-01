@@ -15,8 +15,11 @@ import com.sirc.capture.model.OfferSnapshot
 import com.sirc.capture.model.OverlayState
 import com.sirc.capture.pipeline.CapturePipeline
 import com.sirc.domain.model.OfferEvaluationRecord
+import com.sirc.domain.model.RuleVerdict
 import com.sirc.domain.repository.OfferEvaluationRepository
+import com.sirc.feature.overlay.OverlayDataSource
 import com.sirc.feature.overlay.OverlayManager
+import com.sirc.feature.overlay.OverlayUiState
 import com.sirc.feature.overlay.PermissionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,10 +40,17 @@ class DebugPanelViewModel @Inject constructor(
     private val permissions: PermissionManager,
     private val performanceTracker: OfferPerformanceTracker,
     private val historyRepository: OfferEvaluationRepository,
+    private val overlayDataSource: OverlayDataSource,
 ) : ViewModel() {
     data class FlagStatus(
         val flag: FeatureFlag,
         val enabled: Boolean,
+    )
+
+    data class RuleRow(
+        val name: String,
+        val verdict: RuleVerdict,
+        val message: String,
     )
 
     data class UiState(
@@ -58,6 +68,7 @@ class DebugPanelViewModel @Inject constructor(
         val lastProcessingTimeMillis: Double? = null,
         val lastCaptureMillis: Double? = null,
         val lastOcrMillis: Double? = null,
+        val lastDetectionMillis: Double? = null,
         val lastParseMillis: Double? = null,
         val lastTotalMillis: Double? = null,
         val approximateMemoryMb: Double = 0.0,
@@ -68,10 +79,17 @@ class DebugPanelViewModel @Inject constructor(
         val lastTiming: OfferTiming? = null,
         val avgCaptureMillis: Double? = null,
         val avgOcrMillis: Double? = null,
+        val avgDetectionMillis: Double? = null,
         val avgParseMillis: Double? = null,
+        val avgRulesMillis: Double? = null,
         val avgEvaluationMillis: Double? = null,
         val avgOverlayMillis: Double? = null,
         val avgTotalMillis: Double? = null,
+        val offerType: String? = null,
+        val confidencePercent: Int? = null,
+        val confidenceLevel: String? = null,
+        val confidenceReasons: List<String> = emptyList(),
+        val ruleResults: List<RuleRow> = emptyList(),
     )
 
     private val refreshTick = MutableStateFlow(0)
@@ -81,6 +99,7 @@ class DebugPanelViewModel @Inject constructor(
         val pipelineState: OverlayState,
         val metrics: ProcessingMetrics,
         val overlayRunning: Boolean,
+        val overlayUi: OverlayUiState,
     )
 
     private val performance =
@@ -99,7 +118,15 @@ class DebugPanelViewModel @Inject constructor(
             capturePipeline.lastMetrics,
             overlayManager.isRunning,
         ) { _, capture, pipelineState, metrics, overlayRunning ->
-            PipelineSnapshot(capture, pipelineState, metrics, overlayRunning)
+            PipelineSnapshot(
+                capture = capture,
+                pipelineState = pipelineState,
+                metrics = metrics,
+                overlayRunning = overlayRunning,
+                overlayUi = overlayDataSource.uiState.value,
+            )
+        }.combine(overlayDataSource.uiState) { snapshot, overlayUi ->
+            snapshot.copy(overlayUi = overlayUi)
         }.combine(performance) { snapshot, (averages, latest) ->
             build(
                 snapshot.capture,
@@ -108,6 +135,7 @@ class DebugPanelViewModel @Inject constructor(
                 snapshot.overlayRunning,
                 averages,
                 latest,
+                snapshot.overlayUi,
             )
         }.stateIn(
             scope = viewModelScope,
@@ -120,6 +148,7 @@ class DebugPanelViewModel @Inject constructor(
                     overlayManager.isRunning.value,
                     performanceTracker.averages.value,
                     emptyList(),
+                    overlayDataSource.uiState.value,
                 ),
         )
 
@@ -154,10 +183,15 @@ class DebugPanelViewModel @Inject constructor(
         overlayRunning: Boolean,
         averages: OfferTiming,
         latest: List<OfferEvaluationRecord>,
+        overlayUi: OverlayUiState,
     ): UiState {
         val flags = FeatureFlag.entries.map { FlagStatus(it, featureFlags.isEnabled(it)) }
         val lastOffer = latest.firstOrNull()
         val lastTiming = performanceTracker.lastOffers.value.lastOrNull()
+        val ruleResults =
+            overlayUi.ruleEvaluation?.results?.map {
+                RuleRow(name = it.ruleName, verdict = it.verdict, message = it.message)
+            } ?: emptyList()
         return UiState(
             accessibilityEnabled = permissions.hasAccessibilityPermission(),
             overlayRunning = overlayRunning,
@@ -173,6 +207,7 @@ class DebugPanelViewModel @Inject constructor(
             lastProcessingTimeMillis = capture.lastProcessingTimeMillis,
             lastCaptureMillis = metrics.captureMillis,
             lastOcrMillis = metrics.ocrMillis,
+            lastDetectionMillis = metrics.detectionMillis,
             lastParseMillis = metrics.parseMillis,
             lastTotalMillis = metrics.totalMillis,
             approximateMemoryMb = approximateMemoryMb(),
@@ -183,10 +218,17 @@ class DebugPanelViewModel @Inject constructor(
             lastTiming = lastTiming,
             avgCaptureMillis = averages.captureMillis,
             avgOcrMillis = averages.ocrMillis,
+            avgDetectionMillis = averages.detectionMillis,
             avgParseMillis = averages.parseMillis,
+            avgRulesMillis = averages.rulesMillis,
             avgEvaluationMillis = averages.evaluationMillis,
             avgOverlayMillis = averages.overlayMillis,
             avgTotalMillis = averages.totalMillis,
+            offerType = overlayUi.offerType,
+            confidencePercent = overlayUi.confidence?.percent,
+            confidenceLevel = overlayUi.confidence?.level?.name,
+            confidenceReasons = overlayUi.confidence?.reasons.orEmpty(),
+            ruleResults = ruleResults,
         )
     }
 

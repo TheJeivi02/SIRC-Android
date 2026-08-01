@@ -10,9 +10,11 @@ import com.sirc.capture.model.OfferSnapshot
 import com.sirc.capture.model.OverlayState
 import com.sirc.capture.model.SnapshotSource
 import com.sirc.capture.pipeline.CapturePipeline
+import com.sirc.domain.engine.ConfidenceEngine
 import com.sirc.domain.engine.ProfitEngine
 import com.sirc.domain.engine.ProfitEvaluationEngine
 import com.sirc.domain.engine.RecommendationEngine
+import com.sirc.domain.engine.RuleEngine
 import com.sirc.domain.model.DecisionThresholds
 import com.sirc.domain.model.DriverCosts
 import com.sirc.domain.model.OverlayConfig
@@ -41,11 +43,14 @@ class PipelineOverlayDataSourceTest {
     private val featureFlags = InMemoryFeatureFlags()
     private val performanceTracker = InMemoryOfferPerformanceTracker()
     private val historyRepository = InMemoryOfferEvaluationRepository()
+    private val driverConfigRepository = FakeDriverConfigRepository()
+    private val ruleEngine = RuleEngine(RuleEngine.defaultRules())
+    private val confidenceEngine = ConfidenceEngine()
     private val evaluateUseCase =
         EvaluateDetailedOfferUseCase(
             profitEvaluationEngine = ProfitEvaluationEngine(engine = ProfitEngine()),
             recommendationEngine = RecommendationEngine(),
-            configRepository = FakeDriverConfigRepository(),
+            configRepository = driverConfigRepository,
         )
 
     private val dataSource =
@@ -57,6 +62,9 @@ class PipelineOverlayDataSourceTest {
             logger = FakeLogger(),
             performanceTracker = performanceTracker,
             historyRepository = historyRepository,
+            driverConfigRepository = driverConfigRepository,
+            ruleEngine = ruleEngine,
+            confidenceEngine = confidenceEngine,
         )
 
     @Test
@@ -119,6 +127,19 @@ class PipelineOverlayDataSourceTest {
         }
 
     @Test
+    fun `snapshot evaluado expone tipo, confianza y reglas`() =
+        runBlocking {
+            pipeline.snapshots.tryEmit(snapshot(rawData = "type=UBER_REQUEST"))
+
+            waitFor { dataSource.uiState.value.offerType != null }
+
+            assertEquals("UBER_REQUEST", dataSource.uiState.value.offerType)
+            assertNotNull(dataSource.uiState.value.confidence)
+            assertNotNull(dataSource.uiState.value.ruleEvaluation)
+            assertTrue(dataSource.uiState.value.ruleEvaluation!!.results.isNotEmpty())
+        }
+
+    @Test
     fun `stop oculta el overlay y vuelve a DISABLED`() =
         runBlocking {
             pipeline.state.value = OverlayState.PROCESSING
@@ -144,7 +165,7 @@ class PipelineOverlayDataSourceTest {
             assertFalse(dataSource.uiState.value.visible)
         }
 
-    private fun snapshot(): OfferSnapshot =
+    private fun snapshot(rawData: String? = "data:test"): OfferSnapshot =
         OfferSnapshot(
             sessionId = "test-session",
             platform = RidePlatform.UBER,
@@ -153,7 +174,7 @@ class PipelineOverlayDataSourceTest {
             estimatedTotal = 125.0,
             distanceKm = 8.5,
             durationMin = 22.0,
-            rawData = "data:test",
+            rawData = rawData,
             texts = listOf("UBER", "$125.00", "8.5 km"),
         )
 

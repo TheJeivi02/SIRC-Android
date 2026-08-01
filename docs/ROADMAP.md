@@ -163,6 +163,41 @@ oferta en el panel de depuración.
 
 - Estado: **completado**.
 
+## Sprint 8 — Motor de análisis de pantallas reales ✅
+
+El parser se convierte en un motor de análisis robusto para pantallas reales de
+Uber Driver: detección de pantalla → parsers especializados → validación →
+reglas → confianza → overlay con tipo de oferta, confianza y veredicto de reglas.
+
+- **Detección de pantalla** (O1, `:core:platform`): `OfferDetectionEngine`
+  clasifica el texto visible en `ScreenType` (HOME/REQUEST/TRIP/NAVIGATION/
+  OFFLINE/ERROR/UNKNOWN) con keywords ponderadas; solo `REQUEST` produce oferta.
+- **Parsers especializados + orquestador** (O2, `:core:platform`): `OfferType`,
+  `OfferTypeParser`/`BaseOfferTypeParser` con `UberRequestParser`,
+  `UberRadarParser`, `UberReservationParser`, `UberMotoParser`, `UberXlParser`;
+  `OfferParserOrchestrator` detecta → especializados → extractor genérico.
+- **Motor de Confianza** (O3, `:domain`): `ConfidenceEngine` → nivel HIGH/
+  MEDIUM/LOW con % y razones; LOW = "Información insuficiente".
+- **Validación cruzada** (O4, `:domain`): `OfferValidator` con `ValidationIssue`.
+- **Motor de Reglas** (O5, `:domain`): `RuleEngine` + 6 reglas
+  (`MinimumProfit`, `MinimumProfitPerKm`, `MinimumProfitPerHour`,
+  `MaximumDistance`, `MaximumPickup`, `MaximumTripTime`) con `RuleVerdict`
+  PASS/WARNING/FAIL y umbrales desde `DriverConfig`.
+- **Overlay con análisis real** (O7): `OverlayUiState.offerType`/`confidence`/
+  `ruleEvaluation`; `OverlayContent` muestra tipo + confianza e
+  "Información insuficiente" cuando no es accionable.
+- **Panel de depuración ampliado** (O8): sección "Análisis" con tipo, confianza
+  (razones) y veredicto de cada regla.
+- **Dataset** (O6): `test-images/` con 9 escenarios Uber + README.
+- **Métricas por etapa** (O10): `detectionMillis`/`rulesMillis` en
+  `OfferTiming`/`ProcessingMetrics`; regex del parser precompiladas.
+- **Tests** (O9): `OfferDetectionEngineTest` (12), `OfferParserOrchestratorTest`
+  (9), `RuleEngineTest`, `ConfidenceEngineTest`, `OfferValidatorTest` y
+  ampliación de `PipelineOverlayDataSourceTest`.
+- Verificación en verde: ktlint (todos), unit tests, `lintDebug`, `assembleDebug`.
+
+- Estado: **completado**.
+
 ## Sprint 3 — Accessibility
 
 Canal de lectura del contenido visible de las plataformas.

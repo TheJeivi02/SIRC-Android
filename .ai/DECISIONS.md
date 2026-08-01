@@ -4,6 +4,102 @@
 > opción elegida, alternativas descartadas y consecuencias. Se actualiza en
 > cada sprint.
 
+## SPRINT 8 — Motor de análisis de pantallas reales
+
+### D9.1 — Detección de pantalla antes del parsing (`OfferDetectionEngine`)
+
+**Contexto:** el pipeline parseaba todo texto visible, incluso Home, navegación
+o pantallas de error, gastando trabajo y produciendo ruido.
+
+**Decisión:** `OfferDetectionEngine` clasifica el texto en `ScreenType`
+(HOME/REQUEST/TRIP/NAVIGATION/OFFLINE/ERROR/UNKNOWN) con palabras clave
+ponderadas (REQUEST/ERROR peso 3, OFFLINE/NAVIGATION/TRIP peso 2, HOME peso 1);
+solo `REQUEST` produce ofertas evaluables. La confianza normaliza
+`(peso × aciertos / 8.0)`. Texto normalizado a minúsculas y sin acentos para
+tolerar el OCR.
+
+**Alternativas descartadas:** parsear siempre y descartar aguas abajo
+(desperdiciaba OCR/parseo en cada cambio de ventana).
+
+### D9.2 — Parsers especializados por tipo, orquestados por especificidad
+
+**Contexto:** las pantallas de Uber varían (solicitud estándar, moto, XL,
+reservado, radar) y un solo parser genérico no las distingue.
+
+**Decisión:** `OfferType` + `OfferTypeParser`/`BaseOfferTypeParser` con 5 parsers
+de Uber; `OfferParserOrchestrator` detecta la pantalla, prueba los especializados
+**específicos primero** (Moto/XL/Radar/Reserva antes que Request, que es el más
+greedy) y solo si la plataforma es Uber; si ninguno extrae, cae al extractor
+genérico por plataforma. El tipo se reporta al pipeline como
+`rawData = "type={OfferType.name}"`.
+
+**Consecuencias:** las keywords de variantes (radar, moto, xl, reservado,
+programado) se añadieron también a la detección `REQUEST` para que esas pantallas
+produzcan oferta.
+
+### D9.3 — Motor de Reglas con umbrales del conductor (`RuleEngine`)
+
+**Contexto:** la decisión de rentabilidad necesitaba reglas explícitas y
+verificables (ganancia, por km, por hora, distancia máx., recogida, duración).
+
+**Decisión:** `RuleEngine` ejecuta 6 `OfferRule` y agrega `RuleEvaluation` con
+`RuleVerdict` PASS/WARNING/FAIL. `RuleThresholds.from(DriverConfig)` deriva los
+umbrales de rentabilidad del conductor; los límites operativos usan defaults.
+Reglas con datos faltantes devuelven PASS "no disponible" sin bloquear la oferta.
+
+**Consecuencias:** `TripOffer` ganó `pickupDistanceKm: Double?` para la regla de
+recogida; `RuleEngine` se provee vía Hilt con `List<@JvmSuppressWildcards
+OfferRule>` (ver D9.5).
+
+### D9.4 — Confianza explícita con niveles (`ConfidenceEngine`)
+
+**Contexto:** no bastaba con recomendar; había que señalar cuándo la señal es
+poco fiable (datos incompletos, métricas incoherentes) para no engañar al
+conductor.
+
+**Decisión:** `ConfidenceEngine.assess` parte de 80 y penaliza datos faltantes
+(−40), métricas incoherentes (−35, precio/km > 500 o precio/hora > 5000),
+moneda ausente (−5), fallos de reglas (−25) o warnings (−15); reglas limpias
+suman +10. Resulta `ConfidenceResult` con nivel HIGH/MEDIUM/LOW, % y razones.
+LOW = "Información insuficiente" y nunca ACCEPT/REJECT.
+
+### D9.5 — Listas inyectadas con `@JvmSuppressWildcards` y constructores sin default args
+
+**Contexto:** Dagger fallaba de dos maneras: `List<OfferTypeParser>` se compila
+como `List<? extends OfferTypeParser>` (Dagger lo interpreta como multibinding)
+y un constructor `@Inject` con default args genera un segundo constructor
+("may only contain one injected constructor").
+
+**Decisión:** los providers usan `List<@JvmSuppressWildcards T>` explícito
+(`PlatformModule` provee `OfferDetectionEngine`, los parsers, el orquestador y
+el `RuleEngine`); los engines que reciben listas con default (`OfferDetectionEngine`,
+`OfferParserOrchestrator`, `RuleEngine`) no llevan `@Inject` y se proveen
+explícitamente. `ConfidenceEngine` conserva su `@Inject()` de un solo constructor.
+
+### D9.6 — Confianza y reglas dentro de `PipelineOverlayDataSource`
+
+**Contexto:** el overlay necesitaba exponer tipo de oferta, confianza y
+veredicto de reglas sin tocar el pipeline puro.
+
+**Decisión:** tras evaluar cada snapshot, el data source ejecuta
+`RuleEngine.evaluate(RuleContext(offer, metrics, RuleThresholds.from(driverConfig)))`
+y `ConfidenceEngine.assess` y publica `offerType`, `confidence` y
+`ruleEvaluation` en `OverlayUiState`; `OverlayContent` muestra tipo + % de
+confianza (e "Información insuficiente" en rojo cuando no es accionable) y el
+panel de depuración añade la sección "Análisis". `DriverConfigRepository` se
+inyecta para leer los umbrales reales del conductor.
+
+### D9.7 — Tiempos de detección y reglas por oferta
+
+**Contexto:** las etapas internas del motor (detección, reglas) no estaban
+cronometradas.
+
+**Decisión:** `OfferParserOrchestrator` mide detección y parsing y las reporta
+en `ParsedOffer`; el pipeline las lleva a `ProcessingMetrics`/`OfferTiming`
+(`detectionMillis`); el data source cronometra `rulesMillis`. Las regex del
+`OfferTextParser` ya viven en el companion object (se compilan una sola vez).
+El panel de depuración muestra Detección y Reglas.
+
 ## SPRINT 7 — Evaluación en tiempo real con recomendación
 
 ### D8.1 — `ProfitEvaluationEngine` delega en `ProfitEngine` (no duplica fórmulas)

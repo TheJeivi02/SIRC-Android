@@ -127,6 +127,7 @@ class DefaultCapturePipeline @Inject constructor(
                 OfferTiming(
                     captureMillis = captureMillis,
                     ocrMillis = if (frame.imageData != null) lastOcrMillis else null,
+                    detectionMillis = snapshot.detectionMillis,
                     parseMillis = parseMillis,
                     totalMillis = totalMillis,
                 ),
@@ -138,6 +139,7 @@ class DefaultCapturePipeline @Inject constructor(
             ProcessingMetrics(
                 captureMillis = captureMillis,
                 ocrMillis = if (frame.imageData != null) lastOcrMillis else null,
+                detectionMillis = snapshot?.detectionMillis,
                 parseMillis = parseMillis,
                 totalMillis = totalMillis,
             )

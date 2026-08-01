@@ -8,10 +8,18 @@ import com.sirc.capture.metrics.OfferTiming
 import com.sirc.capture.model.OfferSnapshot
 import com.sirc.capture.model.OverlayState
 import com.sirc.capture.pipeline.CapturePipeline
+import com.sirc.domain.engine.ConfidenceEngine
+import com.sirc.domain.engine.ConfidenceResult
+import com.sirc.domain.engine.RuleEngine
+import com.sirc.domain.model.DriverConfig
 import com.sirc.domain.model.OfferEvaluationRecord
 import com.sirc.domain.model.OfferEvaluationResult
 import com.sirc.domain.model.OverlayConfig
+import com.sirc.domain.model.RuleContext
+import com.sirc.domain.model.RuleEvaluation
+import com.sirc.domain.model.RuleThresholds
 import com.sirc.domain.model.TripOffer
+import com.sirc.domain.repository.DriverConfigRepository
 import com.sirc.domain.repository.OfferEvaluationRepository
 import com.sirc.domain.repository.OverlayConfigRepository
 import com.sirc.domain.usecase.EvaluateDetailedOfferUseCase
@@ -46,6 +54,9 @@ class PipelineOverlayDataSource @Inject constructor(
     private val logger: SircLogger,
     private val performanceTracker: OfferPerformanceTracker,
     private val historyRepository: OfferEvaluationRepository,
+    private val driverConfigRepository: DriverConfigRepository,
+    private val ruleEngine: RuleEngine,
+    private val confidenceEngine: ConfidenceEngine,
 ) : OverlayDataSource {
     private val _uiState = MutableStateFlow(OverlayUiState(config = OverlayConfig()))
     override val uiState: StateFlow<OverlayUiState> = _uiState.asStateFlow()
@@ -100,16 +111,23 @@ class PipelineOverlayDataSource @Inject constructor(
                     val evaluationMillis = elapsedMillis(evaluationStart)
                     logger.debug(METRICS_TAG, "evaluación: ${format(evaluationMillis)} ms")
                     val overlayStart = System.nanoTime()
+                    val rulesStart = System.nanoTime()
+                    val analysis = analyze(offer, result, snapshot)
+                    val rulesMillis = elapsedMillis(rulesStart)
+                    show(result, analysis)
                     persist(snapshot, result)
-                    show(result)
                     val overlayMillis = elapsedMillis(overlayStart)
                     performanceTracker.merge(
                         OfferTiming(
+                            rulesMillis = rulesMillis,
                             evaluationMillis = evaluationMillis,
                             overlayMillis = overlayMillis,
                         ),
                     )
-                    logger.debug(METRICS_TAG, "overlay: ${format(overlayMillis)} ms")
+                    logger.debug(
+                        METRICS_TAG,
+                        "reglas: ${format(rulesMillis)} ms · overlay: ${format(overlayMillis)} ms",
+                    )
                 }
                 .onFailure { error ->
                     logger.error(TAG, "error evaluando oferta: ${error.message}")
@@ -139,11 +157,35 @@ class PipelineOverlayDataSource @Inject constructor(
         )
     }
 
-    private fun show(result: OfferEvaluationResult) {
+    private suspend fun analyze(
+        offer: TripOffer,
+        result: OfferEvaluationResult,
+        snapshot: OfferSnapshot,
+    ): Analysis {
+        val driverConfig = driverConfigRepository.getDriverConfig() ?: DriverConfig.default()
+        val ruleEvaluation =
+            ruleEngine.evaluate(
+                RuleContext(
+                    offer = offer,
+                    metrics = result.evaluation.metrics,
+                    thresholds = RuleThresholds.from(driverConfig),
+                ),
+            )
+        val confidence = confidenceEngine.assess(offer, result.evaluation.metrics, ruleEvaluation)
+        return Analysis(offerTypeFrom(snapshot.rawData), ruleEvaluation, confidence)
+    }
+
+    private fun show(
+        result: OfferEvaluationResult,
+        analysis: Analysis,
+    ) {
         _uiState.update {
             it.copy(
                 evaluation = result.evaluation,
                 recommendation = result.recommendation,
+                offerType = analysis.offerType,
+                confidence = analysis.confidence,
+                ruleEvaluation = analysis.ruleEvaluation,
                 visible = true,
             )
         }
@@ -173,6 +215,21 @@ class PipelineOverlayDataSource @Inject constructor(
         private val LOCALE = java.util.Locale.ROOT
     }
 }
+
+private const val OFFER_TYPE_PREFIX = "type="
+
+/** Análisis de reglas y confianza producido junto a la evaluación. */
+private data class Analysis(
+    val offerType: String?,
+    val ruleEvaluation: RuleEvaluation,
+    val confidence: ConfidenceResult,
+)
+
+/** Extrae el tipo de oferta (p. ej. UBER_REQUEST) reportado por el parser. */
+private fun offerTypeFrom(rawData: String?): String? =
+    rawData
+        ?.substringAfter(OFFER_TYPE_PREFIX, missingDelimiterValue = "")
+        ?.takeIf { it.isNotBlank() }
 
 /** Convierte un snapshot del pipeline en una [TripOffer] evaluable. */
 private fun OfferSnapshot.toTripOffer(): TripOffer =

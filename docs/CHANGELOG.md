@@ -3,6 +3,79 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Las versiones siguen [SemVer](https://semver.org/lang/es/).
 
+## [v0.9.0] — 2026-07-31
+
+### Añadido
+
+- **Detección de pantalla** (O1, `:core:platform`): `OfferDetectionEngine`
+  clasifica el texto visible (OCR/accesibilidad) en `ScreenType`
+  (`UNKNOWN`/`HOME`/`REQUEST`/`TRIP`/`NAVIGATION`/`OFFLINE`/`ERROR`) usando
+  palabras clave ponderadas; solo `REQUEST` produce ofertas evaluables.
+  `ScreenDetection` expone tipo, keywords matcheadas, confianza (peso ×
+  aciertos / 8.0) e `isRequest`. Normaliza texto a minúsculas sin acentos.
+  Incluye keywords de variantes Uber (radar, moto, xl, reservado, programado).
+- **Parsers especializados + orquestador** (O2, `:core:platform`):
+  `OfferType` (`UBER_REQUEST`/`UBER_RADAR`/`UBER_RESERVATION`/`UBER_MOTO`/
+  `UBER_XL`/`GENERIC`), `OfferTypeParser` (interfaz) y `BaseOfferTypeParser`
+  con 5 parsers concretos; `OfferParserOrchestrator` detecta → prueba parsers
+  especializados (específicos primero, Uber solo) → extractor genérico por
+  plataforma. `ParsedOffer` incluye tiempos internos de detección/parsing
+  (Debug).
+- **Motor de Confianza** (O3, `:domain`): `ConfidenceEngine.assess` combina
+  completitud de datos, coherencia de métricas (precio/km ≤ 500 y precio/hora
+  ≤ 5000), moneda y resultados de reglas → `ConfidenceResult` con nivel
+  `HIGH`/`MEDIUM`/`LOW`, % y razones; `LOW` = "Información insuficiente".
+- **Validación cruzada de ofertas** (O4, `:domain`): `OfferValidator` detecta
+  montos inválidos, distancias/duraciones faltantes, precios por km/hora
+  irracionales y recogidas más lejanas que el viaje (`ValidationIssue`).
+- **Motor de Reglas** (O5, `:domain`): `RuleEngine` ejecuta las 6 reglas del
+  MVP (`MinimumProfit`, `MinimumProfitPerKm`, `MinimumProfitPerHour`,
+  `MaximumDistance`, `MaximumPickup`, `MaximumTripTime`) y agrega
+  `RuleEvaluation` con `RuleVerdict` PASS/WARNING/FAIL. `RuleThresholds`
+  deriva los umbrales de rentabilidad desde `DriverConfig`.
+- **Overlay con análisis real** (O7): `PipelineOverlayDataSource` ejecuta
+  reglas + confianza tras evaluar cada snapshot y expone en `OverlayUiState`
+  `offerType`, `confidence` y `ruleEvaluation`; `OverlayContent` muestra el
+  tipo de oferta, el % de confianza y "Información insuficiente" cuando la
+  confianza no es accionable.
+- **Panel de depuración ampliado** (O8): sección "Análisis" con tipo de
+  oferta, confianza (%, nivel y razones) y veredicto de cada regla con color
+  semáforo; filas Detección/Reglas en captura y promedios.
+- **Métricas de rendimiento por etapa** (O10): `detectionMillis` en
+  `ProcessingMetrics`/`OfferTiming` y `rulesMillis` en `OfferTiming`
+  (promedios del tracker); regex del parser ya compiladas una sola vez en el
+  companion object.
+- **Dataset de prueba** (O6): `core/capture/src/test/resources/test-images/`
+  con 9 placeholders de escenarios Uber (uberx, comfort, moto, xl,
+  reservation, radar, bonus, night, invalid) + `README.md` del dataset.
+- **Tests**: `OfferDetectionEngineTest` (12), `OfferParserOrchestratorTest`
+  (9), `RuleEngineTest`, `ConfidenceEngineTest`, `OfferValidatorTest`,
+  ampliado `PipelineOverlayDataSourceTest` (8, incluye tipo/confianza/reglas).
+
+### Cambiado
+
+- `:core:capture` depende de `:core:platform`; `CaptureModule` liga
+  `PlatformOfferParser` (reemplaza a `FakeParser` en el flujo real). El
+  snapshot transporta `detectionMillis` y `rawData = "type={OfferType}"`.
+- `TripOffer` gana `pickupDistanceKm: Double?` para la regla de recogida.
+- `PlatformModule` (nuevo en `:feature:overlay`) provee `OfferDetectionEngine`,
+  los parsers (`List<@JvmSuppressWildcards OfferTypeParser>`), el orquestador
+  y el `RuleEngine` (resuelve el multibinding de `List<OfferRule>`).
+- `RuleEngine` pierde el `@Inject` con default args (doble constructor en
+  Dagger) y se provee explícitamente, siguiendo el patrón de O1/O2.
+- `DebugPanelViewModel` reestructura los combines para observar
+  `OverlayDataSource.uiState`.
+
+### Notas técnicas
+
+- Reglas con datos faltantes devuelven PASS "no disponible" sin bloquear la
+  oferta; la confianza LOW no debe traducirse en ACCEPT/REJECT.
+- Los parsers especializados solo se aplican a Uber; otras plataformas caen al
+  extractor genérico.
+- Verificación en verde: `ktlintCheck` (todos los módulos), tests unitarios de
+  `:domain`/`:core:platform`/`:core:capture`/`:feature:overlay`/`:app` y
+  `lintDebug`/`assembleDebug`.
+
 ## [v0.8.0] — 2026-07-31
 
 ### Añadido

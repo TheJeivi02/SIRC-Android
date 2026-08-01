@@ -109,13 +109,28 @@ Reglas derivadas del grafo real:
 
 ### Core:platform (`:core:platform`) — Kotlin puro
 
+Motor de análisis de pantallas (SPRINT 1 extractores + SPRINT 8 detección y
+parsers especializados):
+
 - `OfferTextParser` — heurística pura: extrae candidatos de monto, distancias y
-  duraciones con regex y límites de rango.
+  duraciones con regex precompiladas y límites de rango.
 - `PlatformExtractor` (interfaz) + `GenericPlatformExtractor` — estrategia por
   plataforma basada en palabras clave (`PlatformKeywords`, `PlatformDescriptors`).
 - `ExtractorRegistry` — resuelve el extractor por `RidePlatform`.
+- **Detección de pantalla (SPRINT 8)**: `OfferDetectionEngine` clasifica el texto
+  visible en `ScreenType` (HOME/REQUEST/TRIP/NAVIGATION/OFFLINE/ERROR/UNKNOWN)
+  con keywords ponderadas; solo `REQUEST` produce oferta. `ScreenDetection`
+  expone tipo, keywords, confianza e `isRequest`.
+- **Parsers especializados (SPRINT 8)**: `OfferType`
+  (`UBER_REQUEST`/`UBER_RADAR`/`UBER_RESERVATION`/`UBER_MOTO`/`UBER_XL`/
+  `GENERIC`), `OfferTypeParser` (interfaz) + `BaseOfferTypeParser` con
+  `UberRequestParser`, `UberRadarParser`, `UberReservationParser`,
+  `UberMotoParser` y `UberXlParser`.
+- **`OfferParserOrchestrator` (SPRINT 8)**: detecta → prueba los parsers
+  especializados (específicos primero, solo Uber) → extractor genérico por
+  plataforma; `ParsedOffer` incluye tiempos de detección/parsing (Debug).
 - **Agregar una plataforma** = agregar `RidePlatform` + descriptor de palabras
-  clave; no requiere tocar el núcleo.
+  clave + (opcional) parser especializado; no requiere tocar el núcleo.
 
 ### Core:capture (`:core:capture`) — Kotlin puro
 
@@ -150,11 +165,11 @@ CapturePipeline (DefaultCapturePipeline)
       2. ScreenCapture → ScreenFrame            (MediaProjection: imagen real;
                                                  degrada a texto si no hay frame)
       3. si hay imagen → OcrEngine → textos     (ML Kit, abstraído)
-      4. OfferParser → OfferSnapshot
+      4. OfferParser (PlatformOfferParser) → OfferSnapshot   (detección + parseo)
       5. CaptureRepository
       ▼
 OverlayState (StateFlow): DISABLED → WAITING → CAPTURING → PROCESSING → ERROR
-snapshots (SharedFlow) · lastMetrics (StateFlow: captura/OCR/parseo/total)
+snapshots (SharedFlow) · lastMetrics (StateFlow: captura/OCR/detección/parseo/total)
 ```
 
 - `model/` — `CaptureWindowEvent`, `WindowEventType`, `OfferCaptureSession`
@@ -173,14 +188,16 @@ snapshots (SharedFlow) · lastMetrics (StateFlow: captura/OCR/parseo/total)
 - `scheduler/DebounceCaptureScheduler` — coalesce los `CaptureRequest` y emite
   solo el último tras el debounce (400 ms por defecto).
 - `metrics/` — `CaptureMetrics` (interfaz, `NoOpCaptureMetrics`) y
-  `ProcessingMetrics` (tiempos por etapa) expuestos por el pipeline;
-  `OfferTiming` (captura/OCR/parseo/evaluación/overlay/total) y
+  `ProcessingMetrics` (tiempos por etapa, incluye `detectionMillis`) expuestos
+  por el pipeline; `OfferTiming`
+  (captura/OCR/detección/parseo/reglas/evaluación/overlay/total) y
   `OfferPerformanceTracker` + `InMemoryOfferPerformanceTracker` (SPRINT 7):
   retiene las últimas 100 ofertas y expone promedios de las últimas 20.
 - `ocr/OcrEngine` — reconoce texto en una imagen; `MlKitOcrEngine` (Android)
   implementa ML Kit; el pipeline solo lo invoca si la solicitud lleva imagen.
-- `parser/OfferParser` + `FakeParser` — el fake genera snapshots simulados para
-  validar el flujo completo; la interfaz está lista para un parser real.
+- `parser/OfferParser` + `PlatformOfferParser` (SPRINT 8): parser real que usa
+  el `OfferParserOrchestrator` de `:core:platform`; devuelve `null` si la
+  pantalla no es una solicitud. `FakeParser` sigue para el flujo simulado.
 - `repository/CaptureRepository` + `InMemoryCaptureRepository` — guardado
   temporal (buffer 50); la interfaz admite una implementación persistente.
 - `coordinator/OfferCaptureCoordinator` — orquesta la captura vía observer;
@@ -416,6 +433,13 @@ Detalles de diseño del overlay:
 | Historial en memoria `OfferEvaluationRepository` | `InMemoryOfferEvaluationRepository` (100 ofertas) alimenta el overlay y el panel de depuración en tiempo real, sin I/O de Room en el camino crítico; el historial persistente de `:feature:history` se mantiene aparte. |
 | `OfferPerformanceTracker` con promedio de 20 | Retiene las últimas 100 ofertas (memoria acotada) y expone promedios móviles por etapa para medir el rendimiento real de captura/OCR/parseo/evaluación/overlay. |
 | `OfferSnapshot.texts` | El snapshot transporta los textos OCR además de la imagen cruda, para que el overlay evalúe el contenido visible real de la oferta. |
+| `OfferDetectionEngine` clasifica la pantalla | Keywords ponderadas por pantalla → `ScreenType`; solo `REQUEST` produce oferta, evitando parsear Home/navegación/error. |
+| Parser orquestado por especificidad | `OfferParserOrchestrator` prueba parsers especializados (Moto/XL/Radar/Reserva antes que Request) y cae al genérico; los especializados solo aplican a Uber. |
+| `RuleEngine` + 6 reglas con `DriverConfig` | `RuleThresholds.from(config)` deriva los umbrales de rentabilidad del conductor; límites operativos (distancia/recogida/duración) con defaults. |
+| `ConfidenceEngine` con niveles | Combina completitud, coherencia de métricas, moneda y reglas; `LOW` = "Información insuficiente" y nunca ACCEPT/REJECT. |
+| `@JvmSuppressWildcards` en listas inyectadas | Kotlin declara `List<? extends T>`; Dagger lo trataría como multibinding; el provider usa `List<@JvmSuppressWildcards T>` explícito. |
+| Constructores con default args sin `@Inject` | Un default arg genera un segundo constructor que Dagger rechaza ("may only contain one injected constructor"); los engines se proveen explícitamente. |
+| Tiempos de detección y reglas por oferta | `detectionMillis` en `ProcessingMetrics`/`OfferTiming` y `rulesMillis` en `OfferTiming`; regex del parser precompiladas (sin recompilar por frame). |
 
 ## Cumplimiento
 

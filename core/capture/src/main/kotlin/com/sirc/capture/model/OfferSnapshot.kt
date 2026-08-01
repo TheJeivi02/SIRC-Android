@@ -18,6 +18,7 @@ data class OfferSnapshot(
     val durationMin: Double,
     val rawData: String? = null,
     val texts: List<String> = emptyList(),
+    val detectionMillis: Double? = null,
 )
 
 /** Origen de los datos del [OfferSnapshot]. */
