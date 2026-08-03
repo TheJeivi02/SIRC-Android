@@ -1,7 +1,9 @@
 package com.sirc.domain.model
 
 /**
- * Límites usados por el [com.sirc.domain.engine.RuleEngine].
+ * Límites usados históricamente por el [com.sirc.domain.engine.RuleEngine]
+ * (ahora LEGACY, WP-E1-02). `ProfitEngine` lee los umbrales directamente
+ * desde [com.sirc.domain.model.DriverConfig.thresholds].
  *
  * Combina los umbrales de rentabilidad ([DecisionThresholds]) con límites
  * operativos del viaje (distancia máxima, tiempo máximo y distancia de

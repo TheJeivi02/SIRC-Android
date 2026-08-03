@@ -90,6 +90,8 @@ es rentable.
 > (el fake se conservaba temporalmente). `SircLogger` solo emite en builds de
 > desarrollo. **WP-E1-01 (SPRINT 11)**: `FakeParser` eliminado de producción;
 > `PlatformOfferParser` es la única fuente de análisis.
+> **WP-E1-02 (SPRINT 11)**: `RuleEngine` eliminado de la ruta de producción;
+> `ProfitEngine` es el único motor de decisión. Marcado como LEGACY en `:domain`.
 >
 > Nota SPRINT 5: `CaptureAccessibilityService` (desacoplado de la UI) alimenta
 > `CapturePipeline` (ScreenCapture → OCR → OfferParser → CaptureRepository).
@@ -124,6 +126,12 @@ Service **nunca** interactúa con otras apps.
 
 ## Estado del proyecto
 
+- **SPRINT 11 WP-E1-02 completado**: Consolidación del motor de decisión.
+  `RuleEngine` eliminado de la ruta de producción; `ProfitEngine` es el único
+  motor de decisión. Eliminado feature flag `RULES`, providers de `RuleEngine`/
+  `OfferRule` en `PlatformModule` y la condición `if (RULES)` en
+  `PipelineOverlayDataSource`. `RuleEngine` marcado como LEGACY en `:domain`
+  para uso en tests futuros. Comportamiento funcional idéntico.
 - **SPRINT 10 completado** (v1.0.0-rc1): Hardening RC1 (ver `docs/ROADMAP.md`).
   **Modo de validación** (`ValidationRecorder` + sección en Debug + exportar
   informe). **Recuperación**: OCR degrada a textos, `CaptureError` registrado.

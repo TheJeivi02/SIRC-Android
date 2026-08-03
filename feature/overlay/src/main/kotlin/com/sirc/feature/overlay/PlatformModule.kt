@@ -8,8 +8,6 @@ import com.sirc.core.platform.UberRadarParser
 import com.sirc.core.platform.UberRequestParser
 import com.sirc.core.platform.UberReservationParser
 import com.sirc.core.platform.UberXlParser
-import com.sirc.domain.engine.RuleEngine
-import com.sirc.domain.model.OfferRule
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -22,6 +20,11 @@ import javax.inject.Singleton
  * Provee explícitamente el [OfferDetectionEngine], el conjunto de parsers
  * especializados y el [OfferParserOrchestrator] que usa el pipeline de
  * captura para parsear pantallas reales.
+ *
+ * WP-E1-02: `RuleEngine` quedó fuera de la ruta de producción;
+ * `ProfitEngine` es el único motor de decisión. Los providers y providers de
+ * reglas (provideRuleEngine/provideOfferRules) se eliminaron. La clase
+ * `RuleEngine` en `:domain` se marca como LEGACY para uso en tests futuros.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -51,12 +54,4 @@ object PlatformModule {
             detectionEngine = detectionEngine,
             specializedParsers = parsers,
         )
-
-    @Provides
-    @Singleton
-    fun provideRuleEngine(rules: List<@JvmSuppressWildcards OfferRule>): RuleEngine = RuleEngine(rules = rules)
-
-    @Provides
-    @Singleton
-    fun provideOfferRules(): List<OfferRule> = RuleEngine.defaultRules()
 }

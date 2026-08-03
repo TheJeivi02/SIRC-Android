@@ -12,17 +12,12 @@ import com.sirc.capture.validation.ValidationEvent
 import com.sirc.capture.validation.ValidationRecorder
 import com.sirc.domain.engine.ConfidenceEngine
 import com.sirc.domain.engine.ConfidenceResult
-import com.sirc.domain.engine.RuleEngine
-import com.sirc.domain.model.DriverConfig
 import com.sirc.domain.model.OfferEvaluationRecord
 import com.sirc.domain.model.OfferEvaluationResult
 import com.sirc.domain.model.OfferHistoryEntry
 import com.sirc.domain.model.OverlayConfig
 import com.sirc.domain.model.Recommendation
-import com.sirc.domain.model.RuleContext
 import com.sirc.domain.model.RuleEvaluation
-import com.sirc.domain.model.RuleThresholds
-import com.sirc.domain.model.RuleVerdict
 import com.sirc.domain.model.TripOffer
 import com.sirc.domain.repository.DriverConfigRepository
 import com.sirc.domain.repository.OfferEvaluationRepository
@@ -50,6 +45,12 @@ import javax.inject.Singleton
  * Traduce el estado del pipeline ([OverlayState]) y los snapshots producidos
  * en un [OverlayUiState] con la evaluación real de la oferta
  * ([EvaluateDetailedOfferUseCase]), su desglose de costos y la recomendación.
+ *
+ * A partir de WP-E1-02, `ProfitEngine` es el único motor de decisión;
+ * `RuleEngine` dejó de participar en la ruta de producción y `ruleEvaluation`
+ * se expone vacío para mantener la compatibilidad de la UI. La confianza se
+ * calcula únicamente a partir de los datos de la oferta y las métricas.
+ *
  * También registra el historial (temporal + persistente), alimenta la sesión
  * de captura ([CaptureSessionManager]) y los tiempos por etapa (Debug).
  */
@@ -64,7 +65,6 @@ class PipelineOverlayDataSource @Inject constructor(
     private val evaluationRepository: OfferEvaluationRepository,
     private val historyRepository: OfferHistoryRepository,
     private val driverConfigRepository: DriverConfigRepository,
-    private val ruleEngine: RuleEngine,
     private val confidenceEngine: ConfidenceEngine,
     private val sessionManager: CaptureSessionManager,
     private val validationRecorder: ValidationRecorder,
@@ -210,41 +210,16 @@ class PipelineOverlayDataSource @Inject constructor(
         result: OfferEvaluationResult,
         snapshot: OfferSnapshot,
     ): Analysis {
-        val driverConfig = driverConfigRepository.getDriverConfig() ?: DriverConfig.default()
-        val ruleEvaluation =
-            if (featureFlags.isEnabled(FeatureFlag.RULES)) {
-                ruleEngine.evaluate(
-                    RuleContext(
-                        offer = offer,
-                        metrics = result.evaluation.metrics,
-                        thresholds = RuleThresholds.from(driverConfig),
-                    ),
-                )
-            } else {
-                RuleEvaluation(emptyList())
-            }
-        val confidence = confidenceEngine.assess(offer, result.evaluation.metrics, ruleEvaluation)
-        return Analysis(offerTypeFrom(snapshot.rawData), ruleEvaluation, confidence)
+        val confidence = confidenceEngine.assess(offer, result.evaluation.metrics)
+        return Analysis(offerTypeFrom(snapshot.rawData), RuleEvaluation(emptyList()), confidence)
     }
 
-    /** Registra reglas fallidas y ofertas rechazadas para el modo de validación. */
+    /** Registra ofertas rechazadas para el modo de validación. */
     private fun recordValidationEvents(
         snapshot: OfferSnapshot,
         result: OfferEvaluationResult,
         analysis: Analysis,
     ) {
-        analysis.ruleEvaluation.results
-            .filter { it.verdict == RuleVerdict.FAIL }
-            .forEach { ruleResult ->
-                validationRecorder.record(
-                    ValidationEvent.RuleFailed(
-                        timestampMillis = snapshot.capturedAtMillis,
-                        ruleName = ruleResult.ruleName,
-                        verdict = ruleResult.verdict.name,
-                        message = ruleResult.message,
-                    ),
-                )
-            }
         if (result.recommendation.recommendation == Recommendation.REJECT) {
             validationRecorder.record(
                 ValidationEvent.OfferRejected(

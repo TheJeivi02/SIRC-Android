@@ -16,8 +16,17 @@ producto: estabilidad y observabilidad.
   análisis (`PlatformOfferParser` → `OfferParserOrchestrator` →
   `OfferDetectionEngine` + parsers especializados). El comportamiento
   funcional permanece idéntico y el usuario no percibe cambios en la interfaz.
-  `PlatformOfferParser` (inyectado vía `CaptureModule`) es la única fuente de
-  análisis oficial; `SnapshotSource.REAL` reemplaza a `FAKE` en el snapshot.
+   `PlatformOfferParser` (inyectado vía `CaptureModule`) es la única fuente de
+   análisis oficial; `SnapshotSource.REAL` reemplaza a `FAKE` en el snapshot.
+
+- **Eliminación de `RuleEngine` de la ruta de producción** (WP-E1-02): se
+  elimina completamente la rama de `RuleEngine` desde la ruta de producción.
+  `ProfitEngine` es ahora el único motor de decisión. Se eliminan el feature
+  flag `RULES`, los providers de `RuleEngine`/`OfferRule` en `PlatformModule`
+  y la condición `if (featureFlags.isEnabled(FeatureFlag.RULES))` en
+  `PipelineOverlayDataSource`. `RuleEngine` se marca como LEGACY en `:domain`
+  para uso en tests futuros. El comportamiento funcional permanece idéntico y
+  el conductor no percibe cambios en la interfaz.
 
 ### Añadido
 

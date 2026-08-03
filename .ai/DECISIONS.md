@@ -277,6 +277,28 @@ producción solo emite `REAL`.
 **Consecuencias:** un único parser en la ruta de producción; no hay referencias
 a `FakeParser` desde `src/main`; la interfaz de usuario no percibe cambios.
 
+### D11.7 — Consolidación del motor de decisión: `ProfitEngine` único
+
+**Contexto:** desde SPRINT 8, `PipelineOverlayDataSource` ejecutaba `RuleEngine`
+(como brazo de análisis condicional) y `ProfitEngine` (como motor de decisión)
+en paralelo. `RuleEngine` producía `RuleEvaluation` usada para afinar la
+confianza y registrar `RuleFailed` en validación, duplicando lógicamente los
+umbrales de `ProfitEngine` (MinimumProfit, MinimumProfitPerKm, etc.).
+
+**Decisión:** eliminar `RuleEngine` de la ruta de producción.
+`PipelineOverlayDataSource.analyze()` deja de recibir `ruleEngine`, el feature
+flag `FeatureFlag.RULES` se elimina de `FeatureFlag`, y los providers
+`provideRuleEngine`/`provideOfferRules` se eliminan de `PlatformModule`.
+`ConfidenceEngine.assess` se invoca sin `ruleEvaluation` (parameter opcional
+por defecto `null`). `ruleEvaluation` se expone como `RuleEvaluation(emptyList())`
+en `OverlayUiState` para mantener compatibilidad de UI (WP: NO modificar UI).
+`RecordValidationEvents` ya no registra `RuleFailed` (no hay rules ejecutadas).
+`RuleEngine` se marca como LEGACY en KDoc para uso en tests futuros.
+
+**Consecuencias:** `ProfitEngine` (via `ProfitEvaluationEngine` +
+`RecommendationEngine`) es el único motor de decisión; no hay alternancia
+entre motores; `PipelineOverlayDataSourceTest` verifica `ruleEvaluation` vacío.
+
 ## SPRINT 7 — Evaluación en tiempo real con recomendación
 
 ### D8.1 — `ProfitEvaluationEngine` delega en `ProfitEngine` (no duplica fórmulas)

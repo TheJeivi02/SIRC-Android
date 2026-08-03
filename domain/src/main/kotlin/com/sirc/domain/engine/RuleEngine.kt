@@ -14,8 +14,12 @@ import com.sirc.domain.model.RuleEvaluation
  * Motor de Reglas: ejecuta todas las [OfferRule] sobre un [RuleContext] y
  * agrega el resultado en una [RuleEvaluation].
  *
- * La lista de reglas es inyectable para facilitar los tests y la futura
- * configuración por conductor; por defecto incluye las seis reglas del MVP.
+ * ⚠️ **LEGACY** — Fuera de la ruta de producción desde WP-E1-02.
+ *
+ * A partir de WP-E1-02, `ProfitEngine` es el único motor de decisión en
+ * producción. `RuleEngine` se conserva en `:domain` exclusivamente para
+ * uso en tests (ver `RuleEngineTest.kt`) y como base para futuros motores
+ * de validación. No debe inyectarse ni invocar desde código de producción.
  */
 class RuleEngine(
     private val rules: List<OfferRule> = defaultRules(),

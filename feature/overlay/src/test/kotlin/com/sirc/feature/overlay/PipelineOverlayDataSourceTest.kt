@@ -15,7 +15,6 @@ import com.sirc.domain.engine.ConfidenceEngine
 import com.sirc.domain.engine.ProfitEngine
 import com.sirc.domain.engine.ProfitEvaluationEngine
 import com.sirc.domain.engine.RecommendationEngine
-import com.sirc.domain.engine.RuleEngine
 import com.sirc.domain.model.DecisionThresholds
 import com.sirc.domain.model.DriverCosts
 import com.sirc.domain.model.OfferHistoryEntry
@@ -51,7 +50,6 @@ class PipelineOverlayDataSourceTest {
     private val historyRepository = FakeOfferHistoryRepository()
     private val sessionManager = CaptureSessionManager()
     private val driverConfigRepository = FakeDriverConfigRepository()
-    private val ruleEngine = RuleEngine(RuleEngine.defaultRules())
     private val confidenceEngine = ConfidenceEngine()
     private val validationRecorder = ValidationRecorder()
     private val evaluateUseCase =
@@ -72,7 +70,6 @@ class PipelineOverlayDataSourceTest {
             evaluationRepository = evaluationRepository,
             historyRepository = historyRepository,
             driverConfigRepository = driverConfigRepository,
-            ruleEngine = ruleEngine,
             confidenceEngine = confidenceEngine,
             sessionManager = sessionManager,
             validationRecorder = validationRecorder,
@@ -138,7 +135,7 @@ class PipelineOverlayDataSourceTest {
         }
 
     @Test
-    fun `snapshot evaluado expone tipo, confianza y reglas`() =
+    fun `snapshot evaluado expone tipo y confianza`() =
         runBlocking {
             pipeline.snapshots.tryEmit(snapshot(rawData = "type=UBER_REQUEST"))
 
@@ -147,7 +144,8 @@ class PipelineOverlayDataSourceTest {
             assertEquals("UBER_REQUEST", dataSource.uiState.value.offerType)
             assertNotNull(dataSource.uiState.value.confidence)
             assertNotNull(dataSource.uiState.value.ruleEvaluation)
-            assertTrue(dataSource.uiState.value.ruleEvaluation!!.results.isNotEmpty())
+            // WP-E1-02: RuleEngine fuera de producción → ruleEvaluation vacío
+            assertTrue(dataSource.uiState.value.ruleEvaluation!!.results.isEmpty())
         }
 
     @Test
