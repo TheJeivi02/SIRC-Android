@@ -25,8 +25,17 @@ producto: estabilidad y observabilidad.
   flag `RULES`, los providers de `RuleEngine`/`OfferRule` en `PlatformModule`
   y la condición `if (featureFlags.isEnabled(FeatureFlag.RULES))` en
   `PipelineOverlayDataSource`. `RuleEngine` se marca como LEGACY en `:domain`
-  para uso en tests futuros. El comportamiento funcional permanece idéntico y
-  el conductor no percibe cambios en la interfaz.
+   para uso en tests futuros. El comportamiento funcional permanece idéntico y
+   el conductor no percibe cambios en la interfaz.
+
+- **Unificación de AccessibilityService** (WP-E1-03): se elimina el servicio legacy
+  `SircAccessibilityService` del manifiesto y del código. `CaptureAccessibilityService`
+  es ahora el único servicio de accesibilidad registrado en producción. La funcionalidad
+  de `AccessibilityWindowObserver` fue integrada: `CaptureAccessibilityService` ahora
+  también publica eventos `CaptureWindowEvent` al `WindowEventPublisher` para preservar
+  la observación en el panel de depuración. El flujo único es: AccessibilityEvent →
+  CaptureAccessibilityService → DebounceCaptureScheduler → DefaultCapturePipeline →
+  Overlay. El comportamiento para el conductor no cambió.
 
 ### Añadido
 

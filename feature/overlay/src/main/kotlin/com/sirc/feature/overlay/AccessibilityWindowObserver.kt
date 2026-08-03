@@ -10,12 +10,17 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Observador de ventanas que recibe los cambios del
- * [SircAccessibilityService] y los emite como Flow para el pipeline de
- * captura. Solo observa: nunca ejecuta acciones sobre la interfaz.
+ * Observador de ventanas que recibe cambios de
+ * [CaptureAccessibilityService] y los emite como Flow para el
+ * [com.sirc.capture.coordinator.OfferCaptureCoordinator].
+ *
+ * ⚠️ **Integrado por WP-E1-03**: `SircAccessibilityService` fue eliminado y
+ * `CaptureAccessibilityService` publica directamente en este observer.
+ *
+ * Solo observa: nunca ejecuta acciones sobre la interfaz.
  */
 @Singleton
-class AccessibilityWindowObserver @Inject constructor() : WindowObserver {
+class AccessibilityWindowObserver @Inject constructor() : WindowObserver, WindowEventPublisher {
     private val _windowEvents =
         MutableSharedFlow<CaptureWindowEvent>(
             extraBufferCapacity = BUFFER_CAPACITY,
@@ -24,11 +29,16 @@ class AccessibilityWindowObserver @Inject constructor() : WindowObserver {
 
     override val windowEvents: SharedFlow<CaptureWindowEvent> = _windowEvents.asSharedFlow()
 
-    fun onWindowEvent(event: CaptureWindowEvent) {
+    override fun onWindowEvent(event: CaptureWindowEvent) {
         _windowEvents.tryEmit(event)
     }
 
     companion object {
         private const val BUFFER_CAPACITY = 64
     }
+}
+
+/** Contrato para publicar eventos de ventana desde un servicio de accesibilidad. */
+interface WindowEventPublisher {
+    fun onWindowEvent(event: CaptureWindowEvent)
 }

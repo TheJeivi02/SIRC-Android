@@ -299,6 +299,30 @@ en `OverlayUiState` para mantener compatibilidad de UI (WP: NO modificar UI).
 `RecommendationEngine`) es el único motor de decisión; no hay alternancia
 entre motores; `PipelineOverlayDataSourceTest` verifica `ruleEvaluation` vacío.
 
+### D11.8 — Consolidación de un único AccessibilityService
+
+**Contexto:** existían dos servicios de accesibilidad registrados en
+`AndroidManifest.xml`: `SircAccessibilityService` (legacy, reenvía eventos al
+`AccessibilityWindowObserver` → `OfferCaptureCoordinator`) y
+`CaptureAccessibilityService` (moderno, envía `CaptureRequest` a
+`DebounceCaptureScheduler` → `DefaultCapturePipeline`). La duplicidad implicaba
+dos servicios activos, configuración separada y riesgo de eventos duplicados.
+
+**Decisión:** eliminar `SircAccessibilityService` y dejar
+`CaptureAccessibilityService` como el único servicio. La funcionalidad de
+observación para el panel de depuración se integra en `CaptureAccessibilityService`
+inyectando `WindowEventPublisher` (nueva interfaz) que publica
+`CaptureWindowEvent` a `AccessibilityWindowObserver` (que implementa
+`WindowObserver` + `WindowEventPublisher`). `CaptureModule` añade el binding
+`@Binds fun bindWindowEventPublisher(impl): WindowEventPublisher`.
+`PermissionManager` referencia `CaptureAccessibilityService` para la detección de
+permiso.
+
+**Consecuencias:** un único servicio de accesibilidad en producción; no hay eventos
+duplicados; el flujo único es `AccessibilityEvent → CaptureAccessibilityService →
+DebounceCaptureScheduler → DefaultCapturePipeline → Overlay`; el panel de
+depuración preserva su observación.
+
 ## SPRINT 7 — Evaluación en tiempo real con recomendación
 
 ### D8.1 — `ProfitEvaluationEngine` delega en `ProfitEngine` (no duplica fórmulas)

@@ -32,6 +32,10 @@ abstract class CaptureModule {
 
     @Binds
     @Singleton
+    abstract fun bindWindowEventPublisher(impl: AccessibilityWindowObserver): WindowEventPublisher
+
+    @Binds
+    @Singleton
     abstract fun bindFeatureFlags(impl: InMemoryFeatureFlags): FeatureFlags
 
     @Binds

@@ -52,7 +52,7 @@ class AndroidPermissionManager @Inject constructor(
         return manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
             .any { info ->
                 info.resolveInfo.serviceInfo.packageName == context.packageName &&
-                    info.resolveInfo.serviceInfo.name == SircAccessibilityService::class.java.name
+                    info.resolveInfo.serviceInfo.name == CaptureAccessibilityService::class.java.name
             }
     }
 

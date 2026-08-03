@@ -4,6 +4,8 @@ import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.sirc.capture.model.CaptureRequest
+import com.sirc.capture.model.CaptureWindowEvent
+import com.sirc.capture.model.WindowEventType
 import com.sirc.capture.pipeline.CapturePipeline
 import com.sirc.capture.scheduler.DebounceCaptureScheduler
 import com.sirc.domain.model.RidePlatform
@@ -18,17 +20,26 @@ import javax.inject.Inject
 /**
  * Accessibility Service dedicado a la captura de ofertas.
  *
+ * Único servicio de accesibilidad registrado en producción (WP-E1-03:
+ * `SircAccessibilityService` fue eliminado).
+ *
  * Está completamente desacoplado de la UI: no publica en el overlay ni conoce
- * estados de la interfaz. Solo observa los cambios de ventana de las
- * plataformas soportadas, construye [CaptureRequest] y los encola en el
+ * estados de la interfaz. Observa los cambios de ventana de las plataformas
+ * soportadas, construye [CaptureRequest] y los encola en el
  * [DebounceCaptureScheduler]; el pipeline recibe únicamente el último request
  * tras un periodo de silencio (evita ejecutar OCR en cada evento).
+ *
+ * También reenvía eventos como [CaptureWindowEvent] al [WindowEventPublisher] para
+ * preservar la observación en el panel de depuración (WP-E1-03: la
+ * `AccessibilityWindowObserver` legacy fue integrada aquí sin duplicación).
  */
 @AndroidEntryPoint
 class CaptureAccessibilityService : AccessibilityService() {
     @Inject lateinit var pipeline: CapturePipeline
 
     @Inject lateinit var scheduler: DebounceCaptureScheduler
+
+    @Inject lateinit var windowEventPublisher: WindowEventPublisher
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var lastFingerprint: String = ""
@@ -59,14 +70,28 @@ class CaptureAccessibilityService : AccessibilityService() {
         if (fingerprint == lastFingerprint) return
         lastFingerprint = fingerprint
 
+        val timestampMillis = System.currentTimeMillis()
+
         val request =
             CaptureRequest(
                 id = System.nanoTime(),
                 packageName = packageName,
-                timestampMillis = System.currentTimeMillis(),
+                timestampMillis = timestampMillis,
                 texts = texts,
             )
         scheduler.schedule(request)
+
+        windowEventPublisher.onWindowEvent(
+            CaptureWindowEvent(
+                eventId = request.id,
+                packageName = packageName,
+                eventType = event.eventType.toWindowEventType(),
+                timestampMillis = timestampMillis,
+                textCount = texts.size,
+                fingerprint = fingerprint,
+                texts = texts,
+            ),
+        )
     }
 
     /**
@@ -103,6 +128,13 @@ class CaptureAccessibilityService : AccessibilityService() {
         scope.cancel()
         super.onDestroy()
     }
+
+    private fun Int.toWindowEventType(): WindowEventType =
+        when (this) {
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> WindowEventType.WINDOW_STATE_CHANGED
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> WindowEventType.WINDOW_CONTENT_CHANGED
+            else -> WindowEventType.OTHER
+        }
 
     companion object {
         private const val MAX_NODES = 400

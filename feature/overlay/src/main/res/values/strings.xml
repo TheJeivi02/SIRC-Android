@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="accessibility_service_label">Análisis de ofertas SIRC</string>
     <string name="capture_accessibility_service_label">Captura de ofertas SIRC</string>
     <string name="accessibility_service_description">
         El propósito de este servicio es ayudar a conductores de plataformas de
