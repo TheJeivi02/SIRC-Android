@@ -5,8 +5,8 @@ import com.sirc.domain.model.RidePlatform
 /**
  * Estado capturado de una oferta, inmutable.
  *
- * Por ahora contiene únicamente información simulada ([SnapshotSource.FAKE]);
- * cuando se conecte el parser/OCR real pasará a [SnapshotSource.REAL].
+ * Contiene información analizada desde textos/OCR de pantallas reales
+ * ([SnapshotSource.REAL]).
  */
 data class OfferSnapshot(
     val sessionId: String,

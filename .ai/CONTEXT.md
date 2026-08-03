@@ -86,8 +86,10 @@ es rentable.
 > el historial y el overlay muestra ahora el estado real de la captura.
 >
 > Nota SPRINT 4: la captura observa cambios de ventana y produce snapshots
-> simulados (`FakeParser`) para validar el flujo; el parser real aún no existe
-> (el fake se conserva). `SircLogger` solo emite en builds de desarrollo.
+> simulados para validar el flujo; el parser real aún no existía en ese momento
+> (el fake se conservaba temporalmente). `SircLogger` solo emite en builds de
+> desarrollo. **WP-E1-01 (SPRINT 11)**: `FakeParser` eliminado de producción;
+> `PlatformOfferParser` es la única fuente de análisis.
 >
 > Nota SPRINT 5: `CaptureAccessibilityService` (desacoplado de la UI) alimenta
 > `CapturePipeline` (ScreenCapture → OCR → OfferParser → CaptureRepository).
@@ -217,8 +219,8 @@ Service **nunca** interactúa con otras apps.
   depuración muestra `Estado del pipeline` y fila `OCR`.
 - **SPRINT 4 completado**: Plataforma de Captura (Infrastructure First, ver
   `docs/ROADMAP.md`). Nuevo módulo `:core:capture` (Kotlin puro) con
-  `WindowObserver`, `OfferCaptureSession`, `OfferSnapshot` (simulado),
-  `FakeParser`, `CaptureRepository` (en memoria), `OfferCaptureCoordinator`
+   `WindowObserver`, `OfferCaptureSession`, `OfferSnapshot`,
+   `FakeParser` (eliminado en WP-E1-01), `CaptureRepository` (en memoria), `OfferCaptureCoordinator`
   (desacoplado), Feature Flags (`ACCESSIBILITY`, `OVERLAY`, `CAPTURE`,
   `PARSER`, `DEBUG_PANEL`) y `SircLogger`. Sin OCR/ML/IA/regex/interpretación.
   `SircAccessibilityService` reenvía cambios de ventana sin interpretar;

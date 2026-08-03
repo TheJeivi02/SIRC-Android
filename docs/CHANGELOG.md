@@ -10,6 +10,17 @@ producto: estabilidad y observabilidad.
 
 ### Añadido
 
+- **Eliminación de `FakeParser` de producción** (WP-E1-01): se elimina
+  completamente el uso del `FakeParser` en la ruta de producción. A partir de
+  este Work Package, toda oferta procesada utiliza únicamente el pipeline real de
+  análisis (`PlatformOfferParser` → `OfferParserOrchestrator` →
+  `OfferDetectionEngine` + parsers especializados). El comportamiento
+  funcional permanece idéntico y el usuario no percibe cambios en la interfaz.
+  `PlatformOfferParser` (inyectado vía `CaptureModule`) es la única fuente de
+  análisis oficial; `SnapshotSource.REAL` reemplaza a `FAKE` en el snapshot.
+
+### Añadido
+
 - **Modo de validación** (O3): `ValidationRecorder` (`:core:capture`, puro) con
   buffer acotado (500 eventos) que acumula `CaptureError`, `OcrFailed`,
   `ParseFailed`, `FrameDiscarded` (`CAPTURE_FAILED`/`DUPLICATE`/`NO_TEXTS`/

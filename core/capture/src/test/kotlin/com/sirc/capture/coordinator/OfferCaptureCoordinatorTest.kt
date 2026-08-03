@@ -5,9 +5,12 @@ import com.sirc.capture.flag.InMemoryFeatureFlags
 import com.sirc.capture.log.TestLogger
 import com.sirc.capture.model.CaptureSessionStatus
 import com.sirc.capture.model.CaptureWindowEvent
+import com.sirc.capture.model.OfferCaptureSession
+import com.sirc.capture.model.OfferSnapshot
+import com.sirc.capture.model.SnapshotSource
 import com.sirc.capture.model.WindowEventType
 import com.sirc.capture.observer.WindowObserver
-import com.sirc.capture.parser.FakeParser
+import com.sirc.capture.parser.OfferParser
 import com.sirc.capture.repository.InMemoryCaptureRepository
 import com.sirc.domain.model.RidePlatform
 import kotlinx.coroutines.flow.Flow
@@ -21,7 +24,7 @@ import org.junit.Test
 
 class OfferCaptureCoordinatorTest {
     private val observer = FakeWindowObserver()
-    private val parser = FakeParser()
+    private val parser = FakeOfferParser()
     private val repository = InMemoryCaptureRepository()
     private val featureFlags = InMemoryFeatureFlags()
     private val logger = TestLogger()
@@ -159,5 +162,25 @@ class OfferCaptureCoordinatorTest {
         override val windowEvents: Flow<CaptureWindowEvent> = flow
 
         fun emit(event: CaptureWindowEvent) = flow.tryEmit(event)
+    }
+
+    private class FakeOfferParser : OfferParser {
+        override fun parse(
+            event: CaptureWindowEvent,
+            session: OfferCaptureSession,
+        ): OfferSnapshot? {
+            val platform = RidePlatform.fromPackageName(event.packageName) ?: return null
+            return OfferSnapshot(
+                sessionId = session.id,
+                platform = platform,
+                capturedAtMillis = event.timestampMillis,
+                source = SnapshotSource.REAL,
+                estimatedTotal = 125.0,
+                distanceKm = 8.5,
+                durationMin = 22.0,
+                rawData = "fake-test",
+                texts = event.texts,
+            )
+        }
     }
 }

@@ -256,6 +256,27 @@ clásico (con `@Suppress("DEPRECATION")`) para API 24–29. `reclampOverlay`,
 
 **Consecuencia:** sin warnings de deprecación y preparado para Android 15.
 
+## SPRINT 11 — Eliminación de FakeParser (WP-E1-01)
+
+### D11.6 — Eliminación de `FakeParser` de la ruta de producción
+
+**Contexto:** `FakeParser` (injectable vía `@Inject @Singleton` en `src/main` de
+`:core:capture`) permanecía disponible en el grafo de producción pese a que
+`CaptureModule` ya bindea `PlatformOfferParser` como la implementación oficial de
+`OfferParser`. El parser real conecta con `OfferParserOrchestrator`
+(`:core:platform`) que ejecuta detección de pantalla + parsers especializados.
+
+**Decisión:** eliminar completamente `FakeParser` de producción: se borra la
+clase (`FakeParser.kt`), su test (`FakeParserTest.kt`) y se actualiza la KDoc de
+`OfferParser` y `OfferSnapshot`. En tests, el `OfferCaptureCoordinatorTest` pasa
+a usar un `FakeOfferParser` local (como ya hace `DefaultCapturePipelineTest`).
+`PlatformOfferParser` es la única fuente de análisis oficial; el enum
+`SnapshotSource` conserva `FAKE` para uso futuro de tests si se requiere, pero la
+producción solo emite `REAL`.
+
+**Consecuencias:** un único parser en la ruta de producción; no hay referencias
+a `FakeParser` desde `src/main`; la interfaz de usuario no percibe cambios.
+
 ## SPRINT 7 — Evaluación en tiempo real con recomendación
 
 ### D8.1 — `ProfitEvaluationEngine` delega en `ProfitEngine` (no duplica fórmulas)

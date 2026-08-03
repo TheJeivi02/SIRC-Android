@@ -7,8 +7,8 @@ import com.sirc.capture.model.OfferSnapshot
 /**
  * Traduce un evento capturado en un [OfferSnapshot].
  *
- * Interfaz preparada para recibir en el futuro un parser real (texto) o OCR;
- * hoy solo existe la implementación simulada [FakeParser].
+ * Interfaz de parsing conectada al motor de análisis real
+ * ([com.sirc.core.platform.OfferParserOrchestrator]) vía [PlatformOfferParser].
  */
 interface OfferParser {
     fun parse(
