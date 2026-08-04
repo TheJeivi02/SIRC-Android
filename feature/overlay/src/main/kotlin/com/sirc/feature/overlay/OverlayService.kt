@@ -10,9 +10,11 @@ import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.os.Build
+import android.os.Bundle
 import android.os.IBinder
 import android.provider.Settings
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import androidx.compose.foundation.layout.Box
@@ -21,6 +23,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelStoreOwner
 import com.sirc.core.ui.theme.SircTheme
 import com.sirc.domain.engine.ProfitEngine
 import com.sirc.domain.model.OverlayConfig
@@ -31,6 +38,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import java.lang.reflect.Method
 
 /**
  * Foreground Service que dibuja el Overlay (TYPE_APPLICATION_OVERLAY).
@@ -53,10 +61,23 @@ class OverlayService : Service() {
     private var windowParams: WindowManager.LayoutParams? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
+    private lateinit var lifecycleRegistry: LifecycleRegistry
+    private val viewModelStore = ViewModelStore()
+
+    init {
+        lifecycleRegistry = LifecycleRegistry.createUnsafe(
+            object : LifecycleOwner {
+                override val lifecycle: Lifecycle
+                    get() = lifecycleRegistry
+            }
+        )
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         createNotificationChannel()
     }
 
@@ -65,6 +86,7 @@ class OverlayService : Service() {
         flags: Int,
         startId: Int,
     ): Int {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
         startForeground(NOTIFICATION_ID, buildNotification())
         if (!Settings.canDrawOverlays(this)) {
             stopSelf()
@@ -88,6 +110,7 @@ class OverlayService : Service() {
         windowParams = null
         dataSource.stop()
         scope.cancel()
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
         super.onDestroy()
     }
 
@@ -104,6 +127,24 @@ class OverlayService : Service() {
         val view =
             ComposeView(this).apply {
                 setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+                // Set ViewTree owners via reflection to avoid KMP metadata compile-time issues
+                try {
+                    val vtlClass = Class.forName("androidx.lifecycle.ViewTreeLifecycleOwner")
+                    val setMethod = vtlClass.getMethod("set", View::class.java, LifecycleOwner::class.java)
+                    setMethod.invoke(null, this, lifecycleRegistry)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                try {
+                    val vtvsClass = Class.forName("androidx.lifecycle.ViewTreeViewModelStoreOwner")
+                    val setMethod = vtvsClass.getMethod("set", View::class.java, ViewModelStoreOwner::class.java)
+                    val vmOwner = object : ViewModelStoreOwner {
+                        override val viewModelStore: ViewModelStore = this@OverlayService.viewModelStore
+                    }
+                    setMethod.invoke(null, this, vmOwner)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
                 setContent {
                     SircTheme {
                         Box {
