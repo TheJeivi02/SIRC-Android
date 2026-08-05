@@ -21,14 +21,61 @@ import org.junit.runner.RunWith
 class MediaProjectionScreenCaptureProviderTest {
     @Test
     fun sinPermisoConcedido_noProyectaNiCapturaFrames() {
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val provider = MediaProjectionScreenCaptureProvider(context, NoOpSircLogger, ValidationRecorder())
+        val provider = createProvider()
 
         assertFalse(provider.isProjecting.value)
 
         val frame = runBlocking { provider.captureFrame() }
 
         assertNull(frame)
+    }
+
+    @Test
+    fun stopProjection_sinProyeccionActiva_esIdempotente() {
+        val provider = createProvider()
+
+        provider.stopProjection()
+        provider.stopProjection()
+
+        assertFalse(provider.isProjecting.value)
+        assertNull(runBlocking { provider.captureFrame() })
+    }
+
+    @Test
+    fun onServiceDestroyed_liberaRecursosYDejaDeProyectar() {
+        val provider = createProvider()
+
+        provider.onServiceDestroyed()
+
+        assertFalse(provider.isProjecting.value)
+        assertNull(runBlocking { provider.captureFrame() })
+    }
+
+    @Test
+    fun onServiceDestroyed_esIdempotente_noLanzaAlRepetirse() {
+        val provider = createProvider()
+
+        provider.onServiceDestroyed()
+        provider.onServiceDestroyed()
+        provider.onServiceDestroyed()
+
+        assertFalse(provider.isProjecting.value)
+    }
+
+    @Test
+    fun stopProjectionYOnServiceDestroyed_combinadosNoLanzan() {
+        val provider = createProvider()
+
+        provider.stopProjection()
+        provider.onServiceDestroyed()
+        provider.stopProjection()
+
+        assertFalse(provider.isProjecting.value)
+    }
+
+    private fun createProvider(): MediaProjectionScreenCaptureProvider {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        return MediaProjectionScreenCaptureProvider(context, NoOpSircLogger, ValidationRecorder())
     }
 
     private object NoOpSircLogger : SircLogger {

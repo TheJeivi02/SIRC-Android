@@ -37,6 +37,24 @@ producto: estabilidad y observabilidad.
   CaptureAccessibilityService → DebounceCaptureScheduler → DefaultCapturePipeline →
   Overlay. El comportamiento para el conductor no cambió.
 
+- **Limpieza determinista de MediaProjection al destruir el servicio** (WP-E2-01):
+  `MediaProjectionService` implementa `onDestroy()`, que delega en
+  `provider.onServiceDestroyed()` para liberar de forma idempotente `MediaProjection`,
+  `VirtualDisplay`, `ImageReader`, el callback de la proyección y los frames pendientes.
+  Se elimina la fuga de recursos cuando el servicio finaliza sin pasar por
+  `stopProjection()` (muerte del proceso, `stopService` externo o interrupción del
+  sistema). El listener del `ImageReader` ignora callbacks posteriores al cierre del
+  reader (evita `IllegalStateException`). El módulo `:core:capture:android` ahora
+  configura `testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"`,
+  lo que permite ejecutar sus tests instrumentados JUnit4 (antes usaba el runner
+  legacy y no los descubría). Sin cambios funcionales observables para el conductor.
+
+  > **Nota de validación:** `ktlintCheck` global falla únicamente por violaciones
+  > preexistentes en `feature/overlay/src/main/kotlin/com/sirc/feature/overlay/OverlayService.kt`
+  > (introducidas en el commit `6d62dba`, ajenas al alcance de este WP; se documentan
+  > sin modificar Overlay). `:core:capture:android:ktlintCheck` y el resto de
+  > verificaciones quedan en verde.
+
 ### Añadido
 
 - **Modo de validación** (O3): `ValidationRecorder` (`:core:capture`, puro) con

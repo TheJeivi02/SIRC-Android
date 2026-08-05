@@ -323,6 +323,33 @@ duplicados; el flujo único es `AccessibilityEvent → CaptureAccessibilityServi
 DebounceCaptureScheduler → DefaultCapturePipeline → Overlay`; el panel de
 depuración preserva su observación.
 
+### D11.9 — Limpieza determinista de MediaProjection en `onDestroy()` (WP-E2-01)
+
+**Contexto:** `MediaProjectionService` no implementaba `onDestroy()`; si el
+servicio finalizaba sin pasar por `provider.stopProjection()` (muerte del
+proceso FGS, `stopService` externo o interrupción del sistema), el
+`MediaProjection`, el `VirtualDisplay`, el `ImageReader` y el callback quedaban
+vivos (fuga). Además, un callback de `ImageReader` encolado tras `close()` podía
+lanzar `IllegalStateException` (carrera callback/destrucción).
+
+**Decisión:** `MediaProjectionService.onDestroy()` delega en
+`provider.onServiceDestroyed()`, que ejecuta la secuencia idempotente de
+liberación ya existente (`releaseResources()`: virtual display → unregister
+callback → `MediaProjection.stop()`) y pone `_isProjecting = false`. El listener
+del `ImageReader` valida que su reader siga siendo el actual antes de
+`acquireLatestImage()` (descarta callbacks obsoletos tras el cierre). No se
+reutiliza `stopProjection()` desde `onDestroy()` (evita un `stopService`
+recursivo e innecesario durante la destrucción).
+
+**Consecuencias:** sin fugas detectables cuando el servicio finaliza; `stop()` y
+`onDestroy()` son seguros ante invocaciones múltiples; no hay callbacks
+posteriores a la destrucción; el servicio puede reiniciarse (el provider vuelve a
+`releaseResources()` antes de recrear la proyección). El módulo
+`:core:capture:android` configura `testInstrumentationRunner =
+"androidx.test.runner.AndroidJUnitRunner"` para que sus tests instrumentados
+JUnit4 sean descubiertos (el runner legacy `android.test.InstrumentationTestRunner`
+no los encontraba).
+
 ## SPRINT 7 — Evaluación en tiempo real con recomendación
 
 ### D8.1 — `ProfitEvaluationEngine` delega en `ProfitEngine` (no duplica fórmulas)

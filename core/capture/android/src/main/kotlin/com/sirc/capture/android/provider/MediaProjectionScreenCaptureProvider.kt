@@ -113,6 +113,21 @@ class MediaProjectionScreenCaptureProvider @Inject constructor(
     }
 
     /**
+     * Llamado por el [MediaProjectionService] cuando el servicio se destruye
+     * (fin de ciclo de vida, `stopService` externo o interrupción del sistema).
+     *
+     * Libera todos los recursos adquiridos durante la proyección
+     * ([MediaProjection], [VirtualDisplay], [ImageReader], callbacks) para que
+     * no queden fugas si el servicio finaliza sin pasar por [stopProjection].
+     * Idempotente: puede invocarse varias veces sin efectos adversos.
+     */
+    fun onServiceDestroyed() {
+        releaseResources()
+        _isProjecting.value = false
+        logger.info(TAG, "recursos de captura liberados al destruir el servicio")
+    }
+
+    /**
      * Recrea el virtual display tras un cambio de configuración (rotación,
      * cambio de resolución o pantalla dividida) para que las capturas sigan
      * el tamaño real de la pantalla.
@@ -154,9 +169,12 @@ class MediaProjectionScreenCaptureProvider @Inject constructor(
                 MAX_IMAGES,
             )
         reader.setOnImageAvailableListener(
-            { imageReader ->
-                val image = imageReader.acquireLatestImage()
-                if (image != null) frames.trySend(image)
+            { reader ->
+                if (imageReader !== reader) return@setOnImageAvailableListener
+                runCatching {
+                    val image = reader.acquireLatestImage()
+                    if (image != null) frames.trySend(image)
+                }
             },
             mainHandler,
         )

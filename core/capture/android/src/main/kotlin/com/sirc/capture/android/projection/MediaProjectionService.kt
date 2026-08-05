@@ -39,6 +39,17 @@ class MediaProjectionService : Service() {
         createNotificationChannel()
     }
 
+    /**
+     * Libera todos los recursos de la proyección (MediaProjection,
+     * VirtualDisplay, ImageReader, callbacks) cuando el servicio finaliza,
+     * ya sea por [android.content.Context.stopService], por interrupción del
+     * sistema o por muerte del proceso. La liberación es idempotente.
+     */
+    override fun onDestroy() {
+        provider.onServiceDestroyed()
+        super.onDestroy()
+    }
+
     override fun onStartCommand(
         intent: Intent?,
         flags: Int,

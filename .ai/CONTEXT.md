@@ -92,6 +92,12 @@ es rentable.
 > `PlatformOfferParser` es la única fuente de análisis.
 > **WP-E1-02 (SPRINT 11)**: `RuleEngine` eliminado de la ruta de producción;
 > `ProfitEngine` es el único motor de decisión. Marcado como LEGACY en `:domain`.
+> **WP-E2-01 (SPRINT 11)**: limpieza determinista de MediaProjection en
+> `MediaProjectionService.onDestroy()` → `provider.onServiceDestroyed()` (release
+> idempotente de `MediaProjection`/`VirtualDisplay`/`ImageReader`/callback/frames).
+> El listener del `ImageReader` ignora callbacks posteriores al cierre. El módulo
+> `:core:capture:android` configura `AndroidJUnitRunner` para ejecutar sus tests
+> instrumentados JUnit4 (antes usaba el runner legacy y no los descubría).
 >
 > Nota SPRINT 5: `CaptureAccessibilityService` (desacoplado de la UI) alimenta
 > `CapturePipeline` (ScreenCapture → OCR → OfferParser → CaptureRepository).
@@ -126,6 +132,16 @@ Service **nunca** interactúa con otras apps.
 
 ## Estado del proyecto
 
+- **SPRINT 11 WP-E2-01 completado**: Limpieza determinista de recursos en
+  MediaProjection. `MediaProjectionService.onDestroy()` delega en
+  `provider.onServiceDestroyed()`, que libera de forma idempotente
+  `MediaProjection`, `VirtualDisplay`, `ImageReader`, el callback y los frames
+  pendientes; el listener del `ImageReader` descarta callbacks posteriores al
+  cierre. El módulo `:core:capture:android` configura `AndroidJUnitRunner`
+  (sus tests instrumentados JUnit4 no se ejecutaban con el runner legacy).
+  Tests instrumentados nuevos de idempotencia (5/5 en emulador) y verificación
+  JVM en verde. Nota: `ktlintCheck` global falla por violaciones preexistentes
+  en `feature:overlay/OverlayService.kt` (commit `6d62dba`, fuera de alcance).
 - **SPRINT 11 WP-E1-02 completado**: Consolidación del motor de decisión.
   `RuleEngine` eliminado de la ruta de producción; `ProfitEngine` es el único
   motor de decisión. Eliminado feature flag `RULES`, providers de `RuleEngine`/
