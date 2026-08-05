@@ -350,6 +350,31 @@ posteriores a la destrucción; el servicio puede reiniciarse (el provider vuelve
 JUnit4 sean descubiertos (el runner legacy `android.test.InstrumentationTestRunner`
 no los encontraba).
 
+### D11.10 — Fortalecimiento del ciclo de vida de `ScreenCaptureProvider` (WP-E2-02)
+
+**Contexto:** `MediaProjectionScreenCaptureProvider` mantenía banderas dispersas
+y carecía de una máquina de estados explícita. Excepciones durante la creación del
+`VirtualDisplay` o `ImageReader` podían dejar recursos parcialmente inicializados
+(proyección adquirida sin display). Además, callbacks asíncronos (`onStop`) de una
+sesión anterior cancelada podían interrumpir una nueva sesión tras una reinicialización.
+
+**Decisión:**
+1. `ProjectionLifecycle` (`internal class`) en `:core:capture:android` es la **única
+   fuente de verdad** del estado interno (`IDLE`, `INITIALIZING`, `ACTIVE`). `isProjecting`
+   se deriva estrictamente de `lifecycle.isActive` como proyección pública para la UI/pipeline.
+2. `initializeProjection()` es **completamente atómico**: en un bloque `try/catch`,
+   cualquier fallo realiza rollback inmediato (`releaseResources()`, `lifecycle.abort(token)`,
+   `MediaProjectionService.stop()`) e informa a `ValidationRecorder` (`CaptureError`).
+3. **Generation Token**: cada sesión incrementa un token entero. Los callbacks de
+   `MediaProjection.Callback.onStop` e inicialización validan `lifecycle.isCurrent(token)`.
+   Si el token es de una sesión obsoleta, la acción es ignorada.
+4. Pruebas unitarias JVM puros (`ProjectionLifecycleTest`) cubren todas las transiciones,
+   idempotencia, abordo y rechazo de tokens obsoletos.
+
+**Consecuencias:**
+Garantía de atomicidad sin estados parcialmente inicializados; re-inicialización segura
+ante reinicios del servicio; callbacks obsoletos ignorados; sin regresiones funcionales.
+
 ## SPRINT 7 — Evaluación en tiempo real con recomendación
 
 ### D8.1 — `ProfitEvaluationEngine` delega en `ProfitEngine` (no duplica fórmulas)

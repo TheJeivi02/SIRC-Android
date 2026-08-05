@@ -37,6 +37,17 @@ producto: estabilidad y observabilidad.
   CaptureAccessibilityService → DebounceCaptureScheduler → DefaultCapturePipeline →
   Overlay. El comportamiento para el conductor no cambió.
 
+- **Fortalecimiento del ciclo de vida de ScreenCaptureProvider** (WP-E2-02): se introduce
+  `ProjectionLifecycle` como única fuente de verdad interna del estado de captura
+  (`IDLE`, `INITIALIZING`, `ACTIVE`), eliminando estados inconsistentes y recursos
+  parcialmente inicializados. `initializeProjection()` es ahora una operación
+  completamente atómica con try/catch y rollback automático ante cualquier excepción
+  (limpieza completa y registro en `ValidationRecorder.CaptureError`). Se implementó
+  un mecanismo de generation tokens en KDoc para garantizar que callbacks asíncronos
+  tardíos u obsoletos (`onStop`) de sesiones anteriores sean ignorados al reinicializar.
+  Se agregaron pruebas unitarias JVM puros para la máquina de estados.
+  Comportamiento funcional idéntico y sin cambios para el conductor.
+
 - **Limpieza determinista de MediaProjection al destruir el servicio** (WP-E2-01):
   `MediaProjectionService` implementa `onDestroy()`, que delega en
   `provider.onServiceDestroyed()` para liberar de forma idempotente `MediaProjection`,

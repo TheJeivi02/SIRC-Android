@@ -92,6 +92,11 @@ es rentable.
 > `PlatformOfferParser` es la única fuente de análisis.
 > **WP-E1-02 (SPRINT 11)**: `RuleEngine` eliminado de la ruta de producción;
 > `ProfitEngine` es el único motor de decisión. Marcado como LEGACY en `:domain`.
+> **WP-E2-02 (SPRINT 11)**: ciclo de vida de `ScreenCaptureProvider` fortalecido
+> con `ProjectionLifecycle` como única fuente de verdad interna (`IDLE`, `INITIALIZING`,
+> `ACTIVE`). Inicialización atómica con rollback en try/catch y generation tokens en KDoc
+> que aíslan callbacks tardíos de sesiones previas. `isProjecting` se deriva estrictamente
+> de `lifecycle.isActive`.
 > **WP-E2-01 (SPRINT 11)**: limpieza determinista de MediaProjection en
 > `MediaProjectionService.onDestroy()` → `provider.onServiceDestroyed()` (release
 > idempotente de `MediaProjection`/`VirtualDisplay`/`ImageReader`/callback/frames).
@@ -132,6 +137,11 @@ Service **nunca** interactúa con otras apps.
 
 ## Estado del proyecto
 
+- **SPRINT 11 WP-E2-02 completado**: Fortalecimiento del ciclo de vida de `ScreenCaptureProvider`.
+  `ProjectionLifecycle` es la única fuente de verdad interna (`IDLE`, `INITIALIZING`,
+  `ACTIVE`); `initializeProjection()` es atómico con rollback atómico y `ValidationEvent.CaptureError`.
+  Generation tokens en KDoc garantizan que callbacks obsoletos de sesiones previas no afecten
+  nuevas sesiones. Tests JVM puros para la máquina de estados en verde.
 - **SPRINT 11 WP-E2-01 completado**: Limpieza determinista de recursos en
   MediaProjection. `MediaProjectionService.onDestroy()` delega en
   `provider.onServiceDestroyed()`, que libera de forma idempotente

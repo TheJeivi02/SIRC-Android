@@ -42,6 +42,7 @@ class MediaProjectionScreenCaptureProvider @Inject constructor(
     private val logger: SircLogger,
     private val validationRecorder: ValidationRecorder,
 ) : ScreenCaptureProvider {
+    private val lifecycle = ProjectionLifecycle()
     private val _isProjecting = MutableStateFlow(false)
     override val isProjecting: StateFlow<Boolean> = _isProjecting.asStateFlow()
 
@@ -52,6 +53,10 @@ class MediaProjectionScreenCaptureProvider @Inject constructor(
     private var virtualDisplay: VirtualDisplay? = null
     private var imageReader: ImageReader? = null
     private var projectionCallback: MediaProjection.Callback? = null
+
+    private fun syncIsProjecting() {
+        _isProjecting.value = lifecycle.isActive
+    }
 
     override fun onProjectionPermissionGranted(
         resultCode: Int,
@@ -66,48 +71,78 @@ class MediaProjectionScreenCaptureProvider @Inject constructor(
 
     /**
      * Llamado por el [MediaProjectionService] una vez el FGS está activo
-     * (obligatorio en Android 14+).
+     * (obligatorio en Android 14+). Operación completamente atómica respaldada
+     * por [ProjectionLifecycle].
      */
     fun initializeProjection(
         resultCode: Int,
         data: Intent,
     ) {
-        val manager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        val projection = manager.getMediaProjection(resultCode, data)
-        if (projection == null) {
-            logger.error(TAG, "no se pudo obtener el token de proyección")
-            validationRecorder.record(
-                ValidationEvent.CaptureError(System.currentTimeMillis(), "token de proyección no disponible"),
-            )
-            stopProjection()
-            return
-        }
+        val token = lifecycle.begin()
+        syncIsProjecting()
 
-        releaseResources()
-        mediaProjection = projection
-        val callback =
-            object : MediaProjection.Callback() {
-                override fun onStop() {
-                    logger.info(TAG, "proyección interrumpida por el sistema")
-                    validationRecorder.record(
-                        ValidationEvent.CaptureError(
-                            System.currentTimeMillis(),
-                            "proyección interrumpida por el sistema",
-                        ),
-                    )
-                    stopProjection()
-                }
+        try {
+            val manager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+            val projection = manager.getMediaProjection(resultCode, data)
+            if (projection == null) {
+                logger.error(TAG, "no se pudo obtener el token de proyección")
+                validationRecorder.record(
+                    ValidationEvent.CaptureError(System.currentTimeMillis(), "token de proyección no disponible"),
+                )
+                lifecycle.abort(token)
+                syncIsProjecting()
+                MediaProjectionService.stop(context)
+                return
             }
-        projectionCallback = callback
-        projection.registerCallback(callback, mainHandler)
-        startVirtualDisplay(projection)
-        _isProjecting.value = true
-        logger.info(TAG, "captura de pantalla activa")
+
+            releaseResources()
+            mediaProjection = projection
+
+            val callback =
+                object : MediaProjection.Callback() {
+                    override fun onStop() {
+                        if (!lifecycle.isCurrent(token) || mediaProjection !== projection) return
+                        logger.info(TAG, "proyección interrumpida por el sistema")
+                        validationRecorder.record(
+                            ValidationEvent.CaptureError(
+                                System.currentTimeMillis(),
+                                "proyección interrumpida por el sistema",
+                            ),
+                        )
+                        stopProjection()
+                    }
+                }
+            projectionCallback = callback
+            projection.registerCallback(callback, mainHandler)
+            startVirtualDisplay(projection)
+
+            if (lifecycle.activate(token)) {
+                syncIsProjecting()
+                logger.info(TAG, "captura de pantalla activa")
+            } else {
+                releaseResources()
+                lifecycle.abort(token)
+                syncIsProjecting()
+            }
+        } catch (error: Throwable) {
+            logger.error(TAG, "error crítico durante la inicialización de proyección: ${error.message}")
+            validationRecorder.record(
+                ValidationEvent.CaptureError(
+                    System.currentTimeMillis(),
+                    "excepción al inicializar proyección: ${error.message}",
+                ),
+            )
+            releaseResources()
+            lifecycle.abort(token)
+            syncIsProjecting()
+            MediaProjectionService.stop(context)
+        }
     }
 
     override fun stopProjection() {
+        lifecycle.stop()
         releaseResources()
-        _isProjecting.value = false
+        syncIsProjecting()
         MediaProjectionService.stop(context)
         logger.info(TAG, "captura de pantalla detenida")
     }
@@ -122,8 +157,9 @@ class MediaProjectionScreenCaptureProvider @Inject constructor(
      * Idempotente: puede invocarse varias veces sin efectos adversos.
      */
     fun onServiceDestroyed() {
+        lifecycle.stop()
         releaseResources()
-        _isProjecting.value = false
+        syncIsProjecting()
         logger.info(TAG, "recursos de captura liberados al destruir el servicio")
     }
 
@@ -134,14 +170,25 @@ class MediaProjectionScreenCaptureProvider @Inject constructor(
      */
     fun onDisplayConfigChanged() {
         val projection = mediaProjection ?: return
-        if (!_isProjecting.value) return
-        releaseVirtualDisplay()
-        startVirtualDisplay(projection)
-        logger.info(TAG, "virtual display recreado tras cambio de configuración")
+        if (!lifecycle.isActive) return
+        try {
+            releaseVirtualDisplay()
+            startVirtualDisplay(projection)
+            logger.info(TAG, "virtual display recreado tras cambio de configuración")
+        } catch (error: Throwable) {
+            logger.error(TAG, "error al recrear el virtual display tras cambio de configuración: ${error.message}")
+            validationRecorder.record(
+                ValidationEvent.CaptureError(
+                    System.currentTimeMillis(),
+                    "excepción en cambio de configuración: ${error.message}",
+                ),
+            )
+            stopProjection()
+        }
     }
 
     override suspend fun captureFrame(): Bitmap? {
-        if (!_isProjecting.value) return null
+        if (!lifecycle.isActive) return null
         return withContext(Dispatchers.Default) {
             val image =
                 withTimeoutOrNull(CAPTURE_TIMEOUT_MS) { frames.receive() }
