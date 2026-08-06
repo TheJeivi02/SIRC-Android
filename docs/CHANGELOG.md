@@ -84,6 +84,20 @@ producto: estabilidad y observabilidad.
   > El resto de verificaciones (`lintDebug`, `assembleDebug`, tests unitarios)
   > quedan en verde.
 
+- **Framework Genérico de Detección** (WP-E3-02): en `:core:platform`,
+  `PlatformDetectionEngine` (servicio independiente que consume
+  `PlatformDescriptorRegistry`) resuelve la plataforma de forma descriptor-driven:
+  por coincidencia exacta de packageName (`PACKAGE_MATCH`), por keywords de
+  detección (`KEYWORD_CANDIDATE`), `AMBIGUOUS` ante empate y `NONE` sin
+  candidatos, en una sola pasada (O(n)). `DetectionMatcher` es una función pura
+  sin estado; `DetectionResult` es inmutable, autocontenido y expone
+  diagnóstico (`candidates`, `sourcePackage`, `origin` con
+  `DetectionOrigin`: PACKAGE/OCR/GALLERY/TEST/UNKNOWN). El registry expone una
+  vista de solo lectura de descriptores. `OfferParserOrchestrator` gana un
+  overload `parse(texts, ts, packageName)` 100 % backward compatible (el método
+  por `RidePlatform` se conserva intacto). Sin cambios funcionales para el
+  conductor; sin plataformas nuevas.
+
 ### Añadido
 
 - **Modo de validación** (O3): `ValidationRecorder` (`:core:capture`, puro) con

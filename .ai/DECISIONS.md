@@ -412,6 +412,31 @@ pipeline no contienen ramas por plataforma; validación en arranque; `:domain` y
 `:core:platform` siguen Kotlin puro. Los 42 tests de `:core:platform` en verde
 (incluidos 13 nuevos de registro/validación).
 
+### D11.12 — Framework Genérico de Detección descriptor-driven (WP-E3-02)
+
+**Contexto:** la resolución de plataforma dependía de `RidePlatform.fromPackageName`
+(mapeo del enum) y la detección de pantalla vivía dentro de `OfferParserOrchestrator`;
+WP-E3-02 busca consolidar el framework genérico de detección ya iniciado en WP-E3-01.
+
+**Decisión:** `PlatformDetectionEngine` (servicio independiente que consume el
+`PlatformDescriptorRegistry`) ejecuta la estrategia por etapas en una sola pasada
+(O(n) descriptores): 1) `PACKAGE_MATCH` por coincidencia de packageName normalizado;
+2) candidatos por keywords de detección (pantalla ≠ UNKNOWN); 3) único candidato →
+`KEYWORD_CANDIDATE`; 4) empate por mayor `matchScore` → `AMBIGUOUS` (sin elegir);
+5) sin candidatos → `NONE`. `DetectionMatcher` es una función pura sin estado;
+`DetectionResult` es inmutable y autocontenido (descriptor, `ScreenDetection`,
+`origin` con `DetectionOrigin`, diagnóstico). El registry solo expone una
+`Collection<PlatformDescriptor>` de solo lectura. `OfferParserOrchestrator` añade
+un overload `parse(texts, ts, packageName)` sin tocar el método por `RidePlatform`.
+
+**Alternativas descartadas:** matchers componibles (sobreingeniería); scoring
+heurístico con umbrales (rompe determinismo); callbacks de eventos dentro del
+motor (rompe pureza de `:core:platform`).
+
+**Consecuencias:** agregar una plataforma = datos en su descriptor; sin ramas por
+plataforma; detección determinista y testeable; el motor no conoce el origen de
+los textos (`DetectionOrigin` deja preparado el framework para galería/laboratorios).
+
 ## SPRINT 7 — Evaluación en tiempo real con recomendación
 
 ### D8.1 — `ProfitEvaluationEngine` delega en `ProfitEngine` (no duplica fórmulas)

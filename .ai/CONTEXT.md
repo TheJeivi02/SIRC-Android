@@ -113,6 +113,15 @@ es rentable.
 > `ExtractorRegistry`; `OfferParserOrchestrator` resuelve todo desde el registry
 > sin ramas por plataforma. `PlatformModule` provee
 > `PlatformDescriptorRegistry(PlatformDescriptors.all())`.
+> **WP-E3-02 (SPRINT 11)**: framework genérico de detección. `PlatformDetectionEngine`
+> recorre los descriptores del registry (O(n), una sola pasada) y resuelve la
+> plataforma por packageName (`PACKAGE_MATCH`) o por keywords (`KEYWORD_CANDIDATE`;
+> `AMBIGUOUS` ante empate; `NONE` sin candidatos). `DetectionMatcher` es puro y sin
+> estado; `DetectionResult` encapsula descriptor, `ScreenDetection`, `origin`
+> (`DetectionOrigin`) y diagnóstico (`candidates`, `sourcePackage`).
+> `OfferParserOrchestrator` añade `parse(texts, ts, packageName)` sin romper el
+> método por `RidePlatform`. El registry solo expone una vista de solo lectura.
+> Sin cambios de comportamiento; `:core:platform` sigue Kotlin puro.
 >
 > Nota SPRINT 5: `CaptureAccessibilityService` (desacoplado de la UI) alimenta
 > `CapturePipeline` (ScreenCapture → OCR → OfferParser → CaptureRepository).
@@ -173,6 +182,11 @@ Service **nunca** interactúa con otras apps.
   `PlatformModule` provee el registry con `PlatformDescriptors.all()`. Tests:
   13 nuevos de registro/validación; los 42 de `:core:platform` en verde.
   Verificación completa en verde (lintDebug, assembleDebug, unit tests).
+- **SPRINT 11 WP-E3-02 completado**: Framework Genérico de Detección
+  descriptor-driven en `:core:platform`. `PlatformDetectionEngine` +
+  `DetectionMatcher` + `DetectionResult`; overload `parse(packageName)` en el
+  orquestador; vista de solo lectura en el registry. Sin plataformas nuevas ni
+  cambios de comportamiento.
 - **SPRINT 11 WP-E2-02 completado**: Fortalecimiento del ciclo de vida de `ScreenCaptureProvider`.
   `ProjectionLifecycle` es la única fuente de verdad interna (`IDLE`, `INITIALIZING`,
   `ACTIVE`); `initializeProjection()` es atómico con rollback atómico y `ValidationEvent.CaptureError`.
