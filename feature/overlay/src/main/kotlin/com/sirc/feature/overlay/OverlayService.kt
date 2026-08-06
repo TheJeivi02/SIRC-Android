@@ -10,7 +10,6 @@ import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.os.Build
-import android.os.Bundle
 import android.os.IBinder
 import android.provider.Settings
 import android.view.Gravity
@@ -38,7 +37,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import java.lang.reflect.Method
 
 /**
  * Foreground Service que dibuja el Overlay (TYPE_APPLICATION_OVERLAY).
@@ -62,15 +60,43 @@ class OverlayService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private lateinit var lifecycleRegistry: LifecycleRegistry
+    private lateinit var lifecycleOwner: LifecycleOwner
     private val viewModelStore = ViewModelStore()
 
     init {
-        lifecycleRegistry = LifecycleRegistry.createUnsafe(
+        lifecycleOwner =
             object : LifecycleOwner {
                 override val lifecycle: Lifecycle
                     get() = lifecycleRegistry
             }
-        )
+        lifecycleRegistry = LifecycleRegistry.createUnsafe(lifecycleOwner)
+    }
+
+    /**
+     * SavedStateRegistryOwner del overlay construido por reflexión.
+     *
+     * Las clases `androidx.savedstate` son KMP y su metadata no se resuelve en
+     * compile time desde este módulo, igual que las clases `ViewTree*` de
+     * lifecycle. Se crea un `SavedStateRegistry` real marcado como "restored"
+     * (no hay estado persistido que restaurar en un overlay) y se expone a
+     * través de un proxy que implementa `SavedStateRegistryOwner`.
+     */
+    private val savedStateRegistryOwner: Any by lazy {
+        val registry =
+            Class.forName("androidx.savedstate.SavedStateRegistry")
+                .getDeclaredConstructor()
+                .also { it.isAccessible = true }
+                .newInstance()
+        val isRestoredField = registry.javaClass.getDeclaredField("isRestored")
+        isRestoredField.isAccessible = true
+        isRestoredField.setBoolean(registry, true)
+        val ownerClass = Class.forName("androidx.savedstate.SavedStateRegistryOwner")
+        java.lang.reflect.Proxy.newProxyInstance(
+            ownerClass.classLoader,
+            arrayOf(ownerClass),
+        ) { _, method, _ ->
+            if (method.name == "getSavedStateRegistry") registry else null
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -131,17 +157,30 @@ class OverlayService : Service() {
                 try {
                     val vtlClass = Class.forName("androidx.lifecycle.ViewTreeLifecycleOwner")
                     val setMethod = vtlClass.getMethod("set", View::class.java, LifecycleOwner::class.java)
-                    setMethod.invoke(null, this, lifecycleRegistry)
+                    setMethod.invoke(null, this, lifecycleOwner)
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
                 try {
                     val vtvsClass = Class.forName("androidx.lifecycle.ViewTreeViewModelStoreOwner")
                     val setMethod = vtvsClass.getMethod("set", View::class.java, ViewModelStoreOwner::class.java)
-                    val vmOwner = object : ViewModelStoreOwner {
-                        override val viewModelStore: ViewModelStore = this@OverlayService.viewModelStore
-                    }
+                    val vmOwner =
+                        object : ViewModelStoreOwner {
+                            override val viewModelStore: ViewModelStore = this@OverlayService.viewModelStore
+                        }
                     setMethod.invoke(null, this, vmOwner)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                try {
+                    val vtsrClass = Class.forName("androidx.savedstate.ViewTreeSavedStateRegistryOwner")
+                    val setMethod =
+                        vtsrClass.getMethod(
+                            "set",
+                            View::class.java,
+                            Class.forName("androidx.savedstate.SavedStateRegistryOwner"),
+                        )
+                    setMethod.invoke(null, this, savedStateRegistryOwner)
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }

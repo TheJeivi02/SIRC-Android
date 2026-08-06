@@ -148,6 +148,20 @@ Service **nunca** interactúa con otras apps.
 
 ## Estado del proyecto
 
+- **FIX Overlay (verificación en emulador)**: el overlay crasheaba en
+  instalación limpia al iniciarse (regresión de `6d62dba`). Tres causas
+  encadenadas: (1) `ViewTreeLifecycleOwner.set` recibía `LifecycleRegistry` en
+  lugar de `LifecycleOwner`; (2) Compose 1.7.6 exige además
+  `ViewTreeSavedStateRegistryOwner` (FATAL si falta); (3) las clases
+  `androidx.savedstate` tampoco se resuelven en compile time desde
+  `:feature:overlay` (metadata KMP). Fix en `OverlayService.kt`: `lifecycleOwner`
+  como propiedad `lateinit` y propagación por reflexión de
+  `ViewTreeLifecycleOwner` y `ViewTreeSavedStateRegistryOwner`; `SavedStateRegistry`
+  creado por reflexión con `isRestored=true` (sin `SavedStateRegistryController`).
+  Verificado en emulador: overlay inicia/detiene sin FATAL, MainActivity en
+  primer plano, teclado OK en Ajustes. `ktlintCheck` global en verde (se
+  corrigieron las violaciones preexistentes de `OverlayService.kt` y
+  `ProjectionLifecycleTest.kt`).
 - **SPRINT 11 WP-E3-01 completado**: Motor de análisis descriptor-driven.
   `PlatformDescriptor` (platform, packageNames, detectionRules, offerTypes,
   extractorKeywords, defaultCurrency) + `PlatformDescriptorRegistry` como único
@@ -158,10 +172,7 @@ Service **nunca** interactúa con otras apps.
   devuelve `ParsedOffer.none()` si la plataforma no está registrada.
   `PlatformModule` provee el registry con `PlatformDescriptors.all()`. Tests:
   13 nuevos de registro/validación; los 42 de `:core:platform` en verde.
-  Verificación completa en verde (lintDebug, assembleDebug, unit tests). Nota:
-  `ktlintCheck` global sigue fallando solo por violaciones preexistentes en
-  `feature:overlay/OverlayService.kt` y `core/capture/android/.../ProjectionLifecycleTest.kt`
-  (commits previos, fuera de alcance).
+  Verificación completa en verde (lintDebug, assembleDebug, unit tests).
 - **SPRINT 11 WP-E2-02 completado**: Fortalecimiento del ciclo de vida de `ScreenCaptureProvider`.
   `ProjectionLifecycle` es la única fuente de verdad interna (`IDLE`, `INITIALIZING`,
   `ACTIVE`); `initializeProjection()` es atómico con rollback atómico y `ValidationEvent.CaptureError`.
@@ -175,8 +186,7 @@ Service **nunca** interactúa con otras apps.
   cierre. El módulo `:core:capture:android` configura `AndroidJUnitRunner`
   (sus tests instrumentados JUnit4 no se ejecutaban con el runner legacy).
   Tests instrumentados nuevos de idempotencia (5/5 en emulador) y verificación
-  JVM en verde. Nota: `ktlintCheck` global falla por violaciones preexistentes
-  en `feature:overlay/OverlayService.kt` (commit `6d62dba`, fuera de alcance).
+  JVM en verde.
 - **SPRINT 11 WP-E1-02 completado**: Consolidación del motor de decisión.
   `RuleEngine` eliminado de la ruta de producción; `ProfitEngine` es el único
   motor de decisión. Eliminado feature flag `RULES`, providers de `RuleEngine`/
