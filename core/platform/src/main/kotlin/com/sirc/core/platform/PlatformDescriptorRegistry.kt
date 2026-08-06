@@ -24,8 +24,12 @@ class PlatformDescriptorRegistry(
     private val extractors: Map<RidePlatform, GenericPlatformExtractor>
     private val variantParsers: Map<RidePlatform, List<OfferTypeParser>>
 
+    /** Vista de solo lectura de los descriptores validados y precompilados. */
+    val descriptors: Collection<PlatformDescriptor>
+
     init {
         validate(descriptors)
+        this.descriptors = descriptors.toList()
         descriptorsByPlatform = descriptors.associateBy { it.platform }
         descriptorsByPackageName =
             descriptors.flatMap { descriptor ->

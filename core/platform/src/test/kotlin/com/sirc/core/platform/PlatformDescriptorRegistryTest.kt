@@ -114,6 +114,24 @@ class PlatformDescriptorRegistryTest {
         assertInvalid { PlatformDescriptorRegistry(listOf(validDescriptor(offerTypes = offerTypes))) }
     }
 
+    @Test
+    fun `expone los descriptores como coleccion de solo lectura`() {
+        val registry = PlatformDescriptorRegistry(listOf(validDescriptor(), validDescriptor(RidePlatform.DIDI)))
+
+        assertEquals(2, registry.descriptors.size)
+        assertEquals(listOf(RidePlatform.UBER, RidePlatform.DIDI), registry.descriptors.map { it.platform })
+    }
+
+    @Test
+    fun `la vista de descriptores es inmutable ante modificaciones externas`() {
+        val descriptors = mutableListOf(validDescriptor())
+        val registry = PlatformDescriptorRegistry(descriptors)
+
+        descriptors.clear()
+
+        assertEquals(1, registry.descriptors.size)
+    }
+
     // --- Helpers ---
 
     private fun validDescriptor(
