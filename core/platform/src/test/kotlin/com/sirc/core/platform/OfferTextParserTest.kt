@@ -53,7 +53,7 @@ class OfferTextParserTest {
         val extractor =
             GenericPlatformExtractor(
                 RidePlatform.UBER,
-                PlatformDescriptors.UBER,
+                PlatformDescriptors.UBER.extractorKeywords,
                 parser,
             )
         val offer =
@@ -72,7 +72,7 @@ class OfferTextParserTest {
         val extractor =
             GenericPlatformExtractor(
                 RidePlatform.DIDI,
-                PlatformDescriptors.DIDI,
+                PlatformDescriptors.DIDI.extractorKeywords,
                 parser,
             )
         assertNull(extractor.extract(listOf("Conductor asignado", "8.5 km", "25 min"), 1000L))

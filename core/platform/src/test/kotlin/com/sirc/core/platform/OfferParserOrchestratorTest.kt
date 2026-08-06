@@ -10,15 +10,7 @@ import org.junit.Test
 class OfferParserOrchestratorTest {
     private fun orchestrator(): OfferParserOrchestrator =
         OfferParserOrchestrator(
-            detectionEngine = OfferDetectionEngine(),
-            specializedParsers =
-                listOf(
-                    UberMotoParser(),
-                    UberXlParser(),
-                    UberRadarParser(),
-                    UberReservationParser(),
-                    UberRequestParser(),
-                ),
+            PlatformDescriptorRegistry(listOf(PlatformDescriptors.UBER)),
         )
 
     @Test
@@ -104,8 +96,7 @@ class OfferParserOrchestratorTest {
     fun `sin parser especializado cae al extractor generico`() {
         val parsed =
             OfferParserOrchestrator(
-                detectionEngine = OfferDetectionEngine(),
-                specializedParsers = emptyList(),
+                PlatformDescriptorRegistry(listOf(PlatformDescriptors.UBER.copy(offerTypes = emptyList()))),
             ).parse(
                 texts = listOf("Nueva solicitud", "Total $90", "6 km", "18 min"),
                 timestampMillis = 1000L,
@@ -134,7 +125,9 @@ class OfferParserOrchestratorTest {
     @Test
     fun `plataforma distinta a uber usa el extractor generico`() {
         val parsed =
-            orchestrator().parse(
+            OfferParserOrchestrator(
+                PlatformDescriptorRegistry(listOf(PlatformDescriptors.UBER, PlatformDescriptors.DIDI)),
+            ).parse(
                 texts = listOf("Nueva solicitud", "Total $120", "8.5 km", "25 min"),
                 timestampMillis = 1000L,
                 platform = RidePlatform.DIDI,

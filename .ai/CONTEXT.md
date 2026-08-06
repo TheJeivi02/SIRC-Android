@@ -103,6 +103,16 @@ es rentable.
 > El listener del `ImageReader` ignora callbacks posteriores al cierre. El módulo
 > `:core:capture:android` configura `AndroidJUnitRunner` para ejecutar sus tests
 > instrumentados JUnit4 (antes usaba el runner legacy y no los descubría).
+> **WP-E3-01 (SPRINT 11)**: el motor de análisis es 100 % descriptor-driven.
+> `PlatformDescriptor` reúne por plataforma detección, tipos de oferta
+> (`OfferTypeVariant`), keywords de extracción y moneda, con estructura
+> preparada para subdescriptores futuros. `PlatformDescriptorRegistry` es el
+> único validador (falla en construcción, nunca en parseo) y precompila
+> motores/parsers/extractores. Se eliminan los parsers especializados
+> (`UberRequestParser`, etc.), el objeto `PlatformDescriptors` y
+> `ExtractorRegistry`; `OfferParserOrchestrator` resuelve todo desde el registry
+> sin ramas por plataforma. `PlatformModule` provee
+> `PlatformDescriptorRegistry(PlatformDescriptors.all())`.
 >
 > Nota SPRINT 5: `CaptureAccessibilityService` (desacoplado de la UI) alimenta
 > `CapturePipeline` (ScreenCapture → OCR → OfferParser → CaptureRepository).
@@ -118,8 +128,9 @@ es rentable.
 3. `CapturePipeline` (`DefaultCapturePipeline`) ejecuta ScreenCapture (frame de
    MediaProjection o textos) → **OCR** (ML Kit, si hay imagen y flag `OCR`;
    degrada a textos si falla) → `OfferParserOrchestrator` (detección de pantalla
-   + parsers especializados de Uber + extractor genérico por plataforma) y
-   produce un `OfferSnapshot`.
+   + variantes de oferta del descriptor + extractor genérico del descriptor,
+   todo resuelto por el `PlatformDescriptorRegistry`) y produce un
+   `OfferSnapshot`.
 4. `PipelineOverlayDataSource` mapea el snapshot a `TripOffer`, lo evalúa con
    `EvaluateDetailedOfferUseCase` (`ProfitEvaluationEngine` + `RecommendationEngine`),
    ejecuta **reglas** (`RuleEngine`) y **confianza** (`ConfidenceEngine`), publica
@@ -137,6 +148,20 @@ Service **nunca** interactúa con otras apps.
 
 ## Estado del proyecto
 
+- **SPRINT 11 WP-E3-01 completado**: Motor de análisis descriptor-driven.
+  `PlatformDescriptor` (platform, packageNames, detectionRules, offerTypes,
+  extractorKeywords, defaultCurrency) + `PlatformDescriptorRegistry` como único
+  validador (construcción con `IllegalArgumentException`, nunca en parseo) y
+  precompilador de motores/parsers/extractores. Eliminados parsers
+  especializados (`SpecializedParsers.kt`), `ExtractorRegistry` y el objeto
+  `PlatformDescriptors`; `OfferParserOrchestrator` es 100 % descriptor-driven y
+  devuelve `ParsedOffer.none()` si la plataforma no está registrada.
+  `PlatformModule` provee el registry con `PlatformDescriptors.all()`. Tests:
+  13 nuevos de registro/validación; los 42 de `:core:platform` en verde.
+  Verificación completa en verde (lintDebug, assembleDebug, unit tests). Nota:
+  `ktlintCheck` global sigue fallando solo por violaciones preexistentes en
+  `feature:overlay/OverlayService.kt` y `core/capture/android/.../ProjectionLifecycleTest.kt`
+  (commits previos, fuera de alcance).
 - **SPRINT 11 WP-E2-02 completado**: Fortalecimiento del ciclo de vida de `ScreenCaptureProvider`.
   `ProjectionLifecycle` es la única fuente de verdad interna (`IDLE`, `INITIALIZING`,
   `ACTIVE`); `initializeProjection()` es atómico con rollback atómico y `ValidationEvent.CaptureError`.

@@ -60,11 +60,29 @@ producto: estabilidad y observabilidad.
   lo que permite ejecutar sus tests instrumentados JUnit4 (antes usaba el runner
   legacy y no los descubría). Sin cambios funcionales observables para el conductor.
 
+- **Motor de análisis descriptor-driven** (WP-E3-01): el conocimiento de
+  plataforma se modela como `PlatformDescriptor` declarativo (`platform`,
+  `packageNames`, `detectionRules`, `offerTypes` como `OfferTypeVariant`,
+  `extractorKeywords`, `defaultCurrency`), preparado para evolucionar a
+  subdescriptores sin romper la API pública. `PlatformDescriptorRegistry` es el
+  único validador — falla en construcción con `IllegalArgumentException` (reglas/
+  keywords vacías, plataformas o aliases duplicados, monedas inválidas `[A-Z]{3}`,
+  descriptor sin regla `ScreenType.REQUEST`, tipos de oferta duplicados), nunca en
+  parseo — y precompila en `init` motores/parsers/extractores. Se eliminan los
+  parsers especializados de Uber (`SpecializedParsers.kt`), `ExtractorRegistry` y
+  el objeto `PlatformDescriptors`; `OfferParserOrchestrator` es 100 %
+  descriptor-driven (devuelve `ParsedOffer.none()` si la plataforma no está
+  registrada). `PlatformDescriptors.all()` mantiene UBER/DIDI/CABIFY/INDRIVE.
+  `PlatformModule` provee el registry con todos los descriptores. Comportamiento
+  funcional idéntico para el conductor; `:core:platform` suma 13 tests de
+  registro/validación (42 en total, todos en verde).
+
   > **Nota de validación:** `ktlintCheck` global falla únicamente por violaciones
-  > preexistentes en `feature/overlay/src/main/kotlin/com/sirc/feature/overlay/OverlayService.kt`
-  > (introducidas en el commit `6d62dba`, ajenas al alcance de este WP; se documentan
-  > sin modificar Overlay). `:core:capture:android:ktlintCheck` y el resto de
-  > verificaciones quedan en verde.
+  > preexistentes (ajenas al alcance de este WP) en
+  > `feature/overlay/.../OverlayService.kt` (commit `6d62dba`) y
+  > `core/capture/android/.../ProjectionLifecycleTest.kt` (commit `be66f49`).
+  > El resto de verificaciones (`lintDebug`, `assembleDebug`, tests unitarios)
+  > quedan en verde.
 
 ### Añadido
 

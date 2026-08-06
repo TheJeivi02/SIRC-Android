@@ -200,8 +200,10 @@ conserva únicamente el reenvío de eventos de ventana (`AccessibilityWindowObse
 → coordinador/panel de depuración) y `OverlayService` deja de inyectar el
 evaluador. El pipeline moderno es la única fuente de historial.
 
-**Consecuencias:** fin del historial duplicado; `ExtractorRegistry`/`OfferTextParser`
-siguen vivos en `OfferParserOrchestrator`; sin cambios de API en `:domain`.
+**Consecuencias:** fin del historial duplicado; `OfferTextParser` sigue vivo y
+el `OfferParserOrchestrator` quedó 100 % descriptor-driven en WP-E3-01
+(`ExtractorRegistry` y parsers especializados eliminados); sin cambios de API en
+`:domain`.
 
 ### D11.2 — Modo de validación con `ValidationRecorder` (buffer acotado + informe)
 
@@ -374,6 +376,41 @@ sesión anterior cancelada podían interrumpir una nueva sesión tras una reinic
 **Consecuencias:**
 Garantía de atomicidad sin estados parcialmente inicializados; re-inicialización segura
 ante reinicios del servicio; callbacks obsoletos ignorados; sin regresiones funcionales.
+
+### D11.11 — Motor de análisis descriptor-driven (WP-E3-01)
+
+**Contexto:** el orquestador de parsing contenía conocimiento de plataforma
+acoplado al código: parsers especializados solo para Uber
+(`SpecializedParsers.kt`: `UberRequestParser`, `UberRadarParser`, etc.), un
+`ExtractorRegistry` keyed por `RidePlatform` y un objeto `PlatformDescriptors`
+con keywords. Añadir una plataforma o una variante de oferta obligaba a tocar
+el núcleo del motor.
+
+**Decisión:** modelar cada plataforma como `PlatformDescriptor` declarativo
+(`platform`, `packageNames`, `detectionRules`, `offerTypes` como
+`OfferTypeVariant` (type, keywords, refine?), `extractorKeywords`,
+`defaultCurrency`) con estructura preparada para subdescriptores futuros
+(`IdentityDescriptor`, `DetectionDescriptor`, `OfferTypeDescriptor`,
+`ExtractionDescriptor`, `LocalizationDescriptor`). `PlatformDescriptorRegistry`
+es el único validador — falla en construcción con `IllegalArgumentException`
+(reglas/keywords vacías, plataformas o aliases duplicados, monedas inválidas
+`[A-Z]{3}`, descriptor sin regla `ScreenType.REQUEST`, tipos de oferta
+duplicados) y nunca en parseo — y precompila en `init` los motores/parsers/
+extractores. Se eliminan `SpecializedParsers.kt`, `ExtractorRegistry` y el
+objeto `PlatformDescriptors`; `OfferParserOrchestrator` resuelve todo desde el
+registry (devuelve `ParsedOffer.none()` si la plataforma no está registrada).
+`PlatformDescriptors.all()` mantiene los descriptores de UBER/DIDI/CABIFY/
+INDRIVE (idénticos en comportamiento; Cabify conserva EUR por diseño).
+
+**Alternativas descartadas:** interfaz `PlatformParser` por plataforma (crea N
+clases y ramas); catálogo con `when(RidePlatform)` (acopla el núcleo); registro
+que valida en parseo (fallaría en caliente, no en construcción).
+
+**Consecuencias:** agregar una plataforma o variante = datos en un descriptor
+(compatible con el sprint "Platform Agnostic Detection"); el orquestador y el
+pipeline no contienen ramas por plataforma; validación en arranque; `:domain` y
+`:core:platform` siguen Kotlin puro. Los 42 tests de `:core:platform` en verde
+(incluidos 13 nuevos de registro/validación).
 
 ## SPRINT 7 — Evaluación en tiempo real con recomendación
 

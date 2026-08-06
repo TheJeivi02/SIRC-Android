@@ -124,27 +124,41 @@ Reglas derivadas del grafo real:
 ### Core:platform (`:core:platform`) — Kotlin puro
 
 Motor de análisis de pantallas (SPRINT 1 extractores + SPRINT 8 detección y
-parsers especializados):
+parsers + WP-E3-01 descriptores por plataforma):
 
 - `OfferTextParser` — heurística pura: extrae candidatos de monto, distancias y
   duraciones con regex precompiladas y límites de rango.
-- `PlatformExtractor` (interfaz) + `GenericPlatformExtractor` — estrategia por
-  plataforma basada en palabras clave (`PlatformKeywords`, `PlatformDescriptors`).
-- `ExtractorRegistry` — resuelve el extractor por `RidePlatform`.
 - **Detección de pantalla (SPRINT 8)**: `OfferDetectionEngine` clasifica el texto
   visible en `ScreenType` (HOME/REQUEST/TRIP/NAVIGATION/OFFLINE/ERROR/UNKNOWN)
   con keywords ponderadas; solo `REQUEST` produce oferta. `ScreenDetection`
-  expone tipo, keywords, confianza e `isRequest`.
-- **Parsers especializados (SPRINT 8)**: `OfferType`
-  (`UBER_REQUEST`/`UBER_RADAR`/`UBER_RESERVATION`/`UBER_MOTO`/`UBER_XL`/
-  `GENERIC`), `OfferTypeParser` (interfaz) + `BaseOfferTypeParser` con
-  `UberRequestParser`, `UberRadarParser`, `UberReservationParser`,
-  `UberMotoParser` y `UberXlParser`.
-- **`OfferParserOrchestrator` (SPRINT 8)**: detecta → prueba los parsers
-  especializados (específicos primero, solo Uber) → extractor genérico por
-  plataforma; `ParsedOffer` incluye tiempos de detección/parsing (Debug).
-- **Agregar una plataforma** = agregar `RidePlatform` + descriptor de palabras
-  clave + (opcional) parser especializado; no requiere tocar el núcleo.
+  expone tipo, keywords, confianza e `isRequest`. `defaultRules()` y
+  `normalize()` alimentan los descriptores y el orquestador.
+- **`OfferTypeVariant` (WP-E3-01)** — variante de oferta `(type, keywords,
+  refine?)`; semilla del futuro subdescriptor `OfferTypeDescriptor`.
+- **`PlatformDescriptor` (WP-E3-01)** — descriptor declarativo por plataforma:
+  `platform`, `packageNames`, `detectionRules`, `offerTypes`,
+  `extractorKeywords` y `defaultCurrency`. Estructura preparada para evolucionar
+  a subdescriptores (`IdentityDescriptor`, `DetectionDescriptor`,
+  `OfferTypeDescriptor`, `ExtractionDescriptor`, `LocalizationDescriptor`) sin
+  romper la API pública; no se implementan todavía.
+- **`PlatformDescriptorRegistry` (WP-E3-01)** — único validador y punto de
+  entrada: asocia descriptores por plataforma y packageName y precompila en
+  `init` los motores de detección, parsers de variantes y extractores (sin
+  recálculo por frame). Valida en construcción (`IllegalArgumentException`,
+  nunca en parseo): reglas/keywords vacías, plataformas/aliases duplicados,
+  monedas inválidas (`[A-Z]{3}`), descriptores sin regla `ScreenType.REQUEST` y
+  tipos de oferta duplicados. `PlatformDescriptors.all()` registra
+  UBER/DIDI/CABIFY/INDRIVE.
+- `PlatformExtractor` (interfaz) + `GenericPlatformExtractor` — estrategia por
+  plataforma basada en las keywords del descriptor.
+- **`OfferParserOrchestrator` (SPRINT 8 + WP-E3-01)**: 100 % descriptor-driven,
+  sin referencias a plataformas concretas. Detecta (motor del descriptor) →
+  prueba las variantes del descriptor en orden de especificidad → cae al
+  extractor genérico; devuelve `ParsedOffer.none()` si la plataforma no está
+  registrada o la pantalla no es `REQUEST`. `ParsedOffer` incluye tiempos de
+  detección/parsing (Debug).
+- **Agregar una plataforma** = registrar un `PlatformDescriptor`; sin ramas, sin
+  parsers especializados por plataforma y sin tocar el núcleo.
 
 ### Core:capture (`:core:capture`) — Kotlin puro
 
@@ -473,7 +487,8 @@ Detalles de diseño del overlay:
 | `OfferPerformanceTracker` con promedio de 20 | Retiene las últimas 100 ofertas (memoria acotada) y expone promedios móviles por etapa para medir el rendimiento real de captura/OCR/parseo/evaluación/overlay. |
 | `OfferSnapshot.texts` | El snapshot transporta los textos OCR además de la imagen cruda, para que el overlay evalúe el contenido visible real de la oferta. |
 | `OfferDetectionEngine` clasifica la pantalla | Keywords ponderadas por pantalla → `ScreenType`; solo `REQUEST` produce oferta, evitando parsear Home/navegación/error. |
-| Parser orquestado por especificidad | `OfferParserOrchestrator` prueba parsers especializados (Moto/XL/Radar/Reserva antes que Request) y cae al genérico; los especializados solo aplican a Uber. |
+| Parser orquestado por descriptores | `OfferParserOrchestrator` es 100 % descriptor-driven: resuelve motor/parsers/extractor desde el `PlatformDescriptorRegistry`; los descriptores expresan variantes (Moto/XL/Radar/Reserva antes que Request) sin código por plataforma. |
+| `PlatformDescriptor` + `PlatformDescriptorRegistry` | El conocimiento de plataforma (detección, extracción, tipos de oferta, moneda) vive en descriptores declarativos que se validan una sola vez en construcción; el orquestador y el pipeline no contienen ramas por plataforma. |
 | `RuleEngine` + 6 reglas con `DriverConfig` | `RuleThresholds.from(config)` deriva los umbrales de rentabilidad del conductor; límites operativos (distancia/recogida/duración) con defaults. |
 | `ConfidenceEngine` con niveles | Combina completitud, coherencia de métricas, moneda y reglas; `LOW` = "Información insuficiente" y nunca ACCEPT/REJECT. |
 | `@JvmSuppressWildcards` en listas inyectadas | Kotlin declara `List<? extends T>`; Dagger lo trataría como multibinding; el provider usa `List<@JvmSuppressWildcards T>` explícito. |
