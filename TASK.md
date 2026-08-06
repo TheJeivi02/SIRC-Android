@@ -6,81 +6,75 @@
 
 ## Tarea actual
 
-Verificación en emulador + **fix del crash del Overlay** (regresión de
-`6d62dba`). El overlay vuelve a crashear en instalación limpia; se corrige la
-propagación de owners de ViewTree (Lifecycle y SavedState) y se verifica la app
-en el emulador `Pixel_7_API_35`.
+**WP-E3-02 completado** — Framework Genérico de Detección 100 % descriptor-driven
+en `:core:platform`. `PlatformDetectionEngine` → `DetectionMatcher` →
+`DetectionResult`; overload `parse(texts, ts, packageName)` en
+`OfferParserOrchestrator`; vista de solo lectura de descriptores en el registry.
+Sin cambios funcionales, sin plataformas nuevas, `:core:platform` sigue Kotlin puro.
 
 ## Objetivo
 
-1. Ejecutar el emulador, compilar e instalar la app actualizada.
-2. Reproducir y arreglar el crash al iniciar el overlay ("SIRC continúa
-   fallando": la app se minimiza y se cierra).
-3. Verificar que no quedan errores: overlay estable (iniciar/detener), teclado
-   en todos los campos de Ajustes, checks de calidad en verde.
+1. Consolidar el framework genérico de detección iniciado en WP-E3-01 sin tocar
+   OCR, Overlay, Capture, ProfitEngine ni `PlatformDescriptor` público.
+2. No implementar funcionalidades nuevas: exclusivamente el framework de detección.
+3. Dejar todas las verificaciones en verde.
 
 ## Archivos involucrados
 
-- `feature/overlay/.../OverlayService.kt` (fix del crash + ktlint)
-- `core/capture/android/.../ProjectionLifecycleTest.kt` (fix ktlint preexistente)
+Creados (en `core/platform/src/main/kotlin/com/sirc/core/platform/`):
+- `DetectionResolution.kt`, `DetectionOrigin.kt`, `DetectionCandidate.kt`,
+  `DetectionResult.kt`, `DetectionMatcher.kt`, `PlatformDetectionEngine.kt`
+
+Modificados:
+- `core/platform/.../PlatformDescriptorRegistry.kt` (vista `val descriptors`)
+- `core/platform/.../OfferParserOrchestrator.kt` (overload por `packageName` +
+  `parseWith` compartido; método por `RidePlatform` intacto)
+- `docs/CHANGELOG.md`, `.ai/CONTEXT.md`, `.ai/DECISIONS.md` (D11.12)
+
+Tests: `DetectionResultTest.kt`, `DetectionMatcherTest.kt`,
+`PlatformDetectionEngineTest.kt`, + 2 en `PlatformDescriptorRegistryTest.kt`,
++ 3 en `OfferParserOrchestratorTest.kt`.
 
 ## Progreso
 
-- [x] Emulador `Pixel_7_API_35` ejecutado y app `assembleDebug` instalada.
-- [x] Onboarding completado en emulador (Jeivi / Mexico / CDMX / MXN ·
-      Corolla/Toyota/2020/Gasolina/12 L · 24.5 / 0.5 · Uber+DiDi · 5 / 150).
-- [x] Permiso de overlay concedido; diagnóstico muestra overlay activo.
-- [x] Crash reproducido en logcat (3 causas encadenadas):
-      1. `ViewTreeLifecycleOwner.set` recibía `LifecycleRegistry` (no
-         `LifecycleOwner`) → `IllegalArgumentException` capturada por try/catch,
-         pero el ComposeView se agregaba sin owner → FATAL.
-      2. Tras corregir (1), FATAL `Composed into the View which doesn't
-         propagateViewTreeSavedStateRegistryOwner!` (Compose 1.7.6 exige
-         `ViewTreeSavedStateRegistryOwner`).
-      3. Los imports directos de `androidx.savedstate` fallan en compile time
-         (metadata KMP, igual que `ViewTree*` de lifecycle).
-- [x] Fix: `ViewTreeLifecycleOwner.set(view, lifecycleOwner)` (propiedad real,
-      no el registry); `ViewTreeSavedStateRegistryOwner.set(view, proxy)` vía
-      reflexión; `SavedStateRegistry` creado por reflexión con `isRestored=true`
-      (no hay estado persistido en un overlay). Nada de `SavedStateRegistryController`.
-- [x] Verificación funcional en emulador: overlay inicia sin FATAL
-      ("Overlay en ejecución: Activo"), ciclo detener→iniciar OK, MainActivity
-      permanece en primer plano.
-- [x] Teclado verificado (`mInputShown=true`) en Costos del conductor (Costo por
-      km) y Umbrales de decisión (Ganancia por km/hora) → el bug del teclado
-      reportado NO se reproduce en el emulador (candidato a dispositivo/IME real).
-- [x] Checks de calidad en verde: `ktlintCheck`, `lintDebug`, `assembleDebug`,
-      `testDebugUnitTest`, `:domain:test`, `:core:platform:test`,
-      `:core:capture:test`, `:feature:overlay:testDebugUnitTest`.
-- [x] Fix de ktlint preexistente (`ProjectionLifecycleTest.kt` línea 9).
-- [ ] Commit del fix (pendiente de confirmación del usuario).
+- [x] Spec WP-E3-02 aprobado y commiteado (`ef74c8e`).
+- [x] Plan de implementación (7 tareas TDD) en
+      `docs/superpowers/plans/2026-08-06-wp-e3-02-detection-framework.md`.
+- [x] Task 1: value types + tests (commit `cf9419e`).
+- [x] Task 2: vista de solo lectura del registry (commit `34bc1a2`).
+- [x] Task 3: `DetectionMatcher` puro + tests (commit `18c9e8a`).
+- [x] Task 4: `PlatformDetectionEngine` + tests 5 etapas (commit `59520b3`).
+- [x] Task 5: overload `parse(packageName)` + `parseWith` (commit `92580d0`).
+- [x] Task 6: docs + verificación completa en verde (commit `ced6249`).
+- [x] Task 7: `git status` limpio (solo untracked preexistentes ajenos al WP);
+      `TASK.md` actualizado.
 
 ## Notas / decisiones
 
-- Los `ViewTree*` y las clases de `androidx.savedstate` NO se resuelven en
-  compile time desde `:feature:overlay` (classpath KMP metadata). Toda la
-  propagación de owners se hace por reflexión en `ensureOverlay()`.
-- `LifecycleRegistry.createUnsafe(owner)` se mantiene en `init` con
-  `lifecycleOwner` como propiedad `lateinit`; la reflexión usa `lifecycleOwner`
-  (la interfaz), no el registry.
-- `SavedStateRegistry` es `final` y su constructor es `internal` desde la
-  metadata KMP; se instancia con `getDeclaredConstructor()` + `isAccessible`.
-  `consumeRestoredStateForKey` lanza si `isRestored=false`, por eso se marca
-  `isRestored=true` por reflexión (no hay estado real que restaurar).
-- `SavedStateRegistryController` NO se usa (causa "Restarter must be created
-  only during owner's initialization stage" en Service).
-- El emulador arrancó con el paquete `com.sirc.app` deshabilitado (por el crash
-  previo); hubo que `pm enable com.sirc.app` antes de `am start`.
+- Estrategia determinista por etapas: 1) `PACKAGE_MATCH` (packageName normalizado);
+  2) candidatos por keywords (pantalla ≠ UNKNOWN); 3) único → `KEYWORD_CANDIDATE`;
+  4) empate por mayor `matchScore` → `AMBIGUOUS` (sin elegir); 5) sin candidatos →
+  `NONE`. Sin scoring heurístico.
+- `DetectionResult` es autocontenido (`resolution`, `origin`, `descriptor?`,
+  `screenDetection`, `candidates`, `sourcePackage`, `isRecognized`). El
+  orquestador no re-recorre descriptores.
+- `DetectionOrigin` (PACKAGE/OCR/GALLERY/TEST/UNKNOWN) se añade ya, sin cambiar
+  comportamiento.
+- `:core:platform` sigue Kotlin puro (sin logging/I/O/callbacks). El motor no
+  conoce el origen de los textos.
+- ktlint: `:core:platform` en verde; `ktlintCheck` global en verde (las
+  violaciones preexistentes de `OverlayService.kt` y `ProjectionLifecycleTest.kt`
+  se corrigieron en el WP del overlay).
+- Empate AMBIGUOUS en tests requiere dos descriptores con keywords idénticas
+  (la keyword completa debe aparecer en el texto).
 
 ## Verificación
 
-- `.\gradlew.bat ktlintCheck --console=plain`
-- `.\gradlew.bat lintDebug assembleDebug testDebugUnitTest :domain:test :core:platform:test :core:capture:test :feature:overlay:testDebugUnitTest --console=plain`
-- Emulador: overlay inicia/detiene sin FATAL; `dumpsys window` muestra la
-  ventana `TYPE_APPLICATION_OVERLAY` de `com.sirc.app`.
+- `.\gradlew.bat :core:platform:test :core:platform:ktlintCheck --console=plain` → en verde.
+- `.\gradlew.bat :core:platform:test :core:capture:test :domain:test :feature:overlay:testDebugUnitTest testDebugUnitTest lintDebug assembleDebug --console=plain` → BUILD SUCCESSFUL (428 tareas).
+- `.\gradlew.bat ktlintCheck --console=plain` → BUILD SUCCESSFUL.
 
 ## Próximos pasos
 
-1. Commitear el fix (confirmar con el usuario).
-2. Si el usuario reporta de nuevo el teclado en dispositivo real, pedir
-   `adb logcat` / reproducción con el IME real.
+1. Sin tareas pendientes del WP-E3-02. El siguiente WP candidato es WP-E3-03
+   (ver `docs/remediation/WORK_PACKAGE_PLAN.md`) o el que el usuario indique.
