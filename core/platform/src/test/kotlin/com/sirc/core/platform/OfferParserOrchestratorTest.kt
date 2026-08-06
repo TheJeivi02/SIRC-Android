@@ -137,4 +137,42 @@ class OfferParserOrchestratorTest {
         assertNotNull(parsed.offer)
         assertTrue(parsed.offer!!.rawText.isNotEmpty())
     }
+
+    @Test
+    fun `parse por packageName resuelve y extrae la oferta`() {
+        val parsed =
+            orchestrator().parse(
+                texts = listOf("Nueva solicitud de viaje", "Aceptar", "Total $120", "8.5 km", "25 min"),
+                timestampMillis = 1000L,
+                packageName = "com.ubercab",
+            )
+
+        assertEquals(OfferType.UBER_REQUEST, parsed.type)
+        assertNotNull(parsed.offer)
+        assertEquals(120.0, parsed.offer?.estimatedTotal ?: 0.0, 0.001)
+    }
+
+    @Test
+    fun `parse por packageName de plataforma no registrada devuelve none`() {
+        val parsed =
+            orchestrator().parse(
+                texts = listOf("Texto irrelevante sin keywords"),
+                timestampMillis = 1000L,
+                packageName = "com.desconocido.app",
+            )
+
+        assertNull(parsed.offer)
+    }
+
+    @Test
+    fun `parse por packageName con pantalla no request devuelve none`() {
+        val parsed =
+            orchestrator().parse(
+                texts = listOf("Dónde quieres ir?", "Buscar", "Disponible"),
+                timestampMillis = 1000L,
+                packageName = "com.ubercab",
+            )
+
+        assertNull(parsed.offer)
+    }
 }

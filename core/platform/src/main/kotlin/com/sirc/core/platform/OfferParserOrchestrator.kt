@@ -12,15 +12,17 @@ import com.sirc.domain.model.RidePlatform
  * extrae, cae al extractor genérico de la plataforma.
  *
  * Es 100 % descriptor-driven: no contiene ninguna referencia a una plataforma
- * concreta. Los parsers y el motor de detección los resuelve el
- * [PlatformDescriptorRegistry]. Es el único punto de entrada que usa el
- * pipeline de captura.
+ * concreta. Resuelve la plataforma por [RidePlatform] (flujo actual) o por
+ * packageName vía [PlatformDetectionEngine]. Es el único punto de entrada que
+ * usa el pipeline de captura.
  */
 class OfferParserOrchestrator(
     private val platformRegistry: PlatformDescriptorRegistry,
 ) {
+    private val detectionEngine = PlatformDetectionEngine(platformRegistry)
+
     /**
-     * Clasifica [texts] y extrae la oferta.
+     * Clasifica [texts] y extrae la oferta (flujo por plataforma conocida).
      *
      * @param platform plataforma ya conocida por el pipeline (package name).
      * @return [ParsedOffer] con el tipo detectado y la oferta extraída, o
@@ -33,20 +35,64 @@ class OfferParserOrchestrator(
         platform: RidePlatform,
     ): ParsedOffer {
         val parseStart = System.nanoTime()
-        if (platformRegistry.descriptorFor(platform) == null) {
-            return ParsedOffer.none()
-        }
+        val descriptor = platformRegistry.descriptorFor(platform) ?: return ParsedOffer.none()
+        val engine = platformRegistry.detectionEngineFor(platform) ?: return ParsedOffer.none()
 
         val detectionStart = System.nanoTime()
-        val detectionEngine = platformRegistry.detectionEngineFor(platform) ?: return ParsedOffer.none()
-        val detection = detectionEngine.detect(texts)
+        val detection = engine.detect(texts)
         val detectionMillis = elapsedMillis(detectionStart)
         if (!detection.isRequest) {
             return ParsedOffer.none(detectionMillis = detectionMillis)
         }
 
+        return parseWith(
+            descriptor = descriptor,
+            screenDetection = detection,
+            texts = texts,
+            timestampMillis = timestampMillis,
+            parseStartNanos = parseStart,
+            detectionMillis = detectionMillis,
+        )
+    }
+
+    /**
+     * Clasifica [texts] y extrae la oferta (flujo por packageName).
+     *
+     * Usa [PlatformDetectionEngine] para resolver la plataforma y la pantalla en
+     * una sola pasada. Si la detección es ambigua o no encuentra plataforma,
+     * devuelve `offer = null`.
+     */
+    fun parse(
+        texts: List<String>,
+        timestampMillis: Long,
+        packageName: String,
+    ): ParsedOffer {
+        val parseStart = System.nanoTime()
+        val result = detectionEngine.detect(texts, timestampMillis, packageName)
+        if (!result.isRecognized || !result.screenDetection.isRequest) {
+            return ParsedOffer.none()
+        }
+        val descriptor = result.descriptor ?: return ParsedOffer.none()
+        return parseWith(
+            descriptor = descriptor,
+            screenDetection = result.screenDetection,
+            texts = texts,
+            timestampMillis = timestampMillis,
+            parseStartNanos = parseStart,
+            detectionMillis = 0.0,
+        )
+    }
+
+    private fun parseWith(
+        descriptor: PlatformDescriptor,
+        screenDetection: ScreenDetection,
+        texts: List<String>,
+        timestampMillis: Long,
+        parseStartNanos: Long,
+        detectionMillis: Double,
+    ): ParsedOffer {
         val normalized = texts.map(OfferDetectionEngine::normalize)
-        for (parser in platformRegistry.variantParsersFor(platform)) {
+        for (parser in platformRegistry.variantParsersFor(descriptor.platform)) {
             if (parser.matches(normalized)) {
                 val offer = parser.extract(texts, timestampMillis)
                 if (offer != null) {
@@ -54,18 +100,18 @@ class OfferParserOrchestrator(
                         type = parser.type,
                         offer = offer,
                         detectionMillis = detectionMillis,
-                        parsingMillis = elapsedMillis(parseStart),
+                        parsingMillis = elapsedMillis(parseStartNanos),
                     )
                 }
             }
         }
 
-        val generic = platformRegistry.extractorFor(platform)?.extract(texts, timestampMillis)
+        val generic = platformRegistry.extractorFor(descriptor.platform)?.extract(texts, timestampMillis)
         return ParsedOffer(
             type = OfferType.GENERIC,
             offer = generic,
             detectionMillis = detectionMillis,
-            parsingMillis = elapsedMillis(parseStart),
+            parsingMillis = elapsedMillis(parseStartNanos),
         )
     }
 
