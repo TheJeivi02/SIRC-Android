@@ -55,6 +55,7 @@ class OfferTextParserTest {
                 RidePlatform.UBER,
                 PlatformDescriptors.UBER.extractorKeywords,
                 parser,
+                defaultCurrency = PlatformDescriptors.UBER.defaultCurrency,
             )
         val offer =
             extractor.extract(
@@ -74,6 +75,7 @@ class OfferTextParserTest {
                 RidePlatform.DIDI,
                 PlatformDescriptors.DIDI.extractorKeywords,
                 parser,
+                defaultCurrency = PlatformDescriptors.DIDI.defaultCurrency,
             )
         assertNull(extractor.extract(listOf("Conductor asignado", "8.5 km", "25 min"), 1000L))
     }

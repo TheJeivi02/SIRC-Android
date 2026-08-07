@@ -1,7 +1,7 @@
 package com.sirc.domain.model
 
 /**
- * Resultado agregado de evaluar todas las [OfferRule] sobre una oferta.
+ * Resultado agregado de evaluar todas las reglas sobre una oferta.
  *
  * Conserva los [results] individuales y expone atajos ([allPassed],
  * [failures], [warnings]) para que el overlay y el panel de depuración
@@ -24,6 +24,4 @@ data class RuleEvaluation(
 
     val hasWarnings: Boolean
         get() = warnings.isNotEmpty()
-
-    fun resultFor(ruleName: String): RuleResult? = results.firstOrNull { it.ruleName == ruleName }
 }

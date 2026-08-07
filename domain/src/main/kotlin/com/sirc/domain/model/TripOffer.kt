@@ -14,7 +14,6 @@ data class TripOffer(
     val distanceKm: Double? = null,
     val durationMin: Double? = null,
     val currency: String? = null,
-    val pickupDistanceKm: Double? = null,
     val rawText: List<String> = emptyList(),
 ) {
     val hasEnoughData: Boolean

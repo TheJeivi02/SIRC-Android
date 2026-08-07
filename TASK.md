@@ -6,19 +6,21 @@
 
 ## Tarea actual
 
-**WP-E3-05B completado** — Limpieza de severidad Media (M-1, M-2, M-3, M-4,
-M-5, M-6-parcial) de la auditoría del Sprint 11. Eliminada la API muerta de
-`:domain` (use cases y métodos de `DriverConfigRepository`), la interfaz
-`PlatformExtractor` (YAGNI), `OfferTypeVariant.refine`, los flags
-`FeatureFlag.ACCESSIBILITY/METRICS`, `CaptureMetrics.onCapture` y los campos
-write-only `ParsedOffer.parsingMillis` + `ScreenDetection.matchedKeywords`
-(se **conservan** `DetectionResult.origin/candidates/sourcePackage` por decisión
-del usuario: valor arquitectónico para Gallery/Share/Debug). Verificación
-completa en verde. **Siguiente: WP-E3-05C** (Bajos: objetos/consts sin uso,
-`OverlayState.CAPTURING`, `DiscardReason.CAPTURE_FAILED`, `start()` no-op,
-`detect(timestampMillis)` sin uso, dependencias Gradle sin uso, KDoc legacy).
-Nota: por regla del WP no se tocaron docs descriptivas (CHANGELOG/DECISIONS/
-CONTEXT) — se actualizarán en un WP posterior.
+**WP-E3-05C completado** — Resuelven los hallazgos Medios restantes de la
+auditoría Sprint 11: M-7 `CaptureInputType.SHARE/GALLERY/TEST`, M-8 bundle
+LEGACY de reglas (`RuleEngine`, 6 reglas, `OfferValidator`, `ValidationResult`,
+`RuleContext`, `RuleThresholds`, `OfferRule` + tests), M-9 moneda duplicada
+`DEFAULT_CURRENCY` (eliminada, `defaultCurrency` pasa a parámetro obligatorio).
+Eliminados helpers/campos exclusivos del framework: `RuleEvaluation.resultFor`,
+`TripOffer.pickupDistanceKm`. Conservados metadatos de diagnóstico
+(`DetectionResult.origin/candidates/sourcePackage`, `OfferSnapshot.origin`).
+Verificación completa en verde (ktlintCheck, lintDebug, assembleDebug, tests).
+No se tocó documentación descriptiva (CHANGELOG/DECISIONS/CONTEXT) — diferida a
+WP posterior.
+
+**Siguiente: WP-E3-05D** (Bajos: objetos/consts sin uso, `OverlayState.CAPTURING`,
+`DiscardReason.CAPTURE_FAILED`, `start()` no-op, `detect(timestampMillis)` sin
+uso, dependencias Gradle sin uso, KDoc legacy).
 
 ## Antecedentes
 

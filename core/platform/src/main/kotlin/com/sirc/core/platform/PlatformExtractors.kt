@@ -20,7 +20,7 @@ class GenericPlatformExtractor(
     val platform: RidePlatform,
     private val keywords: PlatformKeywords,
     private val parser: OfferTextParser = OfferTextParser(),
-    private val defaultCurrency: String? = DEFAULT_CURRENCY[platform],
+    private val defaultCurrency: String,
 ) {
     fun extract(
         texts: List<String>,
@@ -75,13 +75,5 @@ class GenericPlatformExtractor(
     companion object {
         private const val MAX_TEXT_LENGTH = 300
         private const val MAX_RAW_TEXTS = 60
-
-        private val DEFAULT_CURRENCY =
-            mapOf(
-                RidePlatform.UBER to "MXN",
-                RidePlatform.DIDI to "MXN",
-                RidePlatform.CABIFY to "EUR",
-                RidePlatform.INDRIVE to "MXN",
-            )
     }
 }
