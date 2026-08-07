@@ -6,12 +6,12 @@
 
 ## Tarea actual
 
-**WP-E3-03 implementado** — Unified Capture Source. Pipeline único
+**WP-E3-03 completado** — Unified Capture Source. Pipeline único
 `CaptureInput → CaptureRequest → (OCR) → PlatformDetectionEngine →
 OfferParserOrchestrator → OfferSnapshot → Repository → Overlay`, eliminando
 `ScreenCapture`/`ScreenFrame`/`MediaProjectionScreenCapture` y la resolución de
-plataforma duplicada en el coordinador. Pendiente: verificación final + commit
-+ informe estándar de 12 puntos.
+plataforma duplicada en el coordinador. Commit `f1675fb`; verificación completa
+en verde.
 
 ## Objetivo
 
@@ -56,8 +56,10 @@ Eliminados:
       (test "paquete no soportado" en verde).
 - [x] Docs actualizadas: CHANGELOG (WP-E3-03), CONTEXT (nota + flujo + módulos),
       DECISIONS (D11.13), TASK.
-- [ ] Verificación completa final (ktlintCheck, lintDebug, assembleDebug, tests).
-- [ ] Commit + informe estándar de 12 puntos.
+- [x] Verificación completa final en verde (ktlintCheck, lintDebug, assembleDebug,
+      tests unitarios JVM e instrumentados). `DetectionOrigin.kt` (residuo del
+      rename) eliminado antes del commit.
+- [x] Commit `f1675fb` + informe estándar de 12 puntos entregado.
 
 ## Notas / decisiones
 
