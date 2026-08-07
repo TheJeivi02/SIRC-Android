@@ -19,10 +19,6 @@ class DebugCaptureMetrics @Inject constructor(
 ) : CaptureMetrics {
     private val enabled = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
-    override fun onCapture(millis: Double) {
-        if (enabled) logger.debug(TAG, "captura: ${format(millis)} ms")
-    }
-
     override fun onOcr(millis: Double) {
         if (enabled) logger.debug(TAG, "ocr: ${format(millis)} ms")
     }

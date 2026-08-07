@@ -23,7 +23,6 @@ class OfferDetectionEngineTest {
 
         assertEquals(ScreenType.REQUEST, detection.type)
         assertTrue(detection.isRequest)
-        assertTrue(detection.matchedKeywords.isNotEmpty())
     }
 
     @Test

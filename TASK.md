@@ -6,13 +6,19 @@
 
 ## Tarea actual
 
-**WP-E3-05A completado** — Limpieza de severidad Alta (A-1, A-2, A-3) de la
-auditoría del Sprint 11. `OfferParserOrchestrator` con un único camino de parseo
-`parse(result, …)` (overloads legacy y engine interno eliminados); docs internas
-corregidas (`PlatformDescriptors` se conserva); resolución de plataforma unificada
-en `PlatformDetectionEngine` (coordinador + input), `RidePlatform.fromPackageName`
-deprecado. Verificación completa en verde. **Siguiente: WP-E3-05B** (Medios:
-API muerta, interfaces sin uso, callbacks sin consumidores, flags muertos).
+**WP-E3-05B completado** — Limpieza de severidad Media (M-1, M-2, M-3, M-4,
+M-5, M-6-parcial) de la auditoría del Sprint 11. Eliminada la API muerta de
+`:domain` (use cases y métodos de `DriverConfigRepository`), la interfaz
+`PlatformExtractor` (YAGNI), `OfferTypeVariant.refine`, los flags
+`FeatureFlag.ACCESSIBILITY/METRICS`, `CaptureMetrics.onCapture` y los campos
+write-only `ParsedOffer.parsingMillis` + `ScreenDetection.matchedKeywords`
+(se **conservan** `DetectionResult.origin/candidates/sourcePackage` por decisión
+del usuario: valor arquitectónico para Gallery/Share/Debug). Verificación
+completa en verde. **Siguiente: WP-E3-05C** (Bajos: objetos/consts sin uso,
+`OverlayState.CAPTURING`, `DiscardReason.CAPTURE_FAILED`, `start()` no-op,
+`detect(timestampMillis)` sin uso, dependencias Gradle sin uso, KDoc legacy).
+Nota: por regla del WP no se tocaron docs descriptivas (CHANGELOG/DECISIONS/
+CONTEXT) — se actualizarán en un WP posterior.
 
 ## Antecedentes
 
@@ -50,6 +56,32 @@ API muerta, interfaces sin uso, callbacks sin consumidores, flags muertos).
 - [x] Verificación completa en verde (ktlintCheck, lintDebug, assembleDebug,
       tests unitarios JVM + instrumentados).
 - [x] Docs del WP actualizadas (CHANGELOG WP-E3-05A, DECISIONS D11.14, TASK).
+
+## Progreso WP-E3-05B (severidad Media)
+
+- [x] **M-1**: eliminados `EvaluateOfferUseCase.kt` y `AddOfferHistoryUseCase`;
+      recortados `SaveDriverConfigUseCase` (solo `save(config)`) y
+      `GetDriverConfigUseCase` (solo `observeDriverConfig`/`observeIsConfigured`);
+      `DriverConfigRepository` pasa de 10 a 4 métodos, con su impl
+      `DefaultDriverConfigRepository` y el fake de `PipelineOverlayDataSourceTest`
+      alineados.
+- [x] **M-2**: eliminada la interfaz `PlatformExtractor` (YAGNI);
+      `GenericPlatformExtractor` es la clase concreta única; KDoc de
+      `OfferTextParser` corregido.
+- [x] **M-3**: eliminados `OfferTypeVariant.refine` y la rama muerta en
+      `GenericOfferTypeParser`.
+- [x] **M-4**: eliminados `FeatureFlag.ACCESSIBILITY` y `FeatureFlag.METRICS`
+      (el Debug Panel los listaba por iteración → desaparecen solos).
+- [x] **M-5**: eliminado `CaptureMetrics.onCapture` (interfaz +
+      `DebugCaptureMetrics` + test double `RecordingCaptureMetrics`).
+- [x] **M-6 (parcial, decisión usuario)**: eliminados `ParsedOffer.parsingMillis`
+      (más el timing muerto del orquestador) y `ScreenDetection.matchedKeywords`;
+      **conservados** `DetectionResult.origin/candidates/sourcePackage`
+      (diagnóstico para futuras fuentes de captura y Debug Panel).
+- [x] Verificación completa en verde (ktlintCheck, lintDebug, assembleDebug,
+      tests).
+- [ ] Docs descriptivas (CHANGELOG/DECISIONS/CONTEXT) → diferidas a un WP
+      posterior (regla: no tocar documentación en 05B).
 
 ## Hallazgos clave (resumen)
 

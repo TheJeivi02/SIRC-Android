@@ -4,14 +4,13 @@ import com.sirc.domain.model.TripOffer
 
 /**
  * Resultado del orquestador de parsing: la [type] de oferta detectada y la
- * [offer] extraída (si fue posible). [detectionMillis] y [parsingMillis] son
- * tiempos de las etapas internas (Debug).
+ * [offer] extraída (si fue posible). [detectionMillis] es el tiempo de la
+ * detección previa (Debug).
  */
 data class ParsedOffer(
     val type: OfferType,
     val offer: TripOffer?,
     val detectionMillis: Double = 0.0,
-    val parsingMillis: Double = 0.0,
 ) {
     companion object {
         fun none(

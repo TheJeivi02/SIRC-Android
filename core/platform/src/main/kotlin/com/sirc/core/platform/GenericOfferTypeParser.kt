@@ -25,6 +25,6 @@ class GenericOfferTypeParser(
         timestampMillis: Long,
     ): TripOffer? {
         val offer = extractor.extract(texts, timestampMillis) ?: return null
-        return variant.refine?.invoke(offer, texts) ?: offer
+        return offer
     }
 }

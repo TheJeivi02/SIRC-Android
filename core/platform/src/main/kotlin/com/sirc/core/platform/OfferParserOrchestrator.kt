@@ -34,7 +34,6 @@ class OfferParserOrchestrator(
         timestampMillis: Long,
         detectionMillis: Double = 0.0,
     ): ParsedOffer {
-        val parseStart = System.nanoTime()
         if (!result.isRecognized || !result.screenDetection.isRequest) {
             return ParsedOffer.none()
         }
@@ -44,7 +43,6 @@ class OfferParserOrchestrator(
             screenDetection = result.screenDetection,
             texts = texts,
             timestampMillis = timestampMillis,
-            parseStartNanos = parseStart,
             detectionMillis = detectionMillis,
         )
     }
@@ -54,7 +52,6 @@ class OfferParserOrchestrator(
         screenDetection: ScreenDetection,
         texts: List<String>,
         timestampMillis: Long,
-        parseStartNanos: Long,
         detectionMillis: Double,
     ): ParsedOffer {
         val normalized = texts.map(OfferDetectionEngine::normalize)
@@ -66,7 +63,6 @@ class OfferParserOrchestrator(
                         type = parser.type,
                         offer = offer,
                         detectionMillis = detectionMillis,
-                        parsingMillis = elapsedMillis(parseStartNanos),
                     )
                 }
             }
@@ -77,13 +73,6 @@ class OfferParserOrchestrator(
             type = OfferType.GENERIC,
             offer = generic,
             detectionMillis = detectionMillis,
-            parsingMillis = elapsedMillis(parseStartNanos),
         )
-    }
-
-    private fun elapsedMillis(startNanos: Long): Double = (System.nanoTime() - startNanos) / NANOS_PER_MILLI
-
-    companion object {
-        private const val NANOS_PER_MILLI = 1_000_000.0
     }
 }

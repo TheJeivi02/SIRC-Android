@@ -8,12 +8,10 @@ package com.sirc.capture.flag
  * decisión; `ProfitEngine` es el único motor en producción).
  */
 enum class FeatureFlag {
-    ACCESSIBILITY,
     OVERLAY,
     CAPTURE,
     PARSER,
     OCR,
     DETAILED_LOGS,
-    METRICS,
     DEBUG_PANEL,
 }

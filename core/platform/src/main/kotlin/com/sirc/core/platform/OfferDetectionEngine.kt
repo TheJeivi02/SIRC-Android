@@ -30,7 +30,6 @@ class OfferDetectionEngine(
             candidates +=
                 ScreenDetection(
                     type = rule.type,
-                    matchedKeywords = matched,
                     confidence = rule.confidence(matched.size),
                 )
         }

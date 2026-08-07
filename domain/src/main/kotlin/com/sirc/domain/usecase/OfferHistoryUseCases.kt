@@ -16,9 +16,3 @@ class ClearOfferHistoryUseCase @Inject constructor(
 ) {
     suspend operator fun invoke() = repository.clear()
 }
-
-class AddOfferHistoryUseCase @Inject constructor(
-    private val repository: OfferHistoryRepository,
-) {
-    suspend operator fun invoke(entry: OfferHistoryEntry) = repository.add(entry)
-}

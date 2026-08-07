@@ -221,7 +221,6 @@ class DefaultCapturePipelineTest {
 
             pipeline.process(requestFor(imageData = loadTestImage("test-images/offer_uber_1.png")))
 
-            assertTrue(metrics.captureCalls == 0)
             assertTrue(metrics.ocrCalls > 0)
             assertTrue(metrics.parseCalls > 0)
             val last = pipeline.lastMetrics.value
@@ -339,14 +338,9 @@ class DefaultCapturePipelineTest {
     }
 
     private class RecordingCaptureMetrics : CaptureMetrics {
-        var captureCalls = 0
         var ocrCalls = 0
         var parseCalls = 0
         var totalCalls = 0
-
-        override fun onCapture(millis: Double) {
-            captureCalls++
-        }
 
         override fun onOcr(millis: Double) {
             ocrCalls++

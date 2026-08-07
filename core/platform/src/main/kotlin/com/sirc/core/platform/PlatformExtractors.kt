@@ -17,12 +17,12 @@ data class PlatformKeywords(
 )
 
 class GenericPlatformExtractor(
-    override val platform: RidePlatform,
+    val platform: RidePlatform,
     private val keywords: PlatformKeywords,
     private val parser: OfferTextParser = OfferTextParser(),
     private val defaultCurrency: String? = DEFAULT_CURRENCY[platform],
-) : PlatformExtractor {
-    override fun extract(
+) {
+    fun extract(
         texts: List<String>,
         timestampMillis: Long,
     ): TripOffer? {

@@ -21,8 +21,8 @@ data class ParsedOfferText(
  * distancia y duración a partir de los textos visibles.
  *
  * Heurístico por diseño: los textos de las apps de transporte varían. La
- * decisión final de cada campo la toman los [PlatformExtractor] usando las
- * palabras clave propias de cada plataforma.
+ * decisión final de cada campo la toman los [GenericPlatformExtractor] usando
+ * las palabras clave propias de cada plataforma.
  */
 class OfferTextParser @Inject constructor() {
     fun parse(texts: List<String>): ParsedOfferText {

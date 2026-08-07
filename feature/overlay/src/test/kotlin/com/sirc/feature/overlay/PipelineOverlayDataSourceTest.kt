@@ -15,8 +15,6 @@ import com.sirc.domain.engine.ConfidenceEngine
 import com.sirc.domain.engine.ProfitEngine
 import com.sirc.domain.engine.ProfitEvaluationEngine
 import com.sirc.domain.engine.RecommendationEngine
-import com.sirc.domain.model.DecisionThresholds
-import com.sirc.domain.model.DriverCosts
 import com.sirc.domain.model.OfferHistoryEntry
 import com.sirc.domain.model.OverlayConfig
 import com.sirc.domain.model.Recommendation
@@ -245,9 +243,6 @@ class PipelineOverlayDataSourceTest {
     }
 
     private class FakeDriverConfigRepository : DriverConfigRepository {
-        private val costs = DriverCosts.default()
-        private val thresholds = DecisionThresholds.default()
-
         override suspend fun getDriverConfig() = null
 
         override fun observeDriverConfig(): Flow<com.sirc.domain.model.DriverConfig?> = flowOf(null)
@@ -255,18 +250,6 @@ class PipelineOverlayDataSourceTest {
         override fun isConfigured(): Flow<Boolean> = flowOf(false)
 
         override suspend fun save(driverConfig: com.sirc.domain.model.DriverConfig) = Unit
-
-        override suspend fun getDriverCosts(): DriverCosts = costs
-
-        override suspend fun getDecisionThresholds(): DecisionThresholds = thresholds
-
-        override suspend fun save(driverCosts: DriverCosts) = Unit
-
-        override suspend fun save(decisionThresholds: DecisionThresholds) = Unit
-
-        override fun observeDriverCosts(): Flow<DriverCosts> = flowOf(costs)
-
-        override fun observeDecisionThresholds(): Flow<DecisionThresholds> = flowOf(thresholds)
     }
 
     private class FakeOverlayConfigRepository : OverlayConfigRepository {

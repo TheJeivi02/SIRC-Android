@@ -7,8 +7,6 @@ package com.sirc.capture.metrics
  * [NoOpCaptureMetrics] se usa en pruebas y en entornos no Android.
  */
 interface CaptureMetrics {
-    fun onCapture(millis: Double) = Unit
-
     fun onOcr(millis: Double) = Unit
 
     fun onParse(millis: Double) = Unit
