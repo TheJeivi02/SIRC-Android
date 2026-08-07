@@ -103,9 +103,9 @@ class PlatformDetectionEngineTest {
                 texts = listOf("Aceptar"),
                 timestampMillis = 1000L,
                 packageName = "com.ubercab",
-                origin = DetectionOrigin.OCR,
+                origin = CaptureInputType.OCR,
             )
 
-        assertEquals(DetectionOrigin.OCR, result.origin)
+        assertEquals(CaptureInputType.OCR, result.origin)
     }
 }

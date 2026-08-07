@@ -98,6 +98,23 @@ producto: estabilidad y observabilidad.
   por `RidePlatform` se conserva intacto). Sin cambios funcionales para el
   conductor; sin plataformas nuevas.
 
+- **Unified Capture Source** (WP-E3-03): `CaptureInput` pasa a ser la única
+  abstracción de entrada de captura (`AccessibilityCaptureInput` en
+  `:feature:overlay` y `MediaProjectionCaptureInput` en `:core:capture:android`)
+  y el pipeline único `DefaultCapturePipeline` (dedup por imagen → OCR si hay
+  imagen → `PlatformDetectionEngine` → `OfferParser`/`OfferParserOrchestrator`)
+  consume el merge `@CaptureRequests Flow<CaptureRequest>`. `DetectionOrigin` se
+  renombra a `CaptureInputType` (valores aditivos: legacy PACKAGE/OCR/GALLERY/
+  TEST/UNKNOWN + ACCESSIBILITY/MEDIA_PROJECTION/SHARE); `CaptureRequest` y
+  `OfferSnapshot` ganan el campo `origin`. Se eliminan `ScreenCapture`,
+  `ScreenFrame` y `MediaProjectionScreenCapture`; `OfferParser.parse(request,
+  result, detectionMillis)` y el overload `parse(result, texts, ts, det)` del
+  orquestador ya no dependen de `CaptureWindowEvent`. El coordinador debug deja
+  de parsear y guardar (corrige el **doble guardado** de snapshots) y consume
+  `pipeline.snapshots`. `CaptureAccessibilityService` queda como adaptador
+  delgado que delega en `AccessibilityCaptureInput`. Sin cambios de comportamiento
+  para el conductor; Gallery/Share quedan preparados como futuros `CaptureInput`.
+
 ### Añadido
 
 - **Modo de validación** (O3): `ValidationRecorder` (`:core:capture`, puro) con

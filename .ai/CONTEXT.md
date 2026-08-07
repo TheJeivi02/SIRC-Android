@@ -122,24 +122,43 @@ es rentable.
 > `OfferParserOrchestrator` añade `parse(texts, ts, packageName)` sin romper el
 > método por `RidePlatform`. El registry solo expone una vista de solo lectura.
 > Sin cambios de comportamiento; `:core:platform` sigue Kotlin puro.
+> **WP-E3-03 (SPRINT 11)**: unified capture source. `CaptureInput` es la única
+> abstracción de entrada de captura (`AccessibilityCaptureInput` +
+> `MediaProjectionCaptureInput`) y el pipeline único `DefaultCapturePipeline`
+> consume el merge `@CaptureRequests Flow<CaptureRequest>`. `DetectionOrigin` se
+> renombra a `CaptureInputType` (valores aditivos: legacy
+> PACKAGE/OCR/GALLERY/TEST/UNKNOWN + ACCESSIBILITY/MEDIA_PROJECTION/SHARE);
+> `CaptureRequest` y `OfferSnapshot` llevan `origin`. Se eliminan
+> `ScreenCapture`/`ScreenFrame`/`MediaProjectionScreenCapture`;
+> `MediaProjectionCaptureInput` solo enriquece con `imageData` si proyecta
+> (degrade a textos si no). `OfferParser.parse(request, result, detectionMillis)`
+> y el overload `OfferParserOrchestrator.parse(result, texts, ts, det)` no
+> dependen de `CaptureWindowEvent`. El coordinador debug consume
+> `pipeline.snapshots` y ya no guarda (corrige el doble guardado de snapshots).
+> `CaptureAccessibilityService` queda como adaptador delgado que delega en
+> `AccessibilityCaptureInput`. Sin cambios de comportamiento; Gallery/Share
+> futuros = otro `CaptureInput` en el merge.
 >
 > Nota SPRINT 5: `CaptureAccessibilityService` (desacoplado de la UI) alimenta
 > `CapturePipeline` (ScreenCapture → OCR → OfferParser → CaptureRepository).
 > ML Kit OCR está integrado bajo `OcrEngine`; el pipeline aplica OCR cuando la
 > solicitud lleva imagen (SPRINT 6 la aporta vía MediaProjection).
 
-1. Dos **Accessibility Services (solo lectura)** observan las apps de
-   transporte soportadas y recolectan los textos de pantalla (límites duros:
-   400 nodos, 80 textos, ≤200 chars, deduplicación por huella de texto).
-2. `CaptureAccessibilityService` construye `CaptureRequest` y los encola en el
-   `DebounceCaptureScheduler` (400 ms); `SircAccessibilityService` reenvía los
-   cambios de ventana al pipeline/panel de depuración sin interpretar nada.
-3. `CapturePipeline` (`DefaultCapturePipeline`) ejecuta ScreenCapture (frame de
-   MediaProjection o textos) → **OCR** (ML Kit, si hay imagen y flag `OCR`;
-   degrada a textos si falla) → `OfferParserOrchestrator` (detección de pantalla
-   + variantes de oferta del descriptor + extractor genérico del descriptor,
-   todo resuelto por el `PlatformDescriptorRegistry`) y produce un
-   `OfferSnapshot`.
+1. `CaptureAccessibilityService` (único Accessibility Service, solo lectura)
+   delega en `AccessibilityCaptureInput`: filtra por plataforma, recolecta los
+   textos de pantalla (límites duros: 400 nodos, 80 textos, ≤200 chars,
+   deduplicación por huella de texto), encola `CaptureRequest` (origin
+   `ACCESSIBILITY`) en el `DebounceCaptureScheduler` (400 ms) y reenvía los
+   cambios de ventana al panel de depuración sin interpretar nada.
+2. El merge `@CaptureRequests` (accesibilidad + `MediaProjectionCaptureInput`,
+   que añade `imageData` solo si proyecta y degrada a textos si no) alimenta el
+   pipeline único `DefaultCapturePipeline`.
+3. `DefaultCapturePipeline` aplica dedup por `imageData` → **OCR** (ML Kit, si
+   hay imagen y flag `OCR`; degrada a textos si falla) →
+   `PlatformDetectionEngine` (resolución de plataforma única por paquete/
+   keywords) → `OfferParser`/`OfferParserOrchestrator` (descriptor-driven) y
+   produce un `OfferSnapshot` (con `origin`) que se escribe una sola vez en el
+   repositorio.
 4. `PipelineOverlayDataSource` mapea el snapshot a `TripOffer`, lo evalúa con
    `EvaluateDetailedOfferUseCase` (`ProfitEvaluationEngine` + `RecommendationEngine`),
    ejecuta **reglas** (`RuleEngine`) y **confianza** (`ConfidenceEngine`), publica
@@ -187,6 +206,15 @@ Service **nunca** interactúa con otras apps.
   `DetectionMatcher` + `DetectionResult`; overload `parse(packageName)` en el
   orquestador; vista de solo lectura en el registry. Sin plataformas nuevas ni
   cambios de comportamiento.
+- **SPRINT 11 WP-E3-03 completado**: Unified Capture Source. Pipeline único
+  `CaptureInput → CaptureRequest → (OCR) → PlatformDetectionEngine →
+  OfferParserOrchestrator → OfferSnapshot → Repository → Overlay`, eliminando
+  `ScreenCapture`/`ScreenFrame`/`MediaProjectionScreenCapture` y la resolución
+  de plataforma duplicada en el coordinador. `DetectionOrigin` renombrado a
+  `CaptureInputType`; inputs `AccessibilityCaptureInput` (lógica del servicio
+  extraída) y `MediaProjectionCaptureInput` (enriquece con imagen si proyecta).
+  El coordinador consume `pipeline.snapshots` y ya no guarda. Verificación
+  completa en verde (lintDebug, assembleDebug, unit tests, ktlintCheck).
 - **SPRINT 11 WP-E2-02 completado**: Fortalecimiento del ciclo de vida de `ScreenCaptureProvider`.
   `ProjectionLifecycle` es la única fuente de verdad interna (`IDLE`, `INITIALIZING`,
   `ACTIVE`); `initializeProjection()` es atómico con rollback atómico y `ValidationEvent.CaptureError`.
@@ -371,22 +399,23 @@ app ──► feature:overlay ──► core:platform ─► domain
 - `core:platform`: motor de análisis de pantallas: detección (`OfferDetectionEngine`),
   parsers especializados por tipo (`OfferTypeParser`/`BaseOfferTypeParser`),
   `OfferParserOrchestrator` y extractores multi-plataforma (`OfferTextParser`).
-- `core:capture`: plataforma de captura (pipeline ScreenCapture → OCR → parser
-  → repositorio, observador, sesión/snapshot, `OverlayState`, coordinador,
-  caché de frames por hash, debounce de requests, métricas por etapa,
-  `OfferTiming` + `OfferPerformanceTracker`, feature flags, logging).
+- `core:capture`: plataforma de captura (pipeline único CaptureInput →
+  OCR → parser → repositorio, observador, sesión/snapshot, `OverlayState`,
+  coordinador, caché de dedup por hash, debounce de requests, métricas por
+  etapa, `OfferTiming` + `OfferPerformanceTracker`, feature flags, logging).
 - `core:capture:android`: captura de pantalla real (MediaProjection):
   `ScreenCaptureProvider`, `MediaProjectionService` (FGS tipo `mediaProjection`),
-  `MediaProjectionScreenCapture`, `DebugCaptureMetrics`, `CaptureAndroidModule`.
+  `MediaProjectionCaptureInput`, `DebugCaptureMetrics`, `CaptureAndroidModule`.
 - `core:ui`: design system.
-- `feature:overlay`: accesibilidad (2 servicios: `SircAccessibilityService` +
-  `CaptureAccessibilityService` con debounce), overlay + pipeline de evaluación
+- `feature:overlay`: accesibilidad (`CaptureAccessibilityService` delgado +
+  `AccessibilityCaptureInput` con debounce), overlay + pipeline de evaluación
   + piezas Android de captura (`AccessibilityWindowObserver`,
   `MlKitOcrEngine`, `AndroidSircLogger`, `CaptureModule`). Estado del overlay
   vía `OverlayDataSource` (`PipelineOverlayDataSource`, estado real del
   pipeline; ejecuta reglas + confianza); DI del motor de análisis en
   `PlatformModule` (`OfferDetectionEngine`, parsers, `OfferParserOrchestrator`,
-  `RuleEngine`); permisos y control vía `PermissionManager` y `OverlayManager`
+  `RuleEngine`, `PlatformDetectionEngine`); permisos y control vía
+  `PermissionManager` y `OverlayManager`
   (incluye proyección de pantalla).
 - `feature:onboarding`: flujo de configuración inicial (6 pasos) que persiste
   `DriverConfig`; gating en `app` (`RootViewModel`/`SircRoot`).

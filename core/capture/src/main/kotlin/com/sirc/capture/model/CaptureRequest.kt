@@ -1,5 +1,7 @@
 package com.sirc.capture.model
 
+import com.sirc.core.platform.CaptureInputType
+
 /**
  * Solicitud de captura generada a partir de un evento observado.
  *
@@ -13,4 +15,5 @@ data class CaptureRequest(
     val timestampMillis: Long,
     val texts: List<String> = emptyList(),
     val imageData: ByteArray? = null,
+    val origin: CaptureInputType = CaptureInputType.UNKNOWN,
 )

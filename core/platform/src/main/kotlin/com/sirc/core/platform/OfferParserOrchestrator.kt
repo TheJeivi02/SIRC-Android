@@ -83,6 +83,37 @@ class OfferParserOrchestrator(
         )
     }
 
+    /**
+     * Clasifica [texts] usando un [DetectionResult] ya resuelto.
+     *
+     * Útil para el pipeline unificado donde la detección ocurre antes.
+     * No re-resuelve la plataforma ni ejecuta detección.
+     *
+     * @return [ParsedOffer] con el tipo detectado y la oferta extraída, o
+     *   `offer = null` si la pantalla no era una solicitud, el descriptor es nulo
+     *   o no se pudo parsear.
+     */
+    fun parse(
+        result: DetectionResult,
+        texts: List<String>,
+        timestampMillis: Long,
+        detectionMillis: Double = 0.0,
+    ): ParsedOffer {
+        val parseStart = System.nanoTime()
+        if (!result.isRecognized || !result.screenDetection.isRequest) {
+            return ParsedOffer.none()
+        }
+        val descriptor = result.descriptor ?: return ParsedOffer.none()
+        return parseWith(
+            descriptor = descriptor,
+            screenDetection = result.screenDetection,
+            texts = texts,
+            timestampMillis = timestampMillis,
+            parseStartNanos = parseStart,
+            detectionMillis = detectionMillis,
+        )
+    }
+
     private fun parseWith(
         descriptor: PlatformDescriptor,
         screenDetection: ScreenDetection,

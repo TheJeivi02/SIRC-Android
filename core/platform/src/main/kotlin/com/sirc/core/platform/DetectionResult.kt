@@ -10,7 +10,7 @@ package com.sirc.core.platform
  */
 data class DetectionResult(
     val resolution: DetectionResolution,
-    val origin: DetectionOrigin,
+    val origin: CaptureInputType,
     val descriptor: PlatformDescriptor? = null,
     val screenDetection: ScreenDetection = ScreenDetection(ScreenType.UNKNOWN),
     val candidates: List<DetectionCandidate> = emptyList(),

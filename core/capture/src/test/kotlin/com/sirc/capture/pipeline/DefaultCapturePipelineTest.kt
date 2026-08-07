@@ -7,19 +7,20 @@ import com.sirc.capture.log.TestLogger
 import com.sirc.capture.metrics.CaptureMetrics
 import com.sirc.capture.metrics.InMemoryOfferPerformanceTracker
 import com.sirc.capture.model.CaptureRequest
-import com.sirc.capture.model.CaptureWindowEvent
-import com.sirc.capture.model.OfferCaptureSession
 import com.sirc.capture.model.OfferSnapshot
 import com.sirc.capture.model.OverlayState
-import com.sirc.capture.model.ScreenFrame
-import com.sirc.capture.model.SnapshotSource
 import com.sirc.capture.ocr.OcrEngine
 import com.sirc.capture.parser.OfferParser
 import com.sirc.capture.repository.InMemoryCaptureRepository
-import com.sirc.capture.screen.ScreenCapture
 import com.sirc.capture.validation.DiscardReason
 import com.sirc.capture.validation.ValidationEvent
 import com.sirc.capture.validation.ValidationRecorder
+import com.sirc.core.platform.DetectionResult
+import com.sirc.core.platform.DetectionRule
+import com.sirc.core.platform.PlatformDescriptor
+import com.sirc.core.platform.PlatformDescriptorRegistry
+import com.sirc.core.platform.PlatformDetectionEngine
+import com.sirc.core.platform.ScreenType
 import com.sirc.domain.model.RidePlatform
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
@@ -34,7 +35,24 @@ import org.junit.Test
 import java.io.ByteArrayOutputStream
 
 class DefaultCapturePipelineTest {
-    private val screenCapture = FakeScreenCapture()
+    private val descriptorRegistry =
+        PlatformDescriptorRegistry(
+            listOf(
+                PlatformDescriptor(
+                    platform = RidePlatform.UBER,
+                    packageNames = listOf("com.ubercab"),
+                    detectionRules =
+                        listOf(
+                            DetectionRule(ScreenType.REQUEST, 3f, listOf("aceptar", "rechazar")),
+                            DetectionRule(ScreenType.HOME, 1f, listOf("buscar")),
+                        ),
+                    offerTypes = emptyList(),
+                    extractorKeywords = com.sirc.core.platform.PlatformKeywords(listOf("total"), listOf("tarifa")),
+                    defaultCurrency = "MXN",
+                ),
+            ),
+        )
+    private val detectionEngine = PlatformDetectionEngine(descriptorRegistry)
     private val ocrEngine = FakeOcrEngine()
     private val parser = FakeOfferParser()
     private val repository = InMemoryCaptureRepository()
@@ -47,14 +65,14 @@ class DefaultCapturePipelineTest {
 
     private val pipeline =
         DefaultCapturePipeline(
-            screenCapture = screenCapture,
+            detectionEngine = detectionEngine,
             ocrEngine = ocrEngine,
             parser = parser,
             repository = repository,
             featureFlags = featureFlags,
+            logger = logger,
             cache = cache,
             metrics = metrics,
-            logger = logger,
             performanceTracker = performanceTracker,
             validationRecorder = validationRecorder,
         )
@@ -62,11 +80,11 @@ class DefaultCapturePipelineTest {
     @Test
     fun `solicitud con texto produce snapshot y lo guarda`() =
         runBlocking {
-            val snapshot = pipeline.process(requestFor(texts = listOf("UBER", "$125.00")))
+            ocrEngine.recognized = listOf("aceptar", "rechazar", "total")
+            val snapshot = pipeline.process(requestFor(texts = listOf("aceptar", "rechazar", "total")))
 
             assertNotNull(snapshot)
             assertEquals(RidePlatform.UBER, snapshot?.platform)
-            assertEquals(SnapshotSource.REAL, snapshot?.source)
             assertEquals(1, repository.snapshots().size)
             assertEquals(OverlayState.WAITING, pipeline.state.value)
         }
@@ -75,7 +93,7 @@ class DefaultCapturePipelineTest {
     fun `solicitud con imagen ejecuta OCR y guarda snapshot`() =
         runBlocking {
             val image = loadTestImage("test-images/offer_uber_1.png")
-            ocrEngine.recognized = listOf("UBER", "$125.00", "8.5 km")
+            ocrEngine.recognized = listOf("aceptar", "rechazar", "total")
 
             val snapshot = pipeline.process(requestFor(imageData = image))
 
@@ -88,7 +106,7 @@ class DefaultCapturePipelineTest {
     fun `flag OCR desactivada no ejecuta el motor`() =
         runBlocking {
             featureFlags.setEnabled(FeatureFlag.OCR, false)
-            ocrEngine.recognized = listOf("UBER", "$125.00")
+            ocrEngine.recognized = listOf("aceptar", "rechazar")
 
             val snapshot = pipeline.process(requestFor(imageData = loadTestImage("test-images/offer_uber_1.png")))
 
@@ -102,7 +120,7 @@ class DefaultCapturePipelineTest {
         runBlocking {
             featureFlags.setEnabled(FeatureFlag.CAPTURE, false)
 
-            val snapshot = pipeline.process(requestFor(texts = listOf("UBER", "$125.00")))
+            val snapshot = pipeline.process(requestFor(texts = listOf("aceptar", "rechazar")))
 
             assertNull(snapshot)
             assertEquals(0, repository.snapshots().size)
@@ -120,64 +138,10 @@ class DefaultCapturePipelineTest {
         }
 
     @Test
-    fun `fallo en la captura de pantalla pasa a ERROR`() =
-        runBlocking {
-            screenCapture.fail = true
-
-            val snapshot = pipeline.process(requestFor(texts = listOf("UBER", "$125.00")))
-
-            assertNull(snapshot)
-            assertEquals(0, repository.snapshots().size)
-            assertEquals(OverlayState.ERROR, pipeline.state.value)
-        }
-
-    @Test
-    fun `fallo del OCR degrada a textos de accesibilidad y registra OcrFailed`() =
-        runBlocking {
-            ocrEngine.throwError = true
-
-            val snapshot = pipeline.process(requestFor(texts = listOf("UBER", "$125.00"), imageData = byteArrayOf(1)))
-
-            assertNotNull(snapshot)
-            assertEquals(1, repository.snapshots().size)
-            assertTrue(validationRecorder.snapshot().any { it is ValidationEvent.OcrFailed })
-        }
-
-    @Test
-    fun `fallo en la captura registra descarte CAPTURE_FAILED`() =
-        runBlocking {
-            screenCapture.fail = true
-
-            pipeline.process(requestFor(texts = listOf("UBER", "$125.00")))
-
-            assertTrue(
-                validationRecorder.snapshot().any {
-                    it is ValidationEvent.FrameDiscarded && it.reason == DiscardReason.CAPTURE_FAILED
-                },
-            )
-        }
-
-    @Test
-    fun `fallo no controlado en la captura registra CaptureError`() =
-        runBlocking {
-            screenCapture.throwOnCapture = true
-
-            val snapshot = pipeline.process(requestFor(texts = listOf("UBER", "$125.00")))
-
-            assertNull(snapshot)
-            assertEquals(OverlayState.ERROR, pipeline.state.value)
-            assertTrue(
-                validationRecorder.snapshot().any {
-                    it is ValidationEvent.CaptureError
-                },
-            )
-        }
-
-    @Test
     fun `frame duplicado registra descarte DUPLICATE`() =
         runBlocking {
             val image = loadTestImage("test-images/offer_uber_1.png")
-            ocrEngine.recognized = listOf("UBER", "$125.00")
+            ocrEngine.recognized = listOf("aceptar", "rechazar")
 
             pipeline.process(requestFor(imageData = image))
             pipeline.process(requestFor(imageData = image))
@@ -193,8 +157,9 @@ class DefaultCapturePipelineTest {
     fun `parser sin resultado no guarda snapshot`() =
         runBlocking {
             parser.result = null
+            ocrEngine.recognized = listOf("aceptar", "rechazar", "total")
 
-            val snapshot = pipeline.process(requestFor(texts = listOf("UBER", "$125.00")))
+            val snapshot = pipeline.process(requestFor(texts = listOf("aceptar", "rechazar", "total")))
 
             assertNull(snapshot)
             assertEquals(0, repository.snapshots().size)
@@ -206,7 +171,7 @@ class DefaultCapturePipelineTest {
         runBlocking {
             val image = loadTestImage("test-images/offer_uber_1.png")
             assertTrue(image.isNotEmpty())
-            ocrEngine.recognized = listOf("UBER", "$125.00", "8.5 km", "22 min")
+            ocrEngine.recognized = listOf("aceptar", "rechazar", "total")
 
             val snapshot = pipeline.process(requestFor(imageData = image))
 
@@ -219,7 +184,7 @@ class DefaultCapturePipelineTest {
     fun `captura idéntica se omite por caché y no repite OCR`() =
         runBlocking {
             val image = loadTestImage("test-images/offer_uber_1.png")
-            ocrEngine.recognized = listOf("UBER", "$125.00", "8.5 km")
+            ocrEngine.recognized = listOf("aceptar", "rechazar")
 
             pipeline.process(requestFor(imageData = image))
             assertEquals(1, ocrEngine.calls)
@@ -234,13 +199,14 @@ class DefaultCapturePipelineTest {
     @Test
     fun `snapshot se emite al flow del pipeline`() =
         runBlocking {
+            ocrEngine.recognized = listOf("aceptar", "rechazar", "total")
             val emitted = mutableListOf<OfferSnapshot>()
             val collectJob =
                 launch(start = CoroutineStart.UNDISPATCHED) {
                     pipeline.snapshots.collect { emitted += it }
                 }
 
-            pipeline.process(requestFor(texts = listOf("UBER", "$125.00")))
+            pipeline.process(requestFor(texts = listOf("aceptar", "rechazar", "total")))
             yield()
             collectJob.cancel()
 
@@ -251,16 +217,18 @@ class DefaultCapturePipelineTest {
     @Test
     fun `métricas de cada etapa se registran y quedan disponibles`() =
         runBlocking {
-            ocrEngine.recognized = listOf("UBER", "$125.00")
+            ocrEngine.recognized = listOf("aceptar", "rechazar")
 
             pipeline.process(requestFor(imageData = loadTestImage("test-images/offer_uber_1.png")))
 
-            assertTrue(metrics.captureCalls > 0)
+            assertTrue(metrics.captureCalls == 0)
             assertTrue(metrics.ocrCalls > 0)
             assertTrue(metrics.parseCalls > 0)
             val last = pipeline.lastMetrics.value
             assertNotNull(last.captureMillis)
+            assertEquals(0.0, last.captureMillis)
             assertNotNull(last.ocrMillis)
+            assertNotNull(last.detectionMillis)
             assertNotNull(last.parseMillis)
             assertNotNull(last.totalMillis)
         }
@@ -268,11 +236,14 @@ class DefaultCapturePipelineTest {
     @Test
     fun `snapshot registra tiempos en el tracker de rendimiento`() =
         runBlocking {
-            pipeline.process(requestFor(texts = listOf("UBER", "$125.00")))
+            ocrEngine.recognized = listOf("aceptar", "rechazar", "total")
+            pipeline.process(requestFor(texts = listOf("aceptar", "rechazar", "total")))
 
             assertEquals(1, performanceTracker.lastOffers.value.size)
             val timing = performanceTracker.lastOffers.value.single()
             assertNotNull(timing.captureMillis)
+            assertEquals(0.0, timing.captureMillis)
+            assertNotNull(timing.detectionMillis)
             assertNotNull(timing.parseMillis)
             assertNotNull(timing.totalMillis)
         }
@@ -280,8 +251,15 @@ class DefaultCapturePipelineTest {
     @Test
     fun `stress de 200 solicitudes distintas mantiene buffers acotados`() =
         runBlocking {
+            ocrEngine.recognized = listOf("aceptar", "rechazar", "total")
             repeat(200) { index ->
-                val snapshot = pipeline.process(requestFor(texts = listOf("UBER", "$${(100 + index).toDouble()}.00")))
+                val snapshot =
+                    pipeline.process(
+                        requestFor(
+                            id = index.toLong(),
+                            texts = listOf("aceptar", "rechazar", "total", index.toString()),
+                        ),
+                    )
                 assertNotNull(snapshot)
             }
 
@@ -291,11 +269,12 @@ class DefaultCapturePipelineTest {
         }
 
     private fun requestFor(
+        id: Long = System.nanoTime(),
         texts: List<String> = emptyList(),
         imageData: ByteArray? = null,
     ): CaptureRequest =
         CaptureRequest(
-            id = System.nanoTime(),
+            id = id,
             packageName = RidePlatform.UBER.packageName,
             timestampMillis = System.currentTimeMillis(),
             texts = texts,
@@ -309,23 +288,6 @@ class DefaultCapturePipelineTest {
                 input.copyTo(output)
                 output.toByteArray()
             }
-        }
-    }
-
-    private class FakeScreenCapture : ScreenCapture {
-        var fail = false
-        var throwOnCapture = false
-
-        override suspend fun capture(request: CaptureRequest): ScreenFrame? {
-            if (throwOnCapture) error("capture boom")
-            if (fail) return null
-            return ScreenFrame(
-                requestId = request.id,
-                packageName = request.packageName,
-                timestampMillis = request.timestampMillis,
-                texts = request.texts,
-                imageData = request.imageData,
-            )
         }
     }
 
@@ -347,19 +309,32 @@ class DefaultCapturePipelineTest {
         var result: OfferSnapshot? = fakeSnapshot()
 
         override fun parse(
-            event: CaptureWindowEvent,
-            session: OfferCaptureSession,
-        ): OfferSnapshot? = result
+            request: CaptureRequest,
+            result: DetectionResult,
+            detectionMillis: Double,
+        ): OfferSnapshot? {
+            if (result.descriptor?.platform == null) return null
+            return result?.let { res ->
+                this.result?.copy(
+                    sessionId = request.id.toString(),
+                    platform = res.descriptor?.platform ?: RidePlatform.UBER,
+                    capturedAtMillis = request.timestampMillis,
+                    texts = request.texts,
+                    detectionMillis = detectionMillis,
+                )
+            }
+        }
 
         private fun fakeSnapshot(): OfferSnapshot =
             OfferSnapshot(
                 sessionId = "test-session",
                 platform = RidePlatform.UBER,
                 capturedAtMillis = System.currentTimeMillis(),
-                source = SnapshotSource.REAL,
+                source = com.sirc.capture.model.SnapshotSource.REAL,
                 estimatedTotal = 125.0,
                 distanceKm = 8.5,
                 durationMin = 22.0,
+                detectionMillis = 100.0,
             )
     }
 

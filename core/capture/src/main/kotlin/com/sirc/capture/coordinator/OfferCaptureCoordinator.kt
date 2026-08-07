@@ -9,7 +9,7 @@ import com.sirc.capture.model.CaptureWindowEvent
 import com.sirc.capture.model.OfferCaptureSession
 import com.sirc.capture.model.OfferSnapshot
 import com.sirc.capture.observer.WindowObserver
-import com.sirc.capture.parser.OfferParser
+import com.sirc.capture.pipeline.CapturePipeline
 import com.sirc.capture.repository.CaptureRepository
 import com.sirc.domain.model.RidePlatform
 import kotlinx.coroutines.CoroutineScope
@@ -27,15 +27,14 @@ import javax.inject.Singleton
 /**
  * Coordina toda la captura de ofertas de extremo a extremo.
  *
- * Consume los eventos del [WindowObserver], mantiene la [OfferCaptureSession]
- * activa, produce [OfferSnapshot] con el [OfferParser] y los guarda en el
- * [CaptureRepository]. Está completamente desacoplado de Android: solo depende
- * de interfaces y modelos de `:core:capture`.
+ * Consume eventos de [WindowObserver] y snapshots del [CapturePipeline].
+ * No parsea ni guarda snapshots — eso es responsabilidad del pipeline.
+ * Gestiona la sesión activa y expone el estado al panel de depuración.
  */
 @Singleton
 class OfferCaptureCoordinator @Inject constructor(
     private val windowObserver: WindowObserver,
-    private val parser: OfferParser,
+    private val pipeline: CapturePipeline,
     private val captureRepository: CaptureRepository,
     private val featureFlags: FeatureFlags,
     private val logger: SircLogger,
@@ -50,7 +49,12 @@ class OfferCaptureCoordinator @Inject constructor(
         if (collectJob?.isActive == true) return
         collectJob =
             scope.launch {
-                windowObserver.windowEvents.collect { event -> process(event) }
+                launch {
+                    windowObserver.windowEvents.collect { event -> onWindowEvent(event) }
+                }
+                launch {
+                    pipeline.snapshots.collect { snapshot -> onSnapshot(snapshot) }
+                }
             }
         _state.update { it.copy(isCapturing = true) }
         logger.info(TAG, "captura iniciada")
@@ -69,7 +73,7 @@ class OfferCaptureCoordinator @Inject constructor(
         _state.update { CaptureState(isCapturing = it.isCapturing) }
     }
 
-    internal suspend fun process(event: CaptureWindowEvent) {
+    internal suspend fun onWindowEvent(event: CaptureWindowEvent) {
         if (!featureFlags.isEnabled(FeatureFlag.CAPTURE)) return
         runCatching { doProcess(event) }
             .onFailure { logger.error(TAG, "error procesando evento: ${it.message}") }
@@ -84,31 +88,19 @@ class OfferCaptureCoordinator @Inject constructor(
             return
         }
 
-        val session = ensureSession(platform, event.timestampMillis)
-        val startNanos = System.nanoTime()
-        val snapshot =
-            if (featureFlags.isEnabled(FeatureFlag.PARSER)) parser.parse(event, session) else null
-        val elapsedMillis = (System.nanoTime() - startNanos) / NANOS_PER_MILLI
-
-        if (snapshot != null) {
-            captureRepository.save(snapshot)
-            logger.debug(TAG, "snapshot ${snapshot.platform} guardado ($elapsedMillis ms)")
+        ensureSession(platform, event.timestampMillis)
+        _state.update {
+            it.copy(eventsProcessed = it.eventsProcessed + 1, recentEvents = recentEventsWith(event))
         }
+    }
 
-        val updatedSession =
-            if (snapshot != null) {
-                session.copy(capturedSnapshotCount = session.capturedSnapshotCount + 1)
-            } else {
-                session
-            }
-
+    internal fun onSnapshot(snapshot: OfferSnapshot) {
+        val session = _state.value.activeSession ?: return
         _state.update {
             it.copy(
-                activeSession = updatedSession,
-                lastSnapshot = snapshot ?: it.lastSnapshot,
-                lastProcessingTimeMillis = elapsedMillis,
-                eventsProcessed = it.eventsProcessed + 1,
-                recentEvents = recentEventsWith(it, event),
+                activeSession = session.copy(capturedSnapshotCount = session.capturedSnapshotCount + 1),
+                lastSnapshot = snapshot,
+                lastProcessingTimeMillis = pipeline.lastMetrics.value.totalMillis,
             )
         }
     }
@@ -145,15 +137,13 @@ class OfferCaptureCoordinator @Inject constructor(
         _state.update {
             it.copy(
                 eventsProcessed = it.eventsProcessed + 1,
-                recentEvents = recentEventsWith(it, event),
+                recentEvents = recentEventsWith(event),
             )
         }
     }
 
-    private fun recentEventsWith(
-        state: CaptureState,
-        event: CaptureWindowEvent,
-    ): List<CaptureWindowEvent> = (listOf(event.copy(texts = emptyList())) + state.recentEvents).take(MAX_RECENT_EVENTS)
+    private fun recentEventsWith(event: CaptureWindowEvent): List<CaptureWindowEvent> =
+        (listOf(event.copy(texts = emptyList())) + _state.value.recentEvents).take(MAX_RECENT_EVENTS)
 
     companion object {
         private const val TAG = "OfferCapture"

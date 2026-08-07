@@ -11,7 +11,7 @@ class DetectionResultTest {
     private fun result(resolution: DetectionResolution): DetectionResult =
         DetectionResult(
             resolution = resolution,
-            origin = DetectionOrigin.PACKAGE,
+            origin = CaptureInputType.PACKAGE,
         )
 
     @Test
@@ -36,7 +36,7 @@ class DetectionResultTest {
 
     @Test
     fun `valores por defecto exponen pantalla UNKNOWN y sin candidatos`() {
-        val r = DetectionResult(resolution = DetectionResolution.NONE, origin = DetectionOrigin.UNKNOWN)
+        val r = DetectionResult(resolution = DetectionResolution.NONE, origin = CaptureInputType.UNKNOWN)
 
         assertEquals(ScreenType.UNKNOWN, r.screenDetection.type)
         assertTrue(r.candidates.isEmpty())

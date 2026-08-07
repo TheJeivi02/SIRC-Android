@@ -175,4 +175,71 @@ class OfferParserOrchestratorTest {
 
         assertNull(parsed.offer)
     }
+
+    @Test
+    fun `parse por result reconocido resuelve y extrae la oferta`() {
+        val result =
+            PlatformDetectionEngine(PlatformDescriptorRegistry(listOf(PlatformDescriptors.UBER)))
+                .detect(
+                    texts = listOf("Nueva solicitud de viaje", "Aceptar", "Rechazar", "Total $120", "8.5 km", "25 min"),
+                    timestampMillis = 1000L,
+                    packageName = "com.ubercab",
+                    origin = CaptureInputType.OCR,
+                )
+
+        val parsed =
+            orchestrator().parse(
+                result = result,
+                texts = listOf("Nueva solicitud de viaje", "Aceptar", "Rechazar", "Total $120", "8.5 km", "25 min"),
+                timestampMillis = 1000L,
+                detectionMillis = 50.0,
+            )
+
+        assertEquals(OfferType.UBER_REQUEST, parsed.type)
+        assertNotNull(parsed.offer)
+        assertEquals(120.0, parsed.offer?.estimatedTotal ?: 0.0, 0.001)
+        assertEquals(50.0, parsed.detectionMillis, 0.001)
+    }
+
+    @Test
+    fun `parse por result no reconocido devuelve none`() {
+        val result =
+            PlatformDetectionEngine(PlatformDescriptorRegistry(listOf(PlatformDescriptors.UBER)))
+                .detect(
+                    texts = listOf("Dónde quieres ir?", "Buscar", "Disponible"),
+                    timestampMillis = 1000L,
+                    packageName = "com.ubercab",
+                    origin = CaptureInputType.OCR,
+                )
+
+        val parsed =
+            orchestrator().parse(
+                result = result,
+                texts = listOf("Dónde quieres ir?", "Buscar", "Disponible"),
+                timestampMillis = 1000L,
+            )
+
+        assertNull(parsed.offer)
+    }
+
+    @Test
+    fun `parse por result sin descriptor devuelve none`() {
+        val result =
+            PlatformDetectionEngine(PlatformDescriptorRegistry(listOf(PlatformDescriptors.UBER)))
+                .detect(
+                    texts = listOf("Dónde quieres ir?", "Buscar", "Disponible"),
+                    timestampMillis = 1000L,
+                    packageName = "com.desconocido.app",
+                    origin = CaptureInputType.OCR,
+                )
+
+        val parsed =
+            orchestrator().parse(
+                result = result,
+                texts = listOf("Dónde quieres ir?", "Buscar", "Disponible"),
+                timestampMillis = 1000L,
+            )
+
+        assertNull(parsed.offer)
+    }
 }

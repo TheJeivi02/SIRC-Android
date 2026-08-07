@@ -1,5 +1,6 @@
 package com.sirc.capture.model
 
+import com.sirc.core.platform.CaptureInputType
 import com.sirc.domain.model.RidePlatform
 
 /**
@@ -19,6 +20,7 @@ data class OfferSnapshot(
     val rawData: String? = null,
     val texts: List<String> = emptyList(),
     val detectionMillis: Double? = null,
+    val origin: CaptureInputType = CaptureInputType.UNKNOWN,
 )
 
 /** Origen de los datos del [OfferSnapshot]. */

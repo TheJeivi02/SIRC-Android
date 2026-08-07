@@ -10,9 +10,10 @@ import kotlinx.coroutines.flow.StateFlow
 /**
  * Pipeline de captura de extremo a extremo.
  *
- * Accesibilidad → [CaptureRequest] → ScreenCapture → OCR → OfferParser →
- * CaptureRepository. Expone el [OverlayState] actual del ciclo de vida, los
- * [snapshots] producidos y las [lastMetrics] de rendimiento (Debug).
+ * [CaptureRequest] → (OCR si hay imagen) → detección de plataforma →
+ * OfferParser → CaptureRepository. Expone el [OverlayState] actual del ciclo
+ * de vida, los [snapshots] producidos y las [lastMetrics] de rendimiento
+ * (Debug).
  */
 interface CapturePipeline {
     val state: StateFlow<OverlayState>

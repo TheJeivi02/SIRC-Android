@@ -6,75 +6,82 @@
 
 ## Tarea actual
 
-**WP-E3-02 completado** — Framework Genérico de Detección 100 % descriptor-driven
-en `:core:platform`. `PlatformDetectionEngine` → `DetectionMatcher` →
-`DetectionResult`; overload `parse(texts, ts, packageName)` en
-`OfferParserOrchestrator`; vista de solo lectura de descriptores en el registry.
-Sin cambios funcionales, sin plataformas nuevas, `:core:platform` sigue Kotlin puro.
+**WP-E3-03 implementado** — Unified Capture Source. Pipeline único
+`CaptureInput → CaptureRequest → (OCR) → PlatformDetectionEngine →
+OfferParserOrchestrator → OfferSnapshot → Repository → Overlay`, eliminando
+`ScreenCapture`/`ScreenFrame`/`MediaProjectionScreenCapture` y la resolución de
+plataforma duplicada en el coordinador. Pendiente: verificación final + commit
++ informe estándar de 12 puntos.
 
 ## Objetivo
 
-1. Consolidar el framework genérico de detección iniciado en WP-E3-01 sin tocar
-   OCR, Overlay, Capture, ProfitEngine ni `PlatformDescriptor` público.
-2. No implementar funcionalidades nuevas: exclusivamente el framework de detección.
-3. Dejar todas las verificaciones en verde.
+1. Unificar la captura en un solo pipeline de `CaptureRequest` con `origin`,
+   usando `CaptureInput` como única abstracción de entrada.
+2. Corregir el doble guardado de snapshots (coordinador ya no guarda).
+3. TDD obligatorio (RED→GREEN→REFACTOR); sin cambios de comportamiento
+   observable; dejar las verificaciones en verde.
 
 ## Archivos involucrados
 
-Creados (en `core/platform/src/main/kotlin/com/sirc/core/platform/`):
-- `DetectionResolution.kt`, `DetectionOrigin.kt`, `DetectionCandidate.kt`,
-  `DetectionResult.kt`, `DetectionMatcher.kt`, `PlatformDetectionEngine.kt`
+Creados:
+- `feature/overlay/.../AccessibilityCaptureInput.kt` (lógica del servicio extraída)
+- `core/capture/android/.../MediaProjectionCaptureInput.kt` (enriquece con imagen si proyecta)
+- `feature/overlay/.../CaptureAccessibilityService.kt` (adaptador delgado reescrito)
 
 Modificados:
-- `core/platform/.../PlatformDescriptorRegistry.kt` (vista `val descriptors`)
-- `core/platform/.../OfferParserOrchestrator.kt` (overload por `packageName` +
-  `parseWith` compartido; método por `RidePlatform` intacto)
-- `docs/CHANGELOG.md`, `.ai/CONTEXT.md`, `.ai/DECISIONS.md` (D11.12)
+- `core/capture/.../coordinator/OfferCaptureCoordinator.kt` (consume `pipeline.snapshots`,
+  no guarda; restaurados `closeActiveSession()` + `record()` para `platform == null`)
+- `core/capture/.../pipeline/DefaultCapturePipeline.kt` (dedup → OCR → detection engine → parser)
+- `core/capture/.../cache/CaptureFrameCache.kt` + `InMemoryCaptureFrameCache.kt` (API solo `request`)
+- `core/capture/.../model/` (`CaptureRequest.origin`, `OfferSnapshot.origin`)
+- `core/platform/.../DetectionOrigin.kt` → renombrado a `CaptureInputType.kt`
+- `core/platform/.../OfferParser.kt` + `OfferParserOrchestrator.kt` (firma con `result`+`detectionMillis`)
+- `feature/overlay/.../CaptureModule.kt` (+ `CaptureFlowsModule`), `PlatformModule.kt`
+- `core/capture/android/.../CaptureAndroidModule.kt` (sin `bindScreenCapture`)
+- `docs/CHANGELOG.md`, `.ai/CONTEXT.md`, `.ai/DECISIONS.md` (D11.13)
 
-Tests: `DetectionResultTest.kt`, `DetectionMatcherTest.kt`,
-`PlatformDetectionEngineTest.kt`, + 2 en `PlatformDescriptorRegistryTest.kt`,
-+ 3 en `OfferParserOrchestratorTest.kt`.
+Eliminados:
+- `core/capture/.../model/ScreenFrame.kt`, `screen/ScreenCapture.kt`
+- `core/capture/android/.../MediaProjectionScreenCapture.kt`
 
 ## Progreso
 
-- [x] Spec WP-E3-02 aprobado y commiteado (`ef74c8e`).
-- [x] Plan de implementación (7 tareas TDD) en
-      `docs/superpowers/plans/2026-08-06-wp-e3-02-detection-framework.md`.
-- [x] Task 1: value types + tests (commit `cf9419e`).
-- [x] Task 2: vista de solo lectura del registry (commit `34bc1a2`).
-- [x] Task 3: `DetectionMatcher` puro + tests (commit `18c9e8a`).
-- [x] Task 4: `PlatformDetectionEngine` + tests 5 etapas (commit `59520b3`).
-- [x] Task 5: overload `parse(packageName)` + `parseWith` (commit `92580d0`).
-- [x] Task 6: docs + verificación completa en verde (commit `ced6249`).
-- [x] Task 7: `git status` limpio (solo untracked preexistentes ajenos al WP);
-      `TASK.md` actualizado.
+- [x] Spec WP-E3-03 aprobado y commiteado (`5598f6d`).
+- [x] Tasks 1-12 TDD completadas (rename `CaptureInputType`, overload
+      orchestrator, `origin` en models, `CaptureInput` + qualifiers, cache
+      solo-request, firma parser, refactor pipeline, tests reescritos, inputs
+      Accessibility/MediaProjection, DI completa, eliminación de ScreenCapture/
+      ScreenFrame/MediaProjectionScreenCapture).
+- [x] `OfferCaptureCoordinator` con `closeActiveSession()` + `record()` restaurados
+      (test "paquete no soportado" en verde).
+- [x] Docs actualizadas: CHANGELOG (WP-E3-03), CONTEXT (nota + flujo + módulos),
+      DECISIONS (D11.13), TASK.
+- [ ] Verificación completa final (ktlintCheck, lintDebug, assembleDebug, tests).
+- [ ] Commit + informe estándar de 12 puntos.
 
 ## Notas / decisiones
 
-- Estrategia determinista por etapas: 1) `PACKAGE_MATCH` (packageName normalizado);
-  2) candidatos por keywords (pantalla ≠ UNKNOWN); 3) único → `KEYWORD_CANDIDATE`;
-  4) empate por mayor `matchScore` → `AMBIGUOUS` (sin elegir); 5) sin candidatos →
-  `NONE`. Sin scoring heurístico.
-- `DetectionResult` es autocontenido (`resolution`, `origin`, `descriptor?`,
-  `screenDetection`, `candidates`, `sourcePackage`, `isRecognized`). El
-  orquestador no re-recorre descriptores.
-- `DetectionOrigin` (PACKAGE/OCR/GALLERY/TEST/UNKNOWN) se añade ya, sin cambiar
-  comportamiento.
-- `:core:platform` sigue Kotlin puro (sin logging/I/O/callbacks). El motor no
-  conoce el origen de los textos.
-- ktlint: `:core:platform` en verde; `ktlintCheck` global en verde (las
-  violaciones preexistentes de `OverlayService.kt` y `ProjectionLifecycleTest.kt`
-  se corrigieron en el WP del overlay).
-- Empate AMBIGUOUS en tests requiere dos descriptores con keywords idénticas
-  (la keyword completa debe aparecer en el texto).
+- `CaptureInputType` (renombrado de `DetectionOrigin`): legacy PACKAGE/OCR/GALLERY/
+  TEST/UNKNOWN + ACCESSIBILITY/MEDIA_PROJECTION/SHARE; valores aditivos.
+- DI dual: `@AccessibilityRequests` → `AccessibilityCaptureInput.requests()`,
+  `@CaptureRequests` → `MediaProjectionCaptureInput.requests()` (merge Hilt).
+- `MediaProjectionCaptureInput`: si proyecta y hay frame → `imageData` PNG +
+  `origin = MEDIA_PROJECTION`; si no → pasa el request tal cual (ACCESSIBILITY).
+- El coordinador solo agrega: plataforma conocida → `ensureSession` + contadores;
+  `platform == null` → `closeActiveSession()` + `record(event)`.
+- Sin Robolectric: la lógica de Bitmap se extrajo en `enrichWithImage` (internal
+  pura testeable en JVM); el resto de tests del input usan fake del provider.
+- ktlint: `kotlin.code.style=official`; `kotlinx.*` antes que `java`/`javax`.
+- `PlatformDetectionEngine` es `final`; tests usan instancia real con
+  `PlatformDescriptorRegistry`. `DetectionResult` no tiene `detectionMillis`.
 
 ## Verificación
 
-- `.\gradlew.bat :core:platform:test :core:platform:ktlintCheck --console=plain` → en verde.
-- `.\gradlew.bat :core:platform:test :core:capture:test :domain:test :feature:overlay:testDebugUnitTest testDebugUnitTest lintDebug assembleDebug --console=plain` → BUILD SUCCESSFUL (428 tareas).
 - `.\gradlew.bat ktlintCheck --console=plain` → BUILD SUCCESSFUL.
+- `.\gradlew.bat lintDebug assembleDebug testDebugUnitTest :domain:test :core:platform:test :core:capture:test :core:capture:android:testDebugUnitTest :feature:overlay:testDebugUnitTest --console=plain` → BUILD SUCCESSFUL.
 
 ## Próximos pasos
 
-1. Sin tareas pendientes del WP-E3-02. El siguiente WP candidato es WP-E3-03
-   (ver `docs/remediation/WORK_PACKAGE_PLAN.md`) o el que el usuario indique.
+1. Re-ejecutar la verificación completa final y revisar `git status --short`.
+2. Commit (mensaje WP) y entregar el informe estándar de 12 puntos.
+3. WP candidato siguiente: ver `docs/remediation/WORK_PACKAGE_PLAN.md`.

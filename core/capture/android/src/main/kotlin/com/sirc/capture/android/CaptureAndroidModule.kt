@@ -4,24 +4,19 @@ import com.sirc.capture.android.metrics.DebugCaptureMetrics
 import com.sirc.capture.android.provider.MediaProjectionScreenCaptureProvider
 import com.sirc.capture.android.provider.ScreenCaptureProvider
 import com.sirc.capture.metrics.CaptureMetrics
-import com.sirc.capture.screen.ScreenCapture
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
-/** Bindings Android de la captura: MediaProjection, ScreenCapture y métricas. */
+/** Bindings Android de la captura: MediaProjection y métricas. */
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class CaptureAndroidModule {
     @Binds
     @Singleton
     abstract fun bindScreenCaptureProvider(impl: MediaProjectionScreenCaptureProvider): ScreenCaptureProvider
-
-    @Binds
-    @Singleton
-    abstract fun bindScreenCapture(impl: MediaProjectionScreenCapture): ScreenCapture
 
     @Binds
     @Singleton

@@ -1,12 +1,12 @@
 package com.sirc.capture.parser
 
-import com.sirc.capture.model.CaptureWindowEvent
-import com.sirc.capture.model.OfferCaptureSession
+import com.sirc.capture.model.CaptureRequest
 import com.sirc.capture.model.OfferSnapshot
 import com.sirc.capture.model.SnapshotSource
+import com.sirc.core.platform.DetectionResult
 import com.sirc.core.platform.OfferParserOrchestrator
 import com.sirc.core.platform.OfferType
-import com.sirc.domain.model.RidePlatform
+import com.sirc.core.platform.ParsedOffer
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -23,30 +23,33 @@ class PlatformOfferParser @Inject constructor(
     private val orchestrator: OfferParserOrchestrator,
 ) : OfferParser {
     override fun parse(
-        event: CaptureWindowEvent,
-        session: OfferCaptureSession,
+        request: CaptureRequest,
+        result: DetectionResult,
+        detectionMillis: Double,
     ): OfferSnapshot? {
-        val platform = RidePlatform.fromPackageName(event.packageName) ?: return null
-        if (event.texts.isEmpty()) return null
+        val platform = result.descriptor?.platform ?: return null
+        if (request.texts.isEmpty()) return null
 
-        val parsed =
+        val parsed: ParsedOffer =
             orchestrator.parse(
-                texts = event.texts,
-                timestampMillis = event.timestampMillis,
-                platform = platform,
+                result = result,
+                texts = request.texts,
+                timestampMillis = request.timestampMillis,
+                detectionMillis = detectionMillis,
             )
         val offer = parsed.offer ?: return null
 
         return OfferSnapshot(
-            sessionId = session.id,
+            sessionId = "pipeline-${request.id}",
             platform = platform,
-            capturedAtMillis = event.timestampMillis,
+            capturedAtMillis = request.timestampMillis,
             source = SnapshotSource.REAL,
             estimatedTotal = offer.estimatedTotal ?: return null,
             distanceKm = offer.distanceKm ?: 0.0,
             durationMin = offer.durationMin ?: 0.0,
             rawData = rawDataFor(parsed.type),
-            texts = event.texts,
+            texts = request.texts,
+            origin = request.origin,
             detectionMillis = parsed.detectionMillis,
         )
     }

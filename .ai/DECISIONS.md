@@ -437,6 +437,38 @@ motor (rompe pureza de `:core:platform`).
 plataforma; detección determinista y testeable; el motor no conoce el origen de
 los textos (`DetectionOrigin` deja preparado el framework para galería/laboratorios).
 
+### D11.13 — Unified Capture Source (WP-E3-03)
+
+**Contexto:** la captura se repartía entre `ScreenCapture`/`ScreenFrame`/
+`MediaProjectionScreenCapture` (frames), un pipeline que resolvía plataforma en
+dos sitios (coordinador por `RidePlatform` y pipeline por detection engine) y un
+coordinador que parseaba y guardaba snapshots, duplicando el guardado.
+
+**Decisión:** `CaptureInput` es la única abstracción de entrada de captura
+(`AccessibilityCaptureInput` en `:feature:overlay` y
+`MediaProjectionCaptureInput` en `:core:capture:android`), expuestas como flujos
+`@AccessibilityRequests`/`@CaptureRequests` fusionados por Hilt. El pipeline
+único `DefaultCapturePipeline` consume `CaptureRequest` (dedup por `imageData` →
+OCR si hay imagen → `PlatformDetectionEngine.detect(texts, ts, packageName,
+origin)` → `OfferParser`/`OfferParserOrchestrator`) y emite `OfferSnapshot`.
+`DetectionOrigin` se renombra a `CaptureInputType` (valores legacy aditivos +
+ACCESSIBILITY/MEDIA_PROJECTION/SHARE) y `CaptureRequest`/`OfferSnapshot` llevan
+`origin`. Se eliminan `ScreenCapture`/`ScreenFrame`/`MediaProjectionScreenCapture`
+y `bindScreenCapture`; `CaptureFrameCache` queda solo como dedup por request.
+`MediaProjectionCaptureInput` solo enriquece `imageData` si proyecta (degrade a
+textos). El coordinador deja de parsear/guardar (consuma `pipeline.snapshots`)
+y `OfferParser.parse(request, result, detectionMillis)` no depende de
+`CaptureWindowEvent`. `CaptureAccessibilityService` queda como adaptador delgado.
+
+**Alternativas descartadas:** mantener dos pipelines (duplica detección y
+guardado); hacer de MediaProjection un "superframe" que re-emplee `ScreenFrame`
+(legacy); resolver el origen de captura dentro del coordinador (mezcla de capas).
+
+**Consecuencias:** una sola fuente de captura y de guardado de snapshots
+(corrige doble escritura); la plataforma se resuelve una única vez en el
+pipeline; agregar una fuente (Gallery/Share) = nuevo `CaptureInput` en el merge,
+sin tocar el pipeline. `:core:capture` y `:core:platform` siguen Kotlin puro.
+
 ## SPRINT 7 — Evaluación en tiempo real con recomendación
 
 ### D8.1 — `ProfitEvaluationEngine` delega en `ProfitEngine` (no duplica fórmulas)

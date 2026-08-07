@@ -1,6 +1,6 @@
 package com.sirc.capture.cache
 
-import com.sirc.capture.model.ScreenFrame
+import com.sirc.capture.model.CaptureRequest
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -17,14 +17,14 @@ class InMemoryCaptureFrameCache @Inject constructor() : CaptureFrameCache {
         }
 
     @Synchronized
-    override fun isNew(frame: ScreenFrame): Boolean {
-        val key = frameKey(frame) ?: return true
+    override fun isNew(request: CaptureRequest): Boolean {
+        val key = frameKey(request.imageData) ?: return true
         return !seen.containsKey(key)
     }
 
     @Synchronized
-    override fun markProcessed(frame: ScreenFrame) {
-        val key = frameKey(frame) ?: return
+    override fun markProcessed(request: CaptureRequest) {
+        val key = frameKey(request.imageData) ?: return
         seen[key] = true
     }
 
@@ -32,8 +32,7 @@ class InMemoryCaptureFrameCache @Inject constructor() : CaptureFrameCache {
     override fun clear() = seen.clear()
 
     /** Clave del frame: hash estable del contenido de imagen, si lo hay. */
-    private fun frameKey(frame: ScreenFrame): String? =
-        frame.imageData?.let { bytes -> "img-${bytes.contentHashCode()}" }
+    private fun frameKey(imageData: ByteArray?): String? = imageData?.let { bytes -> "img-${bytes.contentHashCode()}" }
 
     companion object {
         private const val MAX_ENTRIES = 32

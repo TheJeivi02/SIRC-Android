@@ -15,7 +15,7 @@ class PlatformDetectionEngine(
         texts: List<String>,
         timestampMillis: Long,
         packageName: String? = null,
-        origin: DetectionOrigin = DetectionOrigin.UNKNOWN,
+        origin: CaptureInputType = CaptureInputType.UNKNOWN,
     ): DetectionResult {
         val normalized = texts.map(OfferDetectionEngine::normalize)
 
