@@ -8,7 +8,7 @@ import com.sirc.capture.model.CaptureWindowEvent
 import com.sirc.capture.model.WindowEventType
 import com.sirc.capture.scheduler.DebounceCaptureScheduler
 import com.sirc.core.platform.CaptureInputType
-import com.sirc.domain.model.RidePlatform
+import com.sirc.core.platform.PlatformDetectionEngine
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -24,11 +24,15 @@ import javax.inject.Singleton
  * [WindowEventPublisher] para el panel de depuración (sin duplicación).
  *
  * No conoce la UI ni el pipeline: solo genera solicitudes.
+ *
+ * La resolución de plataforma por paquete se delega en [PlatformDetectionEngine]
+ * (única fuente de verdad, igual que el pipeline, WP-E3-05A).
  */
 @Singleton
 class AccessibilityCaptureInput @Inject constructor(
     private val scheduler: DebounceCaptureScheduler,
     private val windowEventPublisher: WindowEventPublisher,
+    private val detectionEngine: PlatformDetectionEngine,
 ) : CaptureInput {
     override val origin: CaptureInputType = CaptureInputType.ACCESSIBILITY
 
@@ -43,7 +47,8 @@ class AccessibilityCaptureInput @Inject constructor(
         root: AccessibilityNodeInfo?,
     ) {
         val packageName = event.packageName?.toString() ?: return
-        if (RidePlatform.fromPackageName(packageName) == null) return
+        val timestampMillis = System.currentTimeMillis()
+        if (!detectionEngine.detect(emptyList(), timestampMillis, packageName).isRecognized) return
 
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
             event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
@@ -58,7 +63,6 @@ class AccessibilityCaptureInput @Inject constructor(
         if (fingerprint == lastFingerprint) return
         lastFingerprint = fingerprint
 
-        val timestampMillis = System.currentTimeMillis()
         val request =
             CaptureRequest(
                 id = System.nanoTime(),

@@ -1,6 +1,5 @@
 package com.sirc.core.platform
 
-import com.sirc.domain.model.RidePlatform
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -8,19 +7,31 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OfferParserOrchestratorTest {
-    private fun orchestrator(): OfferParserOrchestrator =
-        OfferParserOrchestrator(
-            PlatformDescriptorRegistry(listOf(PlatformDescriptors.UBER)),
+    private fun parse(
+        texts: List<String>,
+        packageName: String = PACKAGE_UBER,
+        descriptors: List<PlatformDescriptor> = listOf(PlatformDescriptors.UBER),
+        detectionMillis: Double = 0.0,
+    ): ParsedOffer {
+        val registry = PlatformDescriptorRegistry(descriptors)
+        val result =
+            PlatformDetectionEngine(registry).detect(
+                texts = texts,
+                timestampMillis = 1000L,
+                packageName = packageName,
+            )
+        return OfferParserOrchestrator(registry).parse(
+            result = result,
+            texts = texts,
+            timestampMillis = 1000L,
+            detectionMillis = detectionMillis,
         )
+    }
 
     @Test
     fun `solicitud estandar se detecta como UBER_REQUEST`() {
         val parsed =
-            orchestrator().parse(
-                texts = listOf("Nueva solicitud de viaje", "Aceptar", "Rechazar", "Total $120", "8.5 km", "25 min"),
-                timestampMillis = 1000L,
-                platform = RidePlatform.UBER,
-            )
+            parse(listOf("Nueva solicitud de viaje", "Aceptar", "Rechazar", "Total $120", "8.5 km", "25 min"))
 
         assertEquals(OfferType.UBER_REQUEST, parsed.type)
         assertNotNull(parsed.offer)
@@ -29,12 +40,7 @@ class OfferParserOrchestratorTest {
 
     @Test
     fun `radar se detecta como UBER_RADAR`() {
-        val parsed =
-            orchestrator().parse(
-                texts = listOf("Radar", "Explora el mapa", "Total $95", "5 km", "15 min"),
-                timestampMillis = 1000L,
-                platform = RidePlatform.UBER,
-            )
+        val parsed = parse(listOf("Radar", "Explora el mapa", "Total $95", "5 km", "15 min"))
 
         assertEquals(OfferType.UBER_RADAR, parsed.type)
         assertNotNull(parsed.offer)
@@ -42,12 +48,7 @@ class OfferParserOrchestratorTest {
 
     @Test
     fun `reserva se detecta como UBER_RESERVATION`() {
-        val parsed =
-            orchestrator().parse(
-                texts = listOf("Viaje reservado", "Recogida programada", "Total $150", "12 km", "30 min"),
-                timestampMillis = 1000L,
-                platform = RidePlatform.UBER,
-            )
+        val parsed = parse(listOf("Viaje reservado", "Recogida programada", "Total $150", "12 km", "30 min"))
 
         assertEquals(OfferType.UBER_RESERVATION, parsed.type)
         assertNotNull(parsed.offer)
@@ -55,12 +56,7 @@ class OfferParserOrchestratorTest {
 
     @Test
     fun `viaje en moto se detecta como UBER_MOTO`() {
-        val parsed =
-            orchestrator().parse(
-                texts = listOf("Uber Moto", "Aceptar", "Total $60", "4 km", "12 min"),
-                timestampMillis = 1000L,
-                platform = RidePlatform.UBER,
-            )
+        val parsed = parse(listOf("Uber Moto", "Aceptar", "Total $60", "4 km", "12 min"))
 
         assertEquals(OfferType.UBER_MOTO, parsed.type)
         assertNotNull(parsed.offer)
@@ -68,12 +64,7 @@ class OfferParserOrchestratorTest {
 
     @Test
     fun `viaje xl se detecta como UBER_XL`() {
-        val parsed =
-            orchestrator().parse(
-                texts = listOf("Uber XL", "6 pasajeros", "Total $180", "15 km", "35 min"),
-                timestampMillis = 1000L,
-                platform = RidePlatform.UBER,
-            )
+        val parsed = parse(listOf("Uber XL", "6 pasajeros", "Total $180", "15 km", "35 min"))
 
         assertEquals(OfferType.UBER_XL, parsed.type)
         assertNotNull(parsed.offer)
@@ -81,12 +72,7 @@ class OfferParserOrchestratorTest {
 
     @Test
     fun `pantalla sin oferta no produce ParsedOffer con oferta`() {
-        val parsed =
-            orchestrator().parse(
-                texts = listOf("Dónde quieres ir?", "Buscar", "Disponible"),
-                timestampMillis = 1000L,
-                platform = RidePlatform.UBER,
-            )
+        val parsed = parse(listOf("Dónde quieres ir?", "Buscar", "Disponible"))
 
         assertNull(parsed.offer)
         assertEquals(OfferType.GENERIC, parsed.type)
@@ -95,12 +81,9 @@ class OfferParserOrchestratorTest {
     @Test
     fun `sin parser especializado cae al extractor generico`() {
         val parsed =
-            OfferParserOrchestrator(
-                PlatformDescriptorRegistry(listOf(PlatformDescriptors.UBER.copy(offerTypes = emptyList()))),
-            ).parse(
+            parse(
                 texts = listOf("Nueva solicitud", "Total $90", "6 km", "18 min"),
-                timestampMillis = 1000L,
-                platform = RidePlatform.UBER,
+                descriptors = listOf(PlatformDescriptors.UBER.copy(offerTypes = emptyList())),
             )
 
         assertEquals(OfferType.GENERIC, parsed.type)
@@ -112,12 +95,7 @@ class OfferParserOrchestratorTest {
     fun `parser especializado que no puede extraer cede al siguiente`() {
         // "Reserva" matchea UBER_RESERVATION pero sin monto no extrae; el texto
         // no tiene otra variante y cae al genérico.
-        val parsed =
-            orchestrator().parse(
-                texts = listOf("Reserva", "Nueva solicitud", "Total $70", "4 km"),
-                timestampMillis = 1000L,
-                platform = RidePlatform.UBER,
-            )
+        val parsed = parse(listOf("Reserva", "Nueva solicitud", "Total $70", "4 km"))
 
         assertNotNull(parsed.offer)
     }
@@ -125,12 +103,10 @@ class OfferParserOrchestratorTest {
     @Test
     fun `plataforma distinta a uber usa el extractor generico`() {
         val parsed =
-            OfferParserOrchestrator(
-                PlatformDescriptorRegistry(listOf(PlatformDescriptors.UBER, PlatformDescriptors.DIDI)),
-            ).parse(
+            parse(
                 texts = listOf("Nueva solicitud", "Total $120", "8.5 km", "25 min"),
-                timestampMillis = 1000L,
-                platform = RidePlatform.DIDI,
+                packageName = PACKAGE_DIDI,
+                descriptors = listOf(PlatformDescriptors.UBER, PlatformDescriptors.DIDI),
             )
 
         assertEquals(OfferType.GENERIC, parsed.type)
@@ -139,25 +115,10 @@ class OfferParserOrchestratorTest {
     }
 
     @Test
-    fun `parse por packageName resuelve y extrae la oferta`() {
+    fun `package de plataforma no registrada devuelve none`() {
         val parsed =
-            orchestrator().parse(
-                texts = listOf("Nueva solicitud de viaje", "Aceptar", "Total $120", "8.5 km", "25 min"),
-                timestampMillis = 1000L,
-                packageName = "com.ubercab",
-            )
-
-        assertEquals(OfferType.UBER_REQUEST, parsed.type)
-        assertNotNull(parsed.offer)
-        assertEquals(120.0, parsed.offer?.estimatedTotal ?: 0.0, 0.001)
-    }
-
-    @Test
-    fun `parse por packageName de plataforma no registrada devuelve none`() {
-        val parsed =
-            orchestrator().parse(
+            parse(
                 texts = listOf("Texto irrelevante sin keywords"),
-                timestampMillis = 1000L,
                 packageName = "com.desconocido.app",
             )
 
@@ -165,32 +126,28 @@ class OfferParserOrchestratorTest {
     }
 
     @Test
-    fun `parse por packageName con pantalla no request devuelve none`() {
-        val parsed =
-            orchestrator().parse(
-                texts = listOf("Dónde quieres ir?", "Buscar", "Disponible"),
-                timestampMillis = 1000L,
-                packageName = "com.ubercab",
-            )
+    fun `pantalla no request devuelve none`() {
+        val parsed = parse(listOf("Dónde quieres ir?", "Buscar", "Disponible"))
 
         assertNull(parsed.offer)
     }
 
     @Test
-    fun `parse por result reconocido resuelve y extrae la oferta`() {
+    fun `parse por result reconocido propaga el detectionMillis`() {
+        val texts = listOf("Nueva solicitud de viaje", "Aceptar", "Rechazar", "Total $120", "8.5 km", "25 min")
+        val registry = PlatformDescriptorRegistry(listOf(PlatformDescriptors.UBER))
         val result =
-            PlatformDetectionEngine(PlatformDescriptorRegistry(listOf(PlatformDescriptors.UBER)))
-                .detect(
-                    texts = listOf("Nueva solicitud de viaje", "Aceptar", "Rechazar", "Total $120", "8.5 km", "25 min"),
-                    timestampMillis = 1000L,
-                    packageName = "com.ubercab",
-                    origin = CaptureInputType.OCR,
-                )
+            PlatformDetectionEngine(registry).detect(
+                texts = texts,
+                timestampMillis = 1000L,
+                packageName = PACKAGE_UBER,
+                origin = CaptureInputType.OCR,
+            )
 
         val parsed =
-            orchestrator().parse(
+            OfferParserOrchestrator(registry).parse(
                 result = result,
-                texts = listOf("Nueva solicitud de viaje", "Aceptar", "Rechazar", "Total $120", "8.5 km", "25 min"),
+                texts = texts,
                 timestampMillis = 1000L,
                 detectionMillis = 50.0,
             )
@@ -203,19 +160,20 @@ class OfferParserOrchestratorTest {
 
     @Test
     fun `parse por result no reconocido devuelve none`() {
+        val texts = listOf("Dónde quieres ir?", "Buscar", "Disponible")
+        val registry = PlatformDescriptorRegistry(listOf(PlatformDescriptors.UBER))
         val result =
-            PlatformDetectionEngine(PlatformDescriptorRegistry(listOf(PlatformDescriptors.UBER)))
-                .detect(
-                    texts = listOf("Dónde quieres ir?", "Buscar", "Disponible"),
-                    timestampMillis = 1000L,
-                    packageName = "com.ubercab",
-                    origin = CaptureInputType.OCR,
-                )
+            PlatformDetectionEngine(registry).detect(
+                texts = texts,
+                timestampMillis = 1000L,
+                packageName = PACKAGE_UBER,
+                origin = CaptureInputType.OCR,
+            )
 
         val parsed =
-            orchestrator().parse(
+            OfferParserOrchestrator(registry).parse(
                 result = result,
-                texts = listOf("Dónde quieres ir?", "Buscar", "Disponible"),
+                texts = texts,
                 timestampMillis = 1000L,
             )
 
@@ -224,22 +182,28 @@ class OfferParserOrchestratorTest {
 
     @Test
     fun `parse por result sin descriptor devuelve none`() {
+        val texts = listOf("Dónde quieres ir?", "Buscar", "Disponible")
+        val registry = PlatformDescriptorRegistry(listOf(PlatformDescriptors.UBER))
         val result =
-            PlatformDetectionEngine(PlatformDescriptorRegistry(listOf(PlatformDescriptors.UBER)))
-                .detect(
-                    texts = listOf("Dónde quieres ir?", "Buscar", "Disponible"),
-                    timestampMillis = 1000L,
-                    packageName = "com.desconocido.app",
-                    origin = CaptureInputType.OCR,
-                )
+            PlatformDetectionEngine(registry).detect(
+                texts = texts,
+                timestampMillis = 1000L,
+                packageName = "com.desconocido.app",
+                origin = CaptureInputType.OCR,
+            )
 
         val parsed =
-            orchestrator().parse(
+            OfferParserOrchestrator(registry).parse(
                 result = result,
-                texts = listOf("Dónde quieres ir?", "Buscar", "Disponible"),
+                texts = texts,
                 timestampMillis = 1000L,
             )
 
         assertNull(parsed.offer)
+    }
+
+    private companion object {
+        const val PACKAGE_UBER = "com.ubercab"
+        const val PACKAGE_DIDI = "com.didiglobal.passenger"
     }
 }

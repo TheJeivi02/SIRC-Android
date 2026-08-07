@@ -109,8 +109,9 @@ es rentable.
 > preparada para subdescriptores futuros. `PlatformDescriptorRegistry` es el
 > único validador (falla en construcción, nunca en parseo) y precompila
 > motores/parsers/extractores. Se eliminan los parsers especializados
-> (`UberRequestParser`, etc.), el objeto `PlatformDescriptors` y
-> `ExtractorRegistry`; `OfferParserOrchestrator` resuelve todo desde el registry
+> (`UberRequestParser`, etc.) y `ExtractorRegistry`; el objeto
+> `PlatformDescriptors` se conserva como fuente de descriptores.
+> `OfferParserOrchestrator` resuelve todo desde el registry
 > sin ramas por plataforma. `PlatformModule` provee
 > `PlatformDescriptorRegistry(PlatformDescriptors.all())`.
 > **WP-E3-02 (SPRINT 11)**: framework genérico de detección. `PlatformDetectionEngine`
@@ -195,8 +196,9 @@ Service **nunca** interactúa con otras apps.
   extractorKeywords, defaultCurrency) + `PlatformDescriptorRegistry` como único
   validador (construcción con `IllegalArgumentException`, nunca en parseo) y
   precompilador de motores/parsers/extractores. Eliminados parsers
-  especializados (`SpecializedParsers.kt`), `ExtractorRegistry` y el objeto
-  `PlatformDescriptors`; `OfferParserOrchestrator` es 100 % descriptor-driven y
+  especializados (`SpecializedParsers.kt`) y `ExtractorRegistry`; el objeto
+  `PlatformDescriptors` se conserva como fuente de descriptores.
+  `OfferParserOrchestrator` es 100 % descriptor-driven y
   devuelve `ParsedOffer.none()` si la plataforma no está registrada.
   `PlatformModule` provee el registry con `PlatformDescriptors.all()`. Tests:
   13 nuevos de registro/validación; los 42 de `:core:platform` en verde.

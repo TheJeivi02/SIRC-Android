@@ -13,6 +13,9 @@ import com.sirc.capture.model.SnapshotSource
 import com.sirc.capture.observer.WindowObserver
 import com.sirc.capture.pipeline.CapturePipeline
 import com.sirc.capture.repository.InMemoryCaptureRepository
+import com.sirc.core.platform.PlatformDescriptorRegistry
+import com.sirc.core.platform.PlatformDescriptors
+import com.sirc.core.platform.PlatformDetectionEngine
 import com.sirc.domain.model.RidePlatform
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -38,6 +41,10 @@ class OfferCaptureCoordinatorTest {
             captureRepository = repository,
             featureFlags = featureFlags,
             logger = logger,
+            detectionEngine =
+                PlatformDetectionEngine(
+                    PlatformDescriptorRegistry(PlatformDescriptors.all()),
+                ),
         )
 
     @Test

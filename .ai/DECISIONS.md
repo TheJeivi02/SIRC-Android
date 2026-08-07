@@ -396,8 +396,9 @@ es el único validador — falla en construcción con `IllegalArgumentException`
 (reglas/keywords vacías, plataformas o aliases duplicados, monedas inválidas
 `[A-Z]{3}`, descriptor sin regla `ScreenType.REQUEST`, tipos de oferta
 duplicados) y nunca en parseo — y precompila en `init` los motores/parsers/
-extractores. Se eliminan `SpecializedParsers.kt`, `ExtractorRegistry` y el
-objeto `PlatformDescriptors`; `OfferParserOrchestrator` resuelve todo desde el
+extractores. Se eliminan `SpecializedParsers.kt` y `ExtractorRegistry`; el
+objeto `PlatformDescriptors` se conserva como fuente de descriptores.
+`OfferParserOrchestrator` resuelve todo desde el
 registry (devuelve `ParsedOffer.none()` si la plataforma no está registrada).
 `PlatformDescriptors.all()` mantiene los descriptores de UBER/DIDI/CABIFY/
 INDRIVE (idénticos en comportamiento; Cabify conserva EUR por diseño).
@@ -468,6 +469,44 @@ guardado); hacer de MediaProjection un "superframe" que re-emplee `ScreenFrame`
 (corrige doble escritura); la plataforma se resuelve una única vez en el
 pipeline; agregar una fuente (Gallery/Share) = nuevo `CaptureInput` en el merge,
 sin tocar el pipeline. `:core:capture` y `:core:platform` siguen Kotlin puro.
+
+### D11.14 — Auditoría Sprint 11 y limpieza de severidad Alta (WP-E3-05A)
+
+**Contexto:** aprobada `docs/audit/architecture/ARCHITECTURE_AUDIT_SPRINT11.md`
+(29 hallazgos; 0 críticos, 3 altos, 9 medios, 10 bajos, 7 observaciones). La
+corrección se dividió en Work Packages pequeños e independientes; WP-E3-05A
+resuelve solo los tres hallazgos Altos.
+
+**Decisión (A-1):** `OfferParserOrchestrator` queda con un **único** método de
+parseo `parse(result, texts, ts, detectionMillis)`. Se eliminan los overloads
+legacy `parse(texts, ts, RidePlatform)` y `parse(texts, ts, packageName)` y la
+instancia interna `PlatformDetectionEngine`; el orquestador no ejecuta detección
+(ni la duplica). `OfferParserOrchestratorTest` migra sus 14 escenarios a la API
+definitiva construyendo `DetectionResult` vía `PlatformDetectionEngine`.
+
+**Decisión (A-2):** las docs internas se corrigieron: el objeto
+`PlatformDescriptors` **no fue eliminado** en WP-E3-01; se conserva como fuente
+de descriptores (`PlatformDescriptors.all()`). Solo se eliminaron
+`SpecializedParsers.kt` y `ExtractorRegistry`.
+
+**Decisión (A-3):** `PlatformDetectionEngine` es la **única** lógica de
+resolución de plataforma por paquete en todo el proyecto (mismo algoritmo,
+normalización y fuente de verdad que el pipeline). `OfferCaptureCoordinator`
+(`:core:capture`) y `AccessibilityCaptureInput` (`:feature:overlay`) inyectan el
+motor y resuelven con `detect(emptyList(), ts, packageName)` →
+`descriptor?.platform` / `isRecognized`. `PlatformDescriptorRegistry` permanece
+como repositorio de datos y descriptores precompilados, **no** como segundo
+mecanismo de resolución. `RidePlatform.fromPackageName` se deprecia con
+`@Deprecated`.
+
+**Alternativas descartadas:** conservar los overloads con `@VisibleForTesting`
+(compatibilidad artificial solo para tests); resolver con
+`PlatformDescriptorRegistry.descriptorForPackageName` en coordinador/input
+(segunda lógica, divergente de la normalización del pipeline).
+
+**Consecuencias:** un único camino de parseo y una única lógica de detección en
+producción y tests; futuras fuentes de captura (Gallery/Share) reutilizan el
+mismo motor; comportamiento observable idéntico para el conductor.
 
 ## SPRINT 7 — Evaluación en tiempo real con recomendación
 

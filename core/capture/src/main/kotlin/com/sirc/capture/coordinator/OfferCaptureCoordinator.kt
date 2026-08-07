@@ -11,6 +11,7 @@ import com.sirc.capture.model.OfferSnapshot
 import com.sirc.capture.observer.WindowObserver
 import com.sirc.capture.pipeline.CapturePipeline
 import com.sirc.capture.repository.CaptureRepository
+import com.sirc.core.platform.PlatformDetectionEngine
 import com.sirc.domain.model.RidePlatform
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +31,9 @@ import javax.inject.Singleton
  * Consume eventos de [WindowObserver] y snapshots del [CapturePipeline].
  * No parsea ni guarda snapshots — eso es responsabilidad del pipeline.
  * Gestiona la sesión activa y expone el estado al panel de depuración.
+ *
+ * La resolución de plataforma por paquete se delega en
+ * [PlatformDetectionEngine] (única fuente de verdad, igual que el pipeline).
  */
 @Singleton
 class OfferCaptureCoordinator @Inject constructor(
@@ -38,6 +42,7 @@ class OfferCaptureCoordinator @Inject constructor(
     private val captureRepository: CaptureRepository,
     private val featureFlags: FeatureFlags,
     private val logger: SircLogger,
+    private val detectionEngine: PlatformDetectionEngine,
 ) {
     private val _state = MutableStateFlow(CaptureState())
     val state: StateFlow<CaptureState> = _state.asStateFlow()
@@ -81,7 +86,8 @@ class OfferCaptureCoordinator @Inject constructor(
 
     private fun doProcess(event: CaptureWindowEvent) {
         logger.debug(TAG, "evento: ${event.packageName} · ${event.eventType}")
-        val platform = RidePlatform.fromPackageName(event.packageName)
+        val platform =
+            detectionEngine.detect(emptyList(), event.timestampMillis, event.packageName).descriptor?.platform
         if (platform == null) {
             closeActiveSession()
             record(event)

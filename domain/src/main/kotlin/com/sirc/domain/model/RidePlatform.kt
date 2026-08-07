@@ -17,6 +17,14 @@ enum class RidePlatform(
     ;
 
     companion object {
+        /**
+         * Resuelve la plataforma por paquete (coincidencia exacta).
+         *
+         * DEPRECADO desde WP-E3-05A: la resolución de plataforma se unificó en
+         * `PlatformDetectionEngine` (descriptor-driven, con normalización), única
+         * fuente de verdad del pipeline. Este mapeo duplica esa lógica.
+         */
+        @Deprecated("Usar PlatformDetectionEngine para resolver la plataforma por packageName")
         fun fromPackageName(packageName: String): RidePlatform? = entries.firstOrNull { it.packageName == packageName }
     }
 }

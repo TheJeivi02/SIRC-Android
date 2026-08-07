@@ -69,10 +69,11 @@ producto: estabilidad y observabilidad.
   keywords vacías, plataformas o aliases duplicados, monedas inválidas `[A-Z]{3}`,
   descriptor sin regla `ScreenType.REQUEST`, tipos de oferta duplicados), nunca en
   parseo — y precompila en `init` motores/parsers/extractores. Se eliminan los
-  parsers especializados de Uber (`SpecializedParsers.kt`), `ExtractorRegistry` y
-  el objeto `PlatformDescriptors`; `OfferParserOrchestrator` es 100 %
-  descriptor-driven (devuelve `ParsedOffer.none()` si la plataforma no está
-  registrada). `PlatformDescriptors.all()` mantiene UBER/DIDI/CABIFY/INDRIVE.
+  parsers especializados de Uber (`SpecializedParsers.kt`) y `ExtractorRegistry`;
+  el objeto `PlatformDescriptors` se conserva como fuente de descriptores.
+  `OfferParserOrchestrator` es 100 % descriptor-driven (devuelve
+  `ParsedOffer.none()` si la plataforma no está registrada).
+  `PlatformDescriptors.all()` mantiene UBER/DIDI/CABIFY/INDRIVE.
   `PlatformModule` provee el registry con todos los descriptores. Comportamiento
   funcional idéntico para el conductor; `:core:platform` suma 13 tests de
   registro/validación (42 en total, todos en verde).
@@ -114,6 +115,22 @@ producto: estabilidad y observabilidad.
   `pipeline.snapshots`. `CaptureAccessibilityService` queda como adaptador
   delgado que delega en `AccessibilityCaptureInput`. Sin cambios de comportamiento
   para el conductor; Gallery/Share quedan preparados como futuros `CaptureInput`.
+
+- **Auditoría Sprint 11 y limpieza de severidad Alta** (WP-E3-05A): corregidos
+  los tres hallazgos Altos de `ARCHITECTURE_AUDIT_SPRINT11.md`. (1) **A-1**:
+  `OfferParserOrchestrator` elimina los overloads `parse(texts, ts, RidePlatform)`
+  y `parse(texts, ts, packageName)` y su instancia interna de
+  `PlatformDetectionEngine`; queda un único camino de parseo
+  `parse(result, texts, ts, detectionMillis)` (el usado por el pipeline), y
+  `OfferParserOrchestratorTest` migra sus 14 escenarios a esa API. (2) **A-2**:
+  docs internas corregidas — el objeto `PlatformDescriptors` **no** fue
+  eliminado; se conserva como fuente de descriptores (`PlatformDescriptors.all()`),
+  solo se eliminaron `SpecializedParsers.kt` y `ExtractorRegistry`. (3) **A-3**:
+  la resolución de plataforma por paquete se unifica en `PlatformDetectionEngine`
+  (única fuente de verdad): `OfferCaptureCoordinator` y
+  `AccessibilityCaptureInput` ya no usan `RidePlatform.fromPackageName`
+  (deprecado con `@Deprecated`). Sin cambios de comportamiento observable para
+  el conductor; verificación completa en verde.
 
 ### Añadido
 

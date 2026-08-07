@@ -6,12 +6,13 @@
 
 ## Tarea actual
 
-**WP-E3-04 — Auditoría final (en curso, fase DOCUMENTO)**. Auditoría
-arquitectónica completa de los 8 módulos tras WP-E3-01→E3-03. Documento
-`docs/audit/architecture/ARCHITECTURE_AUDIT_SPRINT11.md` generado (29 hallazgos:
-0 críticos, 3 altos, 9 medios, 10 bajos, 7 observaciones). **Pendiente de
-aprobación** del usuario; tras aprobarlo se define el plan de corrección
-(WP-E3-05 y siguientes). Sin cambios de código aún (regla del WP).
+**WP-E3-05A completado** — Limpieza de severidad Alta (A-1, A-2, A-3) de la
+auditoría del Sprint 11. `OfferParserOrchestrator` con un único camino de parseo
+`parse(result, …)` (overloads legacy y engine interno eliminados); docs internas
+corregidas (`PlatformDescriptors` se conserva); resolución de plataforma unificada
+en `PlatformDetectionEngine` (coordinador + input), `RidePlatform.fromPackageName`
+deprecado. Verificación completa en verde. **Siguiente: WP-E3-05B** (Medios:
+API muerta, interfaces sin uso, callbacks sin consumidores, flags muertos).
 
 ## Antecedentes
 
@@ -25,19 +26,30 @@ aprobación** del usuario; tras aprobarlo se define el plan de corrección
 - **WP-E3-01 completado** (`a79c55a`): motor descriptor-driven
   (`PlatformDescriptor`/`PlatformDescriptorRegistry`).
 
-## Progreso WP-E3-04
+## Progreso WP-E3-04 (auditoría)
 
-- [x] Exploración de contexto (git, estructura de módulos).
-- [x] Auditoría profunda con exploradores en paralelo (4 frentes: core:capture
-      + android, core:platform, feature:overlay, domain/data/app/ui).
-- [x] Verificación manual de los hallazgos de mayor señal (orquestador dual
-      engine, `PipelineOverlayDataSource.start()`, coordinador, `FeatureFlag`,
-      `PlatformDescriptors`, overloads de parseo en producción).
 - [x] Documento `docs/audit/architecture/ARCHITECTURE_AUDIT_SPRINT11.md`
-      redactado (hallazgos con problema/impacto/propuesta/riesgo).
-- [ ] **Aprobación del usuario** del documento.
-- [ ] Definir plan de corrección (WP-E3-05 y siguientes) priorizando
-      Alto → Medio → Bajo.
+      redactado, verificado y **aprobado** por el usuario (29 hallazgos).
+- [x] Commit `93a1b57` (auditoría) + `f185d85` (TASK).
+
+## Progreso WP-E3-05A (severidad Alta)
+
+- [x] **A-1**: eliminados los overloads `parse(texts, ts, RidePlatform)` y
+      `parse(texts, ts, packageName)` y la instancia interna de
+      `PlatformDetectionEngine` en `OfferParserOrchestrator`; único camino
+      `parse(result, texts, ts, detectionMillis)`. `OfferParserOrchestratorTest`
+      migrado (14 escenarios) a la API definitiva.
+- [x] **A-3**: `OfferCaptureCoordinator` y `AccessibilityCaptureInput` inyectan
+      `PlatformDetectionEngine` (única fuente de resolución); 
+      `RidePlatform.fromPackageName` deprecado con `@Deprecated`;
+      `OfferCaptureCoordinatorTest` actualizado.
+- [x] **A-2**: corregidos `.ai/CONTEXT.md`, `.ai/DECISIONS.md` (D11.14) y
+      `docs/CHANGELOG.md` — `PlatformDescriptors` se conserva como fuente de
+      descriptores (solo se eliminaron `SpecializedParsers.kt` y
+      `ExtractorRegistry`).
+- [x] Verificación completa en verde (ktlintCheck, lintDebug, assembleDebug,
+      tests unitarios JVM + instrumentados).
+- [x] Docs del WP actualizadas (CHANGELOG WP-E3-05A, DECISIONS D11.14, TASK).
 
 ## Hallazgos clave (resumen)
 
