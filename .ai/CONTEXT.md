@@ -161,11 +161,13 @@ es rentable.
    produce un `OfferSnapshot` (con `origin`) que se escribe una sola vez en el
    repositorio.
 4. `PipelineOverlayDataSource` mapea el snapshot a `TripOffer`, lo evalúa con
-   `EvaluateDetailedOfferUseCase` (`ProfitEvaluationEngine` + `RecommendationEngine`),
-   ejecuta **reglas** (`RuleEngine`) y **confianza** (`ConfidenceEngine`), publica
+   `EvaluateDetailedOfferUseCase` (`ProfitEvaluationEngine` + `RecommendationEngine`)
+   y **confianza** (`ConfidenceEngine`), publica
    el overlay y persiste el historial (Room). Todo queda cronometrado
    (`OfferPerformanceTracker`) y los incidentes se registran en el
-   `ValidationRecorder`.
+   `ValidationRecorder`. El contenedor `RuleEvaluation` se emite vacío
+   (`RuleEvaluation(emptyList())`) por compatibilidad con la UI; no existe motor
+   de reglas en producción.
 5. `OverlayService` (Foreground, `TYPE_APPLICATION_OVERLAY`) dibuja un
    `ComposeView` liviano con la recomendación, métricas y semáforo.
 6. Todo el análisis es **100 % local**: sin telemetría, sin backend, sin fuga de
@@ -390,17 +392,17 @@ app ──► feature:overlay ──► core:platform ─► domain
 - `domain`: modelos (incluye `DriverConfig`/`DriverProfile`/`DriverVehicle`/
   `FuelType`/`AdditionalCost` y los de evaluación: `Recommendation`,
   `ProfitBreakdown`, `ProfitEvaluationDetailed`, `OfferRecommendation`,
-  `OfferEvaluationResult`, `OfferEvaluationRecord`; y los de análisis:
-  `RuleVerdict`/`RuleResult`/`RuleThresholds`/`RuleContext`/`OfferRule`/
-  `RuleEvaluation`/`ValidationResult`), `ProfitEngine` + `ProfitEvaluationEngine`
-  + `RecommendationEngine` + `RuleEngine` + `ConfidenceEngine` + `OfferValidator`,
+  `OfferEvaluationResult`, `OfferEvaluationRecord`; y el de análisis:
+  `RuleVerdict`/`RuleResult`/`RuleEvaluation`), `ProfitEngine` +
+  `ProfitEvaluationEngine` + `RecommendationEngine` + `ConfidenceEngine`,
   use cases (`EvaluateOfferUseCase`/`EvaluateDetailedOfferUseCase`), contratos de
   repositorio (`OfferEvaluationRepository` incluido).
 - `data`: Room + repositorios concretos + Hilt (`DatabaseModule` con migración
   1→2, `RepositoryModule`).
 - `core:platform`: motor de análisis de pantallas: detección (`OfferDetectionEngine`),
-  parsers especializados por tipo (`OfferTypeParser`/`BaseOfferTypeParser`),
-  `OfferParserOrchestrator` y extractores multi-plataforma (`OfferTextParser`).
+  `OfferParserOrchestrator` (descriptor-driven, 100 % declarativo) y
+  extractores multi-plataforma (`OfferTextParser`/`GenericPlatformExtractor`,
+  parser de variantes `GenericOfferTypeParser`).
 - `core:capture`: plataforma de captura (pipeline único CaptureInput →
   OCR → parser → repositorio, observador, sesión/snapshot, `OverlayState`,
   coordinador, caché de dedup por hash, debounce de requests, métricas por
@@ -414,9 +416,9 @@ app ──► feature:overlay ──► core:platform ─► domain
   + piezas Android de captura (`AccessibilityWindowObserver`,
   `MlKitOcrEngine`, `AndroidSircLogger`, `CaptureModule`). Estado del overlay
   vía `OverlayDataSource` (`PipelineOverlayDataSource`, estado real del
-  pipeline; ejecuta reglas + confianza); DI del motor de análisis en
-  `PlatformModule` (`OfferDetectionEngine`, parsers, `OfferParserOrchestrator`,
-  `RuleEngine`, `PlatformDetectionEngine`); permisos y control vía
+  pipeline; evalúa + confianza); DI del motor de análisis en
+  `PlatformModule` (`OfferDetectionEngine`, `OfferParserOrchestrator`,
+  `PlatformDetectionEngine`); permisos y control vía
   `PermissionManager` y `OverlayManager`
   (incluye proyección de pantalla).
 - `feature:onboarding`: flujo de configuración inicial (6 pasos) que persiste

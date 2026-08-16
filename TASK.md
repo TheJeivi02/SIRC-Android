@@ -6,42 +6,32 @@
 
 ## Tarea actual
 
-**WP-E3-05D completado** — Resuelven los hallazgos de severidad Baja
-B-1…B-10 de la auditoría Sprint 11 (solo código confirmado muerto; se conservó
-todo lo que tiene uso real o de test):
+**WP-E3-05E completado** — Limpieza documental final del Sprint 11 derivada
+exclusivamente de los refactors WP-E3-02 → WP-E3-05D. Solo se corrigió
+documentación que describía el estado actual como si las piezas eliminadas
+siguieran existiendo; los registros históricos (decisiones, auditorías,
+informes por sprint, roadmap, specs) se conservan íntegros. Sin cambios de
+código ni de comportamiento. Commit único + informe final entregado.
 
-- **B-1**: eliminados 4 objetos/consts muertos: `NoOpCaptureMetrics`,
-  `OfferCaptureCoordinator.NANOS_PER_MILLI`, `MediaProjectionService.TAG`,
-  string `capture_service_label`.
-- **B-2 (decidido: conservar)**: API solo-tests de `latestSnapshot/snapshots`,
-  `CaptureFrameCache.clear()`, `OfferPerformanceTracker.clear()`,
-  `SnapshotSource.FAKE`, `OfferHistoryDao.count()`, `descriptorForPackageName`,
-  `keywordsFor` — tienen consumidores de test, la auditoría permite conservarlas.
-- **B-3**: eliminado `OverlayState.CAPTURING` (el pipeline solo emite
-  DISABLED/WAITING/PROCESSING/ERROR); quitada su rama en `OverlayContent` y
-  ajustado `PipelineOverlayDataSourceTest`.
-- **B-4**: eliminado `DiscardReason.CAPTURE_FAILED`.
-- **B-5 (decidido: conservar)**: `PipelineOverlayDataSource.start()` no-op —
-  tiene llamadores funcionales (`OverlayService`/`OverlayViewModel`).
-- **B-6**: eliminado el parámetro sin uso `timestampMillis` de
-  `PlatformDetectionEngine.detect(texts, packageName, origin)`; actualizados
-  `DefaultCapturePipeline`, `OfferCaptureCoordinator`, `AccessibilityCaptureInput`
-  y los tests (`PlatformDetectionEngineTest`, `OfferParserOrchestratorTest`).
-- **B-7**: quitadas dependencias Gradle sin imports: en
-  `core:capture:android` `:domain` y `kotlinx.coroutines.android`; en
-  `feature:overlay` `:data`, `compose.material.icons`,
-  `compose.ui.tooling.preview` y `debugImplementation(compose.ui.tooling)`.
-- **B-8**: corregidos KDoc/log tags legacy (`CaptureAccessibilityService`,
-  `AccessibilityWindowObserver`, `MediaProjectionCaptureInput`, `PlatformModule`,
-  `PipelineOverlayDataSource`, `RuleResult` — pues el `[OfferRule]` referido se
-  eliminó en 05C) y `TAG = "ScreenCaptureProvider"` →
-  `"MediaProjectionCapture"`.
-- **B-9 (decidido: conservar)**: las 13 PNG de `core:capture` test-resources son
-  dataset documentado; solo `offer_uber_1.png` se referencia en código.
-- **B-10**: verificación de confirmación de flags vivos — sin hallazgo.
+- **`docs/ARCHITECTURE.md`**: diagramas y listas de `:core:capture` y
+  `:core:capture:android` actualizados a la arquitectura real (pipeline
+  `CaptureInput → OCR → detección → parser`, `CaptureInputType`, estados
+  `WAITING/PROCESSING/ERROR`, `MediaProjectionCaptureInput`, `CaptureAndroidModule`
+  sin `ScreenCapture`); diagrama de análisis sin `RuleEngine`; tabla de
+  decisiones sin `RuleEngine`/`ScreenCapture`/`FakeParser`/`CAPTURING`/
+  flags `RULES`/`METRICS`/`ACCESSIBILITY`.
+- **`.ai/CONTEXT.md`**: flujo real (paso 4) sin `RuleEngine` (explica el
+  `RuleEvaluation` vacío por compat UI); resumen de arquitectura sin
+  `RuleEngine`/`OfferValidator`/`RuleThresholds`/`RuleContext`/`OfferRule`/
+  `ValidationResult`/parsers especializados.
+- **`.ai/AGENTS.md`**: el rol Accessibility Engineer es dueño del
+  `CaptureAccessibilityService` (no `SircAccessibilityService`).
+- **`docs/KNOWN_ISSUES.md`**: servicio único de accesibilidad (WP-E1-03);
+  terminología de parsers actualizada; backlog sin "un solo servicio".
+- **`docs/CHANGELOG.md`**: entradas WP-E3-05B, 05C, 05D y 05E añadidas.
 
 **Siguiente: (pausa)** se entrega informe final para aprobación. No se inicia
-WP-E3-05E sin aprobación explícita.
+otro WP tras WP-E3-05E sin aprobación explícita.
 
 ## Antecedentes
 
@@ -103,8 +93,36 @@ WP-E3-05E sin aprobación explícita.
       (diagnóstico para futuras fuentes de captura y Debug Panel).
 - [x] Verificación completa en verde (ktlintCheck, lintDebug, assembleDebug,
       tests).
-- [ ] Docs descriptivas (CHANGELOG/DECISIONS/CONTEXT) → diferidas a un WP
+- [x] Docs descriptivas (CHANGELOG/DECISIONS/CONTEXT) → diferidas a un WP
       posterior (regla: no tocar documentación en 05B).
+
+## Progreso WP-E3-05C (severidad Media restante)
+
+- [x] **M-7**: eliminados `CaptureInputType.SHARE/GALLERY/TEST` (se mantienen
+      `UNKNOWN/ACCESSIBILITY/MEDIA_PROJECTION/OCR/PACKAGE`).
+- [x] **M-8**: eliminado el bundle LEGACY de reglas (`RuleEngine`, 6 reglas,
+      `OfferValidator`, `ValidationResult`, `ValidationIssue`, `RuleContext`,
+      `RuleThresholds`, `OfferRule` y helpers/tests); se conserva solo la API
+      viva del overlay (`RuleEvaluation`, `RuleResult`, `RuleVerdict`);
+      eliminados `resultFor()` y `TripOffer.pickupDistanceKm`.
+- [x] **M-9**: `defaultCurrency` obligatorio no nulo en
+      `GenericPlatformExtractor`; eliminado `DEFAULT_CURRENCY`.
+- [x] Verificación completa en verde; commit `c1f57c4`.
+
+## Progreso WP-E3-05D (severidad Baja)
+
+- [x] **B-1/B-3/B-4/B-6/B-7/B-8** resueltos; **B-2/B-5/B-9** conservados con
+      justificación; **B-10** verificado (detalle en "Tarea actual" histórica).
+- [x] Verificación completa en verde; commit `008e792` + informe final.
+
+## Progreso WP-E3-05E (limpieza documental)
+
+- [x] Búsqueda repo-wide de referencias obsoletas y clasificación (histórica /
+      actual-incorrecta / muerta).
+- [x] Corregidos `docs/ARCHITECTURE.md`, `.ai/CONTEXT.md`, `.ai/AGENTS.md`,
+      `docs/KNOWN_ISSUES.md`; entradas WP-E3-05B/C/D/E en `docs/CHANGELOG.md`.
+- [x] Sin cambios de código de producción (verificado con `git diff`).
+- [x] Commit único + informe final; **pausa** esperando aprobación.
 
 ## Hallazgos clave (resumen)
 
@@ -132,8 +150,6 @@ WP-E3-05E sin aprobación explícita.
 
 ## Próximos pasos
 
-1. Esperar aprobación del documento de auditoría.
-2. Tras la aprobación, escribir el plan de corrección (WP-E3-05 y siguientes)
-   con TDD donde aplique y verificación completa en cada paso.
-3. Cierre oficial del Sprint 11 (Architecture / Performance / Technical Debt /
-   Sprint Review).
+1. Cierre oficial del Sprint 11 tras la aprobación del informe de WP-E3-05E
+   (Architecture / Performance / Technical Debt / Sprint Review).
+2. No iniciar ningún otro WP sin aprobación explícita.

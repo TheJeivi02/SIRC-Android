@@ -132,6 +132,61 @@ producto: estabilidad y observabilidad.
   (deprecado con `@Deprecated`). Sin cambios de comportamiento observable para
   el conductor; verificación completa en verde.
 
+- **Limpieza de severidad Media (WP-E3-05B)**: resueltos los hallazgos M-1 a M-6
+  de `ARCHITECTURE_AUDIT_SPRINT11.md`. M-1: eliminada API de dominio muerta
+  (`EvaluateOfferUseCase`, `AddOfferHistoryUseCase`, métodos muertos de
+  `Save/GetDriverConfigUseCase`); `DriverConfigRepository` pasa de 10 a 4
+  métodos (impl + fake de test alineados). M-2: eliminada la interfaz
+  `PlatformExtractor`; `GenericPlatformExtractor` es el único extractor
+  concreto (YAGNI). M-3: eliminado `OfferTypeVariant.refine` y su rama muerta en
+  `GenericOfferTypeParser`. M-4: eliminados los flags `ACCESSIBILITY`/`METRICS`.
+  M-5: eliminado `CaptureMetrics.onCapture` (interfaz, `DebugCaptureMetrics` y
+  test double). M-6: eliminados `ParsedOffer.parsingMillis` (write-only) y
+  `ScreenDetection.matchedKeywords`; `DetectionResult.origin/candidates/
+  sourcePackage` se conserva por valor diagnóstico. Sin cambios de
+  comportamiento observable; verificación completa en verde.
+
+- **Limpieza de severidad Media restante (WP-E3-05C)**: resueltos los hallazgos
+  M-7 a M-9 de `ARCHITECTURE_AUDIT_SPRINT11.md`. M-7: eliminados los valores de
+  `CaptureInputType` que no se emiten (`SHARE`/`GALLERY`/`TEST`); se mantienen
+  `UNKNOWN`/`ACCESSIBILITY`/`MEDIA_PROJECTION`/`OCR`/`PACKAGE`. M-8: eliminado el
+  paquete de motores de reglas legacy (`RuleEngine`, las 6 reglas, `OfferValidator`,
+  `ValidationResult`, `ValidationIssue`, `RuleContext`, `RuleThresholds`,
+  `OfferRule` y sus helpers/tests); se conserva solo la API viva del overlay
+  (`RuleEvaluation`, `RuleResult`, `RuleVerdict`); eliminados `resultFor()` y
+  `TripOffer.pickupDistanceKm` (helpers muertos). M-9: `defaultCurrency` pasa a
+  ser parámetro obligatorio no nulo en `GenericPlatformExtractor`; eliminado el
+  mapa `DEFAULT_CURRENCY`. Sin cambios de documentación ni constantes;
+  verificación completa en verde.
+
+- **Limpieza de severidad Baja (WP-E3-05D)**: resueltos o verificados los 10
+  hallazgos Bajos de `ARCHITECTURE_AUDIT_SPRINT11.md`. **B-1**: eliminado
+  `OfferType` del modelo (sin uso real). **B-3**: eliminado
+  `OverlayState.CAPTURING` (nunca se emitía; la UI y el test del pipeline
+  quedan en `WAITING`). **B-4**: eliminado el descarte `CAPTURE_FAILED`
+  (duplicado de `CaptureError`). **B-6**: `PlatformDetectionEngine.detect()`
+  pierde el parámetro `timestampMillis` (nunca se usaba). **B-7**: retiradas
+  dependencias Gradle no usadas (`:domain`/`coroutines` de `:core:capture:
+  android`; `:data` y previews de Compose de `:feature:overlay`). **B-8**:
+  KDoc/tags corregidos a la terminología actual (`CaptureWindowEvent`,
+  `CaptureRequest`, TAG `MediaProjectionCapture`). **B-2/B-5/B-9**: revisados y
+  conservados con justificación (API solo-tests, `start()` no-op del
+  coordinador, imágenes de prueba). **B-10**: flags vivos verificados. Sin
+  cambios de comportamiento observable; verificación completa en verde.
+
+- **Limpieza documental tras la auditoría Sprint 11 (WP-E3-05E)**: corregidas
+  las referencias a piezas eliminadas en la documentación que describe el
+  estado actual: `docs/ARCHITECTURE.md` (diagramas del pipeline con
+  `CaptureInput`/`CaptureInputType`, estados `WAITING/PROCESSING/ERROR`, motor
+  sin reglas, tabla de decisiones sin `RuleEngine`/`ScreenCapture`/`FakeParser`/
+  `CAPTURING`), `.ai/CONTEXT.md` (flujo real sin `RuleEngine`, resumen de
+  arquitectura actualizado, `core:platform` sin parsers especializados),
+  `.ai/AGENTS.md` (Rol del `CaptureAccessibilityService`), `docs/KNOWN_ISSUES.md`
+  (servicio único de accesibilidad) y `docs/CHANGELOG.md` (entradas WP-E3-05B/C/D).
+  Se conservan íntegros los registros históricos (decisiones, auditorías,
+  informes por sprint, roadmap, specs). Sin cambios de código ni de
+  comportamiento; commit único e informe final.
+
 ### Añadido
 
 - **Modo de validación** (O3): `ValidationRecorder` (`:core:capture`, puro) con

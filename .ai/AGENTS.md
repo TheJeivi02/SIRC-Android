@@ -27,7 +27,7 @@ Cada agente respeta `.ai/RULES.md`, `docs/ARCHITECTURE.md` y
 
 ## Accessibility Engineer
 
-- Es dueño del `SircAccessibilityService` y de `accessibility_service_config.xml`.
+- Es dueño del `CaptureAccessibilityService` y de `accessibility_service_config.xml`.
 - Garantiza que el servicio sea **solo lectura**: sin `performAction`, sin
   gestos, sin interacción con otras apps.
 - Mantiene los límites de rendimiento (400 nodos, 80 textos, deduplicación por

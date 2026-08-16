@@ -6,17 +6,17 @@
 
 ## Accesibilidad / captura
 
-1. **Doble servicio de accesibilidad.** La app expone dos servicios
-   (`Análisis de ofertas SIRC` → `SircAccessibilityService` y `Captura de
-   ofertas SIRC` → `CaptureAccessibilityService`). Ambos deben estar activos
-   para el funcionamiento completo (historial + overlay + panel de depuración).
-   Es un riesgo de UX en la configuración inicial.
-   - **Mitigación**: el Diagnóstico indica el estado de cada servicio.
+1. **Un solo servicio de accesibilidad** (`Captura de ofertas SIRC` →
+   `CaptureAccessibilityService`). Desde WP-E1-03 el servicio es único (solo
+   lectura) y alimenta el pipeline completo: overlay + historial + panel de
+   depuración. Si está desactivado, no hay captura ni análisis.
+   - **Mitigación**: el Diagnóstico indica el estado del servicio.
 
-2. **El overlay depende del servicio de captura.** El análisis y la persistencia
-   del historial los produce el pipeline alimentado por `CaptureAccessibilityService`
-   (con o sin captura de pantalla). Si el usuario solo habilita "Análisis",
-   no hay historial ni overlay. Es la arquitectura moderna desde Sprint 7/8.
+2. **El overlay depende del servicio de accesibilidad.** El análisis y la
+   persistencia del historial los produce el pipeline alimentado por
+   `CaptureAccessibilityService` (con o sin captura de pantalla). Si el
+   usuario no habilita el servicio, no hay historial ni overlay. Es la
+   arquitectura única desde Sprint 7/8.
    - **Impacto**: esperado; documentado para soporte.
 
 3. **Falsa detección de oferta en pantallas no soportadas.** El parser ignora
@@ -59,10 +59,11 @@
 
 ## Plataformas
 
-9. **Análisis de pantallas solo para Uber** en los parsers especializados
-   (tipo de oferta). DiDi, Cabify e InDrive caen al extractor genérico por
-   plataforma (monto/distancia/duración). El **tipo de oferta** no se reporta
-   para estas plataformas.
+9. **Análisis de pantallas solo para Uber en el tipo de oferta.** El parser
+   de tipo (`OfferTypeParser`/`GenericOfferTypeParser`) reporta la variante
+   (Moto/XL/etc.) para Uber; DiDi, Cabify e InDrive caen al extractor genérico
+   por plataforma (monto/distancia/duración). El **tipo de oferta** no se
+   reporta para estas plataformas.
 
 ## Calidad
 
@@ -73,7 +74,6 @@
 
 ## Backlog candidato (post-RC1)
 
-- Un solo servicio de accesibilidad con los dos roles (reduce fricción).
 - Umbrales de ahorro de batería y configuración de calidad de OCR.
 - Datos de rendimiento medidos en dispositivo para calibrar las ventanas.
 - Cobertura instrumentada para rotación y split screen.
