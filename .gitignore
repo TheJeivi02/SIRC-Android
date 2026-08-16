@@ -10,3 +10,17 @@ captures/
 *.apk
 *.aab
 .kotlin/
+
+# Artefactos de análisis/exportación de APK (no forman parte del código fuente)
+/res/
+/AndroidManifest.xml
+/R.txt
+/annotations.zip
+/baseline-prof.txt
+/classes.jar
+/inspector.jar
+/lint.jar
+/proguard.txt
+/public.txt
+/repository-tree.txt
+/idea.txt

@@ -278,6 +278,33 @@ observabilidad y compatibilidad.
 
 - Estado: **completado**.
 
+## Sprint 11 — Auditoría, remediación y consolidación (WP-E1/E2/E3) ✅
+
+Ejecución de la remediación planificada en `docs/remediation/` (basada en las
+9 auditorías de `docs/audit/`). Sin funcionalidades de producto nuevas:
+eliminación de código dual, endurecimiento del pipeline y auditoría interna de
+arquitectura.
+
+- **WP-E1 — Eliminación y consolidación**: `FakeParser` fuera de la ruta de
+  producción (WP-E1-01); `ProfitEngine` como único motor de decisión, sin rama
+  `RuleEngine` (WP-E1-02); unificación en un único `CaptureAccessibilityService`
+  (WP-E1-03).
+- **WP-E2 — Endurecimiento de captura**: limpieza determinista de recursos en
+  `MediaProjectionService` (WP-E2-01) y máquina de estados endurecida en
+  `ScreenCaptureProvider` (WP-E2-02).
+- **WP-E3 — Detección de plataforma y auditoría**: detección descriptor-driven
+  (WP-E3-01), `PlatformDetectionEngine`/`DetectionMatcher`/`DetectionResult` en
+  `:core:platform` (WP-E3-02), Unified Capture Source con `CaptureInput` único
+  (WP-E3-03), auditoría de arquitectura (WP-E3-04) y resolución de hallazgos de
+  severidad Alta/Media/Baja + limpieza documental (WP-E3-05A a 05E). Se elimina
+  el paquete de reglas legacy (`RuleEngine`, `OfferRule`, `OfferValidator`,
+  `RuleContext`, `RuleThresholds`, `ValidationResult`, `ValidationIssue`).
+- **Overlay**: correcciones de crash (`SavedStateRegistry`,
+  `ViewTreeLifecycleOwner`) sin cambios de funcionalidad.
+- Verificación en verde: ktlint, unit tests, `lintDebug`, `assembleDebug`.
+
+- Estado: **completado** (cierre en `456ca67`).
+
 ## Sprint 3 — Accessibility
 
 Canal de lectura del contenido visible de las plataformas.
