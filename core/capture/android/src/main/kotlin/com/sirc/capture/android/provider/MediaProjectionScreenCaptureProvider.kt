@@ -269,7 +269,7 @@ class MediaProjectionScreenCaptureProvider @Inject constructor(
     }
 
     companion object {
-        private const val TAG = "ScreenCaptureProvider"
+        private const val TAG = "MediaProjectionCapture"
         private const val VIRTUAL_DISPLAY_NAME = "SIRC_CAPTURE"
         private const val MAX_IMAGES = 2
         private const val CAPTURE_TIMEOUT_MS = 400L

@@ -95,7 +95,7 @@ class DefaultCapturePipeline @Inject constructor(
 
         _state.value = OverlayState.PROCESSING
         val detectionStartNanos = System.nanoTime()
-        val result = detectionEngine.detect(texts, request.timestampMillis, request.packageName, request.origin)
+        val result = detectionEngine.detect(texts, request.packageName, request.origin)
         val detectionMillis = elapsedMillis(detectionStartNanos)
         if (!result.isRecognized) {
             validationRecorder.record(

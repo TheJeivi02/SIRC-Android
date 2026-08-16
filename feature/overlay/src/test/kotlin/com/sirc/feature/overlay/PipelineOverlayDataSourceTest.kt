@@ -142,7 +142,7 @@ class PipelineOverlayDataSourceTest {
             assertEquals("UBER_REQUEST", dataSource.uiState.value.offerType)
             assertNotNull(dataSource.uiState.value.confidence)
             assertNotNull(dataSource.uiState.value.ruleEvaluation)
-            // WP-E1-02: RuleEngine fuera de producción → ruleEvaluation vacío
+            // ruleEvaluation se expone vacío (el motor de decisión es ProfitEngine)
             assertTrue(dataSource.uiState.value.ruleEvaluation!!.results.isEmpty())
         }
 
@@ -205,7 +205,7 @@ class PipelineOverlayDataSourceTest {
     fun `flag OVERLAY desactivada degrada el estado a DISABLED`() =
         runBlocking {
             featureFlags.setEnabled(FeatureFlag.OVERLAY, false)
-            pipeline.state.value = OverlayState.CAPTURING
+            pipeline.state.value = OverlayState.WAITING
 
             delay(50)
 

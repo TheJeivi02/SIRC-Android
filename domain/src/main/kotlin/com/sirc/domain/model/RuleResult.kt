@@ -1,7 +1,7 @@
 package com.sirc.domain.model
 
 /**
- * Resultado de evaluar una [OfferRule] sobre una oferta.
+ * Resultado de evaluar una regla sobre una oferta.
  *
  * Conserva el [verdict] (PASS/WARNING/FAIL), un [message] legible para el
  * conductor y los valores comparados ([actualValue] vs [limitValue]) para el

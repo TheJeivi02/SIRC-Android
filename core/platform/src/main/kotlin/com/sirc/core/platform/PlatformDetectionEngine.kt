@@ -4,16 +4,15 @@ package com.sirc.core.platform
  * Motor genérico de detección de plataforma (WP-E3-02).
  *
  * Recorre los descriptores del registry (O(n)) en una sola pasada y resuelve
- * la plataforma por paquete o por keywords. No conoce el origen de los textos
- * (OCR, galería, tests): su contrato se limita a [texts], [timestampMillis] y
- * [packageName] opcional. No contiene lógica de parsing.
+ * la plataforma por paquete o por keywords. No conoce el origen de los textos:
+ * su contrato se limita a [texts] y [packageName] opcional. No contiene lógica
+ * de parsing.
  */
 class PlatformDetectionEngine(
     private val registry: PlatformDescriptorRegistry,
 ) {
     fun detect(
         texts: List<String>,
-        timestampMillis: Long,
         packageName: String? = null,
         origin: CaptureInputType = CaptureInputType.UNKNOWN,
     ): DetectionResult {

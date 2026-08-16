@@ -14,9 +14,6 @@ import javax.inject.Singleton
  * [CaptureAccessibilityService] y los emite como Flow para el
  * [com.sirc.capture.coordinator.OfferCaptureCoordinator].
  *
- * ⚠️ **Integrado por WP-E1-03**: `SircAccessibilityService` fue eliminado y
- * `CaptureAccessibilityService` publica directamente en este observer.
- *
  * Solo observa: nunca ejecuta acciones sobre la interfaz.
  */
 @Singleton

@@ -48,7 +48,7 @@ class AccessibilityCaptureInput @Inject constructor(
     ) {
         val packageName = event.packageName?.toString() ?: return
         val timestampMillis = System.currentTimeMillis()
-        if (!detectionEngine.detect(emptyList(), timestampMillis, packageName).isRecognized) return
+        if (!detectionEngine.detect(emptyList(), packageName).isRecognized) return
 
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
             event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED

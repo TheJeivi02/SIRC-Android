@@ -17,12 +17,8 @@ import javax.inject.Singleton
  * plataforma, validados en construcción), el [OfferParserOrchestrator] que usa
  * el pipeline de captura para parsear pantallas reales y el
  * [PlatformDetectionEngine] que resuelve la plataforma de forma única en el
- * pipeline (WP-E3-02 / WP-E3-03).
- *
- * WP-E3-01: se elimina la inyección de parsers especializados de Uber
- * (`provideOfferDetectionEngine`/`provideOfferTypeParsers`); el orquestador es
- * 100 % descriptor-driven y los parsers los construye el registry desde cada
- * descriptor.
+ * pipeline (WP-E3-02 / WP-E3-03). El orquestador es 100 % descriptor-driven y
+ * los parsers los construye el registry desde cada descriptor.
  */
 @Module
 @InstallIn(SingletonComponent::class)

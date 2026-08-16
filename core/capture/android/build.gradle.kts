@@ -26,12 +26,10 @@ android {
 }
 
 dependencies {
-    implementation(project(":domain"))
     implementation(project(":core:capture"))
     implementation(project(":core:platform"))
 
     implementation(libs.androidx.core.ktx)
-    implementation(libs.kotlinx.coroutines.android)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

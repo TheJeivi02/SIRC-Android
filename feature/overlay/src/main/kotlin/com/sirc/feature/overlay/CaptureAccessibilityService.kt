@@ -17,8 +17,7 @@ import javax.inject.Inject
 /**
  * Accessibility Service dedicado a la captura de ofertas.
  *
- * Único servicio de accesibilidad registrado en producción (WP-E1-03:
- * `SircAccessibilityService` fue eliminado).
+ * Único servicio de accesibilidad registrado en producción (WP-E1-03).
  *
  * Adaptador Android delgado: delega la lógica de observación en
  * [AccessibilityCaptureInput] y colecciona la corriente compuesta de requests

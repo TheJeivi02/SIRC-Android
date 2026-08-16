@@ -226,7 +226,6 @@ private fun StatusLabel(
     val (text, color) =
         when (status) {
             OverlayState.WAITING -> "Esperando oferta…" to SircColors.OnDarkMuted
-            OverlayState.CAPTURING -> "Capturando pantalla…" to SircColors.OnDarkMuted
             OverlayState.PROCESSING -> "Analizando oferta…" to SircColors.OnDark
             OverlayState.ERROR -> ERROR_MESSAGE to SircColors.NotProfit
             OverlayState.DISABLED -> return

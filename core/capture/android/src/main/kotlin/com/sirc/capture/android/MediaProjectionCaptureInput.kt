@@ -16,9 +16,9 @@ import javax.inject.Singleton
 /**
  * Entrada de captura basada en MediaProjection (WP-E3-03).
  *
- * Reemplaza a `MediaProjectionScreenCapture`: no captura por su cuenta, sino que
- * observa la corriente base (accesibilidad, ya debounced) y la enriquece con la
- * imagen real de pantalla cuando la proyección está activa.
+ * No captura por su cuenta: observa la corriente base (accesibilidad, ya
+ * debounced) y la enriquece con la imagen real de pantalla cuando la
+ * proyección está activa.
  *
  * - Si [ScreenCaptureProvider.isProjecting]: captura el frame, lo codifica a PNG
  *   y emite `request.copy(imageData = png, origin = MEDIA_PROJECTION)`.

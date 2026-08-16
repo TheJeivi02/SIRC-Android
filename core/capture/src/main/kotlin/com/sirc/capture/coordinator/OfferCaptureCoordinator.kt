@@ -87,7 +87,7 @@ class OfferCaptureCoordinator @Inject constructor(
     private fun doProcess(event: CaptureWindowEvent) {
         logger.debug(TAG, "evento: ${event.packageName} · ${event.eventType}")
         val platform =
-            detectionEngine.detect(emptyList(), event.timestampMillis, event.packageName).descriptor?.platform
+            detectionEngine.detect(emptyList(), event.packageName).descriptor?.platform
         if (platform == null) {
             closeActiveSession()
             record(event)
@@ -154,6 +154,5 @@ class OfferCaptureCoordinator @Inject constructor(
     companion object {
         private const val TAG = "OfferCapture"
         private const val MAX_RECENT_EVENTS = 20
-        private const val NANOS_PER_MILLI = 1_000_000.0
     }
 }

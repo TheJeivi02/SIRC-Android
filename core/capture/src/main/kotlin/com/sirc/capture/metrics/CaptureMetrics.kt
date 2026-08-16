@@ -3,8 +3,7 @@ package com.sirc.capture.metrics
 /**
  * Métricas de rendimiento por etapa del pipeline de captura.
  *
- * Las implementaciones reales solo deben loguear en compilaciones Debug; el
- * [NoOpCaptureMetrics] se usa en pruebas y en entornos no Android.
+ * Las implementaciones reales solo deben loguear en compilaciones Debug.
  */
 interface CaptureMetrics {
     fun onOcr(millis: Double) = Unit
@@ -13,6 +12,3 @@ interface CaptureMetrics {
 
     fun onTotal(millis: Double) = Unit
 }
-
-/** Métricas sin operación: útil para pruebas y builds de producción. */
-object NoOpCaptureMetrics : CaptureMetrics

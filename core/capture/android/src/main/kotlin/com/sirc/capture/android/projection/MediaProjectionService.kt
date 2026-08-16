@@ -113,7 +113,6 @@ class MediaProjectionService : Service() {
     }
 
     companion object {
-        private const val TAG = "MediaProjectionService"
         private const val CHANNEL_ID = "sirc_capture"
         private const val NOTIFICATION_ID = 9002
 

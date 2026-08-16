@@ -6,21 +6,42 @@
 
 ## Tarea actual
 
-**WP-E3-05C completado** — Resuelven los hallazgos Medios restantes de la
-auditoría Sprint 11: M-7 `CaptureInputType.SHARE/GALLERY/TEST`, M-8 bundle
-LEGACY de reglas (`RuleEngine`, 6 reglas, `OfferValidator`, `ValidationResult`,
-`RuleContext`, `RuleThresholds`, `OfferRule` + tests), M-9 moneda duplicada
-`DEFAULT_CURRENCY` (eliminada, `defaultCurrency` pasa a parámetro obligatorio).
-Eliminados helpers/campos exclusivos del framework: `RuleEvaluation.resultFor`,
-`TripOffer.pickupDistanceKm`. Conservados metadatos de diagnóstico
-(`DetectionResult.origin/candidates/sourcePackage`, `OfferSnapshot.origin`).
-Verificación completa en verde (ktlintCheck, lintDebug, assembleDebug, tests).
-No se tocó documentación descriptiva (CHANGELOG/DECISIONS/CONTEXT) — diferida a
-WP posterior.
+**WP-E3-05D completado** — Resuelven los hallazgos de severidad Baja
+B-1…B-10 de la auditoría Sprint 11 (solo código confirmado muerto; se conservó
+todo lo que tiene uso real o de test):
 
-**Siguiente: WP-E3-05D** (Bajos: objetos/consts sin uso, `OverlayState.CAPTURING`,
-`DiscardReason.CAPTURE_FAILED`, `start()` no-op, `detect(timestampMillis)` sin
-uso, dependencias Gradle sin uso, KDoc legacy).
+- **B-1**: eliminados 4 objetos/consts muertos: `NoOpCaptureMetrics`,
+  `OfferCaptureCoordinator.NANOS_PER_MILLI`, `MediaProjectionService.TAG`,
+  string `capture_service_label`.
+- **B-2 (decidido: conservar)**: API solo-tests de `latestSnapshot/snapshots`,
+  `CaptureFrameCache.clear()`, `OfferPerformanceTracker.clear()`,
+  `SnapshotSource.FAKE`, `OfferHistoryDao.count()`, `descriptorForPackageName`,
+  `keywordsFor` — tienen consumidores de test, la auditoría permite conservarlas.
+- **B-3**: eliminado `OverlayState.CAPTURING` (el pipeline solo emite
+  DISABLED/WAITING/PROCESSING/ERROR); quitada su rama en `OverlayContent` y
+  ajustado `PipelineOverlayDataSourceTest`.
+- **B-4**: eliminado `DiscardReason.CAPTURE_FAILED`.
+- **B-5 (decidido: conservar)**: `PipelineOverlayDataSource.start()` no-op —
+  tiene llamadores funcionales (`OverlayService`/`OverlayViewModel`).
+- **B-6**: eliminado el parámetro sin uso `timestampMillis` de
+  `PlatformDetectionEngine.detect(texts, packageName, origin)`; actualizados
+  `DefaultCapturePipeline`, `OfferCaptureCoordinator`, `AccessibilityCaptureInput`
+  y los tests (`PlatformDetectionEngineTest`, `OfferParserOrchestratorTest`).
+- **B-7**: quitadas dependencias Gradle sin imports: en
+  `core:capture:android` `:domain` y `kotlinx.coroutines.android`; en
+  `feature:overlay` `:data`, `compose.material.icons`,
+  `compose.ui.tooling.preview` y `debugImplementation(compose.ui.tooling)`.
+- **B-8**: corregidos KDoc/log tags legacy (`CaptureAccessibilityService`,
+  `AccessibilityWindowObserver`, `MediaProjectionCaptureInput`, `PlatformModule`,
+  `PipelineOverlayDataSource`, `RuleResult` — pues el `[OfferRule]` referido se
+  eliminó en 05C) y `TAG = "ScreenCaptureProvider"` →
+  `"MediaProjectionCapture"`.
+- **B-9 (decidido: conservar)**: las 13 PNG de `core:capture` test-resources son
+  dataset documentado; solo `offer_uber_1.png` se referencia en código.
+- **B-10**: verificación de confirmación de flags vivos — sin hallazgo.
+
+**Siguiente: (pausa)** se entrega informe final para aprobación. No se inicia
+WP-E3-05E sin aprobación explícita.
 
 ## Antecedentes
 

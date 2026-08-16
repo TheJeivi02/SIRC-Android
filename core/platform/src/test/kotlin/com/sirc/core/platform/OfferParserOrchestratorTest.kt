@@ -17,7 +17,6 @@ class OfferParserOrchestratorTest {
         val result =
             PlatformDetectionEngine(registry).detect(
                 texts = texts,
-                timestampMillis = 1000L,
                 packageName = packageName,
             )
         return OfferParserOrchestrator(registry).parse(
@@ -139,7 +138,6 @@ class OfferParserOrchestratorTest {
         val result =
             PlatformDetectionEngine(registry).detect(
                 texts = texts,
-                timestampMillis = 1000L,
                 packageName = PACKAGE_UBER,
                 origin = CaptureInputType.OCR,
             )
@@ -165,7 +163,6 @@ class OfferParserOrchestratorTest {
         val result =
             PlatformDetectionEngine(registry).detect(
                 texts = texts,
-                timestampMillis = 1000L,
                 packageName = PACKAGE_UBER,
                 origin = CaptureInputType.OCR,
             )
@@ -187,8 +184,7 @@ class OfferParserOrchestratorTest {
         val result =
             PlatformDetectionEngine(registry).detect(
                 texts = texts,
-                timestampMillis = 1000L,
-                packageName = "com.desconocido.app",
+                packageName = PACKAGE_UBER,
                 origin = CaptureInputType.OCR,
             )
 

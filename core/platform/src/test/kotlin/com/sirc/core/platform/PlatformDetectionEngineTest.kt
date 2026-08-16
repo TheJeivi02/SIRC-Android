@@ -36,7 +36,6 @@ class PlatformDetectionEngineTest {
         val result =
             engine(uber, didi).detect(
                 texts = listOf("Aceptar"),
-                timestampMillis = 1000L,
                 packageName = "com.ubercab",
             )
 
@@ -51,7 +50,6 @@ class PlatformDetectionEngineTest {
         val result =
             engine(uber, didi).detect(
                 texts = listOf("Aceptar"),
-                timestampMillis = 1000L,
                 packageName = " COM.UberCab ",
             )
 
@@ -61,7 +59,7 @@ class PlatformDetectionEngineTest {
 
     @Test
     fun `sin packageName y un unico candidato por keywords resuelve KEYWORD_CANDIDATE`() {
-        val result = engine(uber, didi).detect(texts = listOf("Aceptar", "Rechazar"), timestampMillis = 1000L)
+        val result = engine(uber, didi).detect(texts = listOf("Aceptar", "Rechazar"))
 
         assertEquals(DetectionResolution.KEYWORD_CANDIDATE, result.resolution)
         assertEquals(RidePlatform.UBER, result.descriptor?.platform)
@@ -73,7 +71,7 @@ class PlatformDetectionEngineTest {
     fun `empate de candidatos por keywords resuelve AMBIGUOUS sin elegir`() {
         val sameA = descriptor(RidePlatform.UBER, listOf("aceptar", "rechazar"))
         val sameB = descriptor(RidePlatform.DIDI, listOf("aceptar", "rechazar"))
-        val result = engine(sameA, sameB).detect(texts = listOf("Aceptar", "Rechazar"), timestampMillis = 1000L)
+        val result = engine(sameA, sameB).detect(texts = listOf("Aceptar", "Rechazar"))
 
         assertEquals(DetectionResolution.AMBIGUOUS, result.resolution)
         assertNull(result.descriptor)
@@ -82,7 +80,7 @@ class PlatformDetectionEngineTest {
 
     @Test
     fun `sin candidatos resuelve NONE`() {
-        val result = engine(uber, didi).detect(texts = listOf("Hola mundo"), timestampMillis = 1000L)
+        val result = engine(uber, didi).detect(texts = listOf("Hola mundo"))
 
         assertEquals(DetectionResolution.NONE, result.resolution)
         assertNull(result.descriptor)
@@ -91,7 +89,7 @@ class PlatformDetectionEngineTest {
 
     @Test
     fun `textos vacios resuelven NONE`() {
-        val result = engine(uber).detect(texts = emptyList(), timestampMillis = 1000L)
+        val result = engine(uber).detect(texts = emptyList())
 
         assertEquals(DetectionResolution.NONE, result.resolution)
     }
@@ -101,7 +99,6 @@ class PlatformDetectionEngineTest {
         val result =
             engine(uber, didi).detect(
                 texts = listOf("Aceptar"),
-                timestampMillis = 1000L,
                 packageName = "com.ubercab",
                 origin = CaptureInputType.OCR,
             )

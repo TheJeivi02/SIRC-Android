@@ -46,10 +46,10 @@ import javax.inject.Singleton
  * en un [OverlayUiState] con la evaluación real de la oferta
  * ([EvaluateDetailedOfferUseCase]), su desglose de costos y la recomendación.
  *
- * A partir de WP-E1-02, `ProfitEngine` es el único motor de decisión;
- * `RuleEngine` dejó de participar en la ruta de producción y `ruleEvaluation`
- * se expone vacío para mantener la compatibilidad de la UI. La confianza se
- * calcula únicamente a partir de los datos de la oferta y las métricas.
+ * A partir de WP-E1-02, `ProfitEngine` es el único motor de decisión y
+ * `ruleEvaluation` se expone vacío para mantener la compatibilidad de la UI.
+ * La confianza se calcula únicamente a partir de los datos de la oferta y las
+ * métricas.
  *
  * También registra el historial (temporal + persistente), alimenta la sesión
  * de captura ([CaptureSessionManager]) y los tiempos por etapa (Debug).

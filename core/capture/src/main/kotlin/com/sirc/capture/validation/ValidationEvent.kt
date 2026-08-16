@@ -50,9 +50,6 @@ sealed interface ValidationEvent {
 
 /** Motivo por el que un frame capturado se descartó antes de parsear. */
 enum class DiscardReason {
-    /** La captura de pantalla devolvió null (fallo transitorio). */
-    CAPTURE_FAILED,
-
     /** Frame idéntico a uno ya procesado (deduplicación por caché). */
     DUPLICATE,
 
