@@ -16,8 +16,10 @@ Pilares innegociables (derivan de FUENTE 1 + FUENTE 2 + FUENTE 3):
 1. **Solo lectura, cero automatización.** Prohibido auto-clic, gestos,
    `performAction`, aceptar/rechazar por el conductor, contra-ofertas. La
    automatización es el mayor riesgo de baneo y viola la política de Play.
-2. **Decisión <3 s con mínima carga cognitiva.** Una mirada, color semáforo,
-   información derivada, sin duplicar lo que muestra la plataforma.
+2. **Decisión visible <1 s con mínima carga cognitiva** (objetivo UX/producto;
+   `<3 s` permanece como límite técnico/E2E histórico de validación). Una mirada,
+   color semáforo, información derivada, sin duplicar lo que muestra la
+   plataforma.
 3. **LOCAL-FIRST (procesamiento local, servicios remotos mínimos).**
    El procesamiento de ofertas (OCR, parsing, evaluación, overlay, historial)
    es **100 % local y nunca sube datos de pantalla**; identidad, suscripción,
@@ -29,7 +31,9 @@ Pilares innegociables (derivan de FUENTE 1 + FUENTE 2 + FUENTE 3):
 5. **Rendimiento y batería como seguridad vial** (jornadas de 12 h).
 6. **Aplicación de pago por suscripción** (nueva restricción formal). El APK se
    considera manipulable; la autorización de features premium se decide en
-   backend, no en el cliente (ver `docs/SECURITY_MODEL.md`).
+   backend, no en el cliente (ver `docs/SECURITY_MODEL.md`). Modelo comercial:
+   **descarga gratuita + cuenta + **trial Premium completo de 14 días** →
+   suscripción Weekly/Monthly/Annual** (D16.x, `SUBSCRIPTION_MODEL.md`).
 
 ### 1bis. LOCAL-FIRST vs "100 % local" (decisión del Roadmap Gate)
 
@@ -42,7 +46,8 @@ Tras el análisis de coherencia (seguridad × suscripción), **SIRC pasa de
 | **Servicios remotos mínimos** | Solo estado comercial/de cuenta | Autenticación, suscripción, entitlement, verificación de compra (Play), integridad (Play Integrity), RTDN, recuperación de cuenta | Sí, y es aceptado: es el coste del modelo de negocio. |
 
 Sin "100 % local" literal seguimos ganando el único "local" que importa para la
-privacidad y el <3 s: **los datos de pantalla no salen del dispositivo**.
+privacidad y el **<1 s** (objetivo UX): **los datos de pantalla no salen del
+dispositivo**.
 
 ### 1ter. Backend inicial: SUPABASE (decisión del LOOP Backend, 16-ago-2026)
 
@@ -98,7 +103,7 @@ recomendaciones de la FUENTE 2.
 
 | Diferenciador | Estado | Ventaja competitiva |
 |---|---|---|
-| Decisión <3 s + solo lectura simultáneos | Logrado | Ninguna app verificada combina ambos. |
+| Decisión <1 s + solo lectura simultáneos | Logrado | Ninguna app verificada combina ambos. |
 | 100 % local declarado y auditable | Logrado | Confianza y cero dependencia de red. |
 | Pipeline descriptor-driven multi-plataforma | Logrado (arq.) | Agregar plataforma = nuevo descriptor, no código. |
 | Compatibilidad Google Play proactiva (Policy-exempt accessibility) | Documentada | `GOOGLE_PLAY_COMPLIANCE.md`; base para narrativa de confianza. |
@@ -124,8 +129,9 @@ deja de estar antes del lanzamiento público (no queda en P3).
 
 ### P0 — Robustez y cumplimiento (antes de la beta; supervivencia)
 
-- Entregar la beta controlada del núcleo de producto: overlay <3 s, OCR,
-  estabilidad Android 10–15, plataformas soportadas en ALPHA.
+- Entregar la beta controlada del núcleo de producto: overlay <1 s (objetivo UX;
+  <3 s límite E2E), OCR, estabilidad Android 10–15, plataformas soportadas en
+  ALPHA.
 - Política de Play y anti-baneo intactos (solo lectura, sin clics).
 - `BETA_READINESS.md` §2 cumplida (checklist de entrada a beta).
 
@@ -136,25 +142,29 @@ deja de estar antes del lanzamiento público (no queda en P3).
    antes de producción (ver `docs/BACKEND_ARCHITECTURE.md`).
 2. **Entitlement server + Play Billing (suscripciones)** con verificación de
    token en servidor (**`purchases.subscriptionsv2.get`**) y RTDN (revocación en
-   tiempo real). Planes conceptuales en `docs/SUBSCRIPTION_MODEL.md` (**FREE →
-   PREMIUM**; sin precios finales ni límites del Free; `FREE_LIMITS = TBD`).
+   tiempo real). Planes conceptuales en `docs/SUBSCRIPTION_MODEL.md`
+   (**Trial 14 días → Weekly/Monthly/Annual**; USD como referencia de pricing,
+   sin precios finales; `FREE_LIMITS` eliminado).
 3. **Play Integrity (Standard)** como señal combinada (appRecognition +
    licensing + deviceIntegrity tiered) — **no como barrera de suscripción**.
 4. **Play Integrity + entitlement offline con TTL corto** (DOC `SECURITY_MODEL`).
 5. **Cierre de descriptores multi-plataforma** (DiDi, InDrive, Cabify) para el
    lanzamiento.
 
-> **Fase inicial vs monetización**: P1 prepara **entitlement y cuenta** (Free),
-> pero **no es la fase de cobro**. La monetización Premium es **progresiva**
-> (E3), sobre una base de usuarios validada. La estrategia de adquisición
-> (descarga gratuita + cuenta gratuita + plan Free) se detalla en §6bis.
+> **Fase inicial vs monetización**: P1 prepara **cuenta, trial (14 días
+> completos) y entitlement**, pero **no es solo una fase de cobro**: el trial
+> actúa como adquisición y validación. La monetización se activa tras el trial
+> (`POST_TRIAL = SUBSCRIPTION_REQUIRED`) con suscripción
+> Weekly/Monthly/Annual. La estrategia de adquisición se detalla en P1bis.
 
-### P1bis — Fase inicial de adquisición (FREE, conectada a E1a/Free y E1b)
+### P1bis — Fase inicial de adquisición (TRIAL, conectada a E1a/E1b)
 
-Estrategia: **descarga gratuita + cuenta gratuita + plan FREE + usuarios
-reales + feedback + telemetría mínima y privada + corrección de errores +
-mejora del producto** → madurez → **monetización progresiva**. No forzar pago
-prematuro. Detalle en `docs/SUBSCRIPTION_MODEL.md` §1.
+Estrategia: **descarga gratuita + cuenta gratuita + trial Premium completo de
+14 días + usuarios reales + feedback + telemetría mínima y privada + corrección
+de errores + mejora del producto** → validación → **monetización por
+suscripción tras el trial**. Comunicación que favorece el crecimiento orgánico y
+boca a boca, sin técnicas engañosas ni spam. Detalle en
+`docs/SUBSCRIPTION_MODEL.md` §1.
 
 ### P2 — Diferenciación de ciclo medio (después del lanzamiento)
 
@@ -179,7 +189,7 @@ arquitectura (dependencias hacia adentro; `:domain`, `:core:platform`,
 ```
 ┌─────────────── app / feature-ui ───────────────┐
 │  onboarding · settings · history/dashboard     │
-│  overlay (decisión <3s) · [anti-fatiga]        │
+│  overlay (decisión <1 s, UX; <3 s E2E) · [anti-fatiga]        │
 └──────┬──────────────────────────────────────────┘
        ▼
 ┌─────────────── feature:overlay (orquestación) ─┐
@@ -206,21 +216,21 @@ Bloques futuros (marcados con [ ]) se incorporan como nuevos contratos en
 separación actual. Play Integrity y el ahorro SOC-aware se modelarán detrás de
 interfaces de dominio para mantener los módulos puras testeables.
 
-## 6. Roadmap por etapas (cruzando las 3 fuentes + Roadmap Gate + Modelo Free)
+## 6. Roadmap por etapas (cruzando las 3 fuentes + Roadmap Gate + Modelo Comercial)
 
-> Revisado por el gate de coherencia (16-ago-2026) y por el LOOP Modelo Free
-> (16-ago-2026): E1 se divide en E1a/E1b; la descarga gratuita + cuenta + plan
-> Free alimentan la adquisición ANTES de monetizar. Detalle completo en
+> Revisado por el gate de coherencia (16-ago-2026), por el LOOP Modelo Free
+> (16-ago-2026) y **por el LOOP Modelo Comercial Trial→Suscripción**
+> (16-ago-2026): la descarga gratuita + cuenta + **trial 14 días completo**
+> alimentan la adquisición ANTES de la suscripción. Detalle en
 > `docs/ROADMAP.md`, `docs/BETA_READINESS.md` y `docs/SUBSCRIPTION_MODEL.md`.
 
 | Etapa | Alcance | Fuentes que la justifican |
 |---|---|---|
 | **E0 — Cierre técnico (completado, Sprint 11)** | Remediación, auditoría, RC1 verde. | FUENTE 1 (estado real). |
-| **E1a — Beta controlada (núcleo de producto)** | Beta cerrada sin monetización: overlay <3 s en campo, OCR, estabilidad, Play track; **Sprint 12**. | FUENTE 1 (RC1 listo); gate: validar producto antes de monetizar. |
-| **FREE / BETA ABIERTA (adquisición)** | **Descarga gratuita + cuenta gratuita + plan FREE**; usuarios reales, feedback, telemetría mínima y privada, corrección de errores; crecimiento inicial. **Antes de endurecer la monetización.** | LOOP Modelo Free (D15.x): adquisición primero, monetización después. |
-| **E1b — Integración comercial (cuenta/entitlement)** | Backend Supabase (Auth/RLS/Edge Functions) + entitlement server + Play Integrity (Standard) + RTDN + cuenta SIRC. Suscripción Premium aún no como barrera de adquisición. | FUENTE 2 Hito 1; `SECURITY_MODEL.md` (T1–T20); `BACKEND_ARCHITECTURE.md`. |
+| **E1a — Beta controlada (núcleo de producto)** | Beta cerrada sin monetización: overlay <3 s (límite E2E; objetivo UX <1 s) en campo, OCR, estabilidad, Play track; **Sprint 12**. | FUENTE 1 (RC1 listo); gate: validar producto antes de monetizar. |
+| **E1b — Integración comercial (cuenta + trial + suscripción)** | Backend Supabase (Auth/RLS/Edge Functions) + **trial 14 días** + entitlement server + Play Billing (Weekly/Monthly/Annual) + Play Integrity (Standard) + RTDN + cuenta SIRC. `POST_TRIAL = SUBSCRIPTION_REQUIRED`. | FUENTE 2 Hito 1; `SECURITY_MODEL.md` (T1–T20); `BACKEND_ARCHITECTURE.md`; LOOP Modelo Comercial (D16.x). |
 | **E2 — Crecimiento multi-plataforma** | Descriptores DiDi/InDrive/Cabify en producción + modo nocturno + umbrales dinámicos. | FUENTE 3 (multi-app); FUENTE 2 §5.1. |
-| **E3 — Diferenciación + monetización progresiva** | Dashboard AHU/tendencias + ahorro energía SOC-aware + modo anti-fatiga + **planes Premium (progresivos) sobre la base validada**. | FUENTE 2 §5.2 y §4.2; FUENTE 3; LOOP Modelo Free. |
+| **E3 — Diferenciación + funciones Premium avanzadas** | Dashboard AHU/tendencias + ahorro energía SOC-aware + modo anti-fatiga + planes Premium avanzados sobre la base validada. | FUENTE 2 §5.2 y §4.2; FUENTE 3; LOOP Modelo Comercial. |
 | **E4 — Expansión** | Ecosistema Lite/Pro + Android 16 + mercado LATAM más amplio. | FUENTE 2 §3.2 y §6.2. |
 
 ## 7. Decisión del próximo Sprint (justificada por las 3 fuentes + gate)
@@ -232,18 +242,21 @@ Justificación del gate (detalle en `docs/BETA_READINESS.md` §4 y
 `docs/SECURITY_MODEL.md` §12):
 
 - **A. ¿Es el siguiente?** Sí: el RC1 permite validar en campo. Pero se
-  **refina**: Play Integrity/Billing/backend pasan a **E1b**, construidos con
-  los datos reales de la beta y sin riesgo de monetizar un producto no validado.
+  **refina**: Play Integrity/Billing/backend/trial pasan a **E1b**, construidos
+  con los datos reales de la beta y sin riesgo de monetizar un producto no
+  validado.
 - **B. Antes de la beta**: E0 ✅ + checklist `BETA_READINESS.md` §2 + Play
   Console internal/closed track + métricas locales.
 - **C. En Sprint 12**: instrumentación de beta (métricas de decisión local,
   encuesta, reporte de bugs), pulido de UX de errores, primeros ajustes de
   estabilidad.
-- **D. Después (E1b/E3)**: entitlement, backend, Billing, RTDN, Play Integrity
-  enforcement, anti-fatiga, AHU.
-- **E. Pruebas obligatorias**: overlay <3 s cronometrado en ruta, OCR en ≥3
-  dispositivos (Android 10–15), jornada ≥8 h sin crash, cada plataforma en ≥1
-  dispositivo real, revocación de MediaProjection sin crash.
+- **D. Después (E1b/E2/E3)**: cuenta, trial 14 días, entitlement, backend,
+  Billing Weekly/Monthly/Annual, RTDN, Play Integrity enforcement, anti-fatiga,
+  AHU.
+- **E. Pruebas obligatorias**: overlay <1 s (objetivo UX; verificado) y <3 s
+  (límite E2E) cronometrado en ruta, OCR en ≥3 dispositivos (Android 10–15),
+  jornada ≥8 h sin crash, cada plataforma en ≥1 dispositivo real, revocación de
+  MediaProjection sin crash.
 
 > NOTA: es una **decisión de planificación** registrada en `docs/ROADMAP.md`,
 > `docs/BETA_READINESS.md` y `TASK.md`. No se implementa código hasta que la

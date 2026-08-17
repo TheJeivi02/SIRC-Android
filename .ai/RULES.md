@@ -23,8 +23,9 @@
 ## Producto
 
 5. **El Overlay es la prioridad absoluta.** Cualquier cambio que pueda degradar
-   la velocidad de decisión (<3 s), la estabilidad del overlay o su
-   compatibilidad con Google Play se considera bloqueante.
+   la velocidad de decisión (objetivo UX **<1 s**; límite técnico/E2E <3 s), la
+   estabilidad del overlay o su compatibilidad con Google Play se considera
+   bloqueante.
 6. **Mantener bajo consumo de batería.** Traversals limitados, deduplicación de
    frames, un único `ComposeView`, sin trabajo innecesario en el servicio de
    accesibilidad.
@@ -78,11 +79,31 @@
     credenciales ni crear cuentas en nombre del usuario**, ni continuar como si
     el backend existiera. El dev local y los tests permanecen en verde sin
     backend (§2.6).
-9j. **Modelo Free (D15.1–D15.3):** la fase inicial es descarga gratuita +
-    cuenta gratuita + plan FREE (server-side, revocable); NO se implementa aún;
-    `FREE_LIMITS = TBD` — **no inventar límites del Free** (fijarlos requiere
-    decisión explícita). El Free NO relaja seguridad: entitlement FREE se
-    adjudica server-side igual que PREMIUM.
+9j. **Modelo comercial TRIAL → SUSCRIPCIÓN (D16.1–D16.3):** la fase inicial es
+    descarga gratuita + cuenta gratuita + **trial Premium completo de 14 días**
+    (`FREE_TRIAL = 14 DAYS`, `TRIAL_ACCESS = FULL_PREMIUM`, `POST_TRIAL =
+    SUBSCRIPTION_REQUIRED`). **No existe Free Premium permanente.** Tras el
+    trial/suscripción expirada las funcionalidades Premium se desactivan
+    (paywall local, sin espera de red). `FREE_LIMITS` quedó **eliminado**.
+9k. **Precios (D16.4–D16.5):** SIRC usa **USD como referencia de pricing**;
+    **Google Play determina el precio final regional** (autoridad comercial;
+    sin conversión manual, sin reloj local). Tres periodicidades:
+    **Weekly/Monthly/Annual** (anual con ahorro claro). **NO fijar precios
+    definitivos sin decisión explícita** (matriz §5bis de
+    `SUBSCRIPTION_MODEL.md`); el precio podrá evolucionar conforme aumente el
+    valor del producto, con política de grandfathering a definir antes del
+    billing.
+9l. **Entitlement y velocidad (D16.6/§8):** el entitlement es
+    **server-authoritative**; no se determina únicamente de forma local (caché
+    firmado con TTL offline). **NO introducir backend en el camino crítico de
+    decisión** (guardahead: no `OCR → backend → esperar → overlay`). Objetivo UX
+    de decisión: **<1 s** (el `<3 s` es límite técnico/E2E).
+9m. **Trial anti-abuso (D16.2/§13):** el trial de 14 días se asocia a la cuenta
+    y se controla server-side (`trial_start`/`trial_end`/`trial_status`); no
+    confiar en fecha/almacenamiento local ni instalación; contemplar
+    reinstalación, borrado de datos, cambio de dispositivo, múltiples cuentas y
+    reloj manipulado sin bloquear usuarios legítimos
+    (`SECURITY_MODEL.md` §6.1bis).
 
 ## Colaboración multi-agente
 

@@ -51,7 +51,8 @@ CAPTURA → OCR → DETECCIÓN → PARSING → RENTABILIDAD → RECOMENDACIÓN �
 ```
 
 **Prohibido diseñar** `CAPTURA → INTERNET → SUPABASE → EVALUACIÓN → OVERLAY`
-porque degradaría velocidad (<3 s), disponibilidad (sin red), batería
+porque degradaría velocidad (objetivo UX de decisión **<1 s**; `<3 s` es el
+límite técnico/E2E), disponibilidad (sin red), batería
 (websockets/cifrado), privacidad (fuga de pantalla) y resiliencia.
 
 Lo que **sí** pasa por Supabase (solo datos de cuenta/comercial):
@@ -126,12 +127,27 @@ clave se documenta; (3) auditoría de quién accede a secretos server-only
   proyecto, credenciales ni red**.
 - El backend se aísla detrás de contratos `:domain` (`AuthRepository`,
   `EntitlementRepository`); en ausencia de backend real se usa una
-  implementación _no-op/local_ (dev) que devuelve `entitlement = FREE` local
+  implementación _no-op/local_ (dev) que devuelve `state = TRIAL_ACTIVE` local
   (solo dev/test; en producción el valor lo da el servidor).
 - **Account Gate**: insertar credenciales/URL **solo si el usuario las aporta**
   (§0); no se bloquea el dev local ni los tests por no existir Supabase.
 - Las pruebas de `:domain`/`:core:*`/`:feature:overlay` siguen en verde sin
   backend (dependencias hacia adentro; Kotlin puro).
+
+### 2.7 Trial anti-abuso (backend)
+
+El trial de 14 días se controla **en backend**, nunca en el cliente
+(`SECURITY_MODEL.md` §6.1bis, `SUBSCRIPTION_MODEL.md` §1.3):
+
+- Fuente de verdad: tabla `trial` por `user_id` (`trial_start`/`trial_end`/
+  `status`), adjudicada en el alta de cuenta.
+- Reinstalación / borrado de datos / cambio de dispositivo: el trial persiste en
+  la cuenta (`auth.uid()`), no en el dispositivo.
+- Múltiples cuentas / abuso: mitigado por control de dispositivos/sesiones
+  (`devices`/`sessions`, rate limiting, RLS) y políticas de abuso en Edge
+  Function; sin bloquear usuarios legítimos (UX equilibrada).
+- Reloj manipulado: el trial se compara contra `serverUtc`/`trial_end` del
+  backend, nunca contra el reloj local como autoridad.
 
 ## 3. Modelo de datos conceptual (entidades)
 
@@ -140,9 +156,10 @@ clave se documenta; (3) auditoría de quién accede a secretos server-only
 ```
 users (Auth gestionado por Supabase Auth)
 profiles ──1:1── users
-plans ────────── groups of entitlements
+plans ────────── groups of entitlements (trial/weekly/monthly/annual)
+trial ────────── 1:1 users · control anti-abuso (server-side)
 subscriptions ── N:1 users · 1:1 plans · purchase lifecycle
-entitlements ─── 1:1 user+plan · N active · revocable · TTL
+entitlements ─── 1:1 user+plan · N active · revocable · TTL · state conceptual
 devices ──────── N:1 users · install/session binding
 sessions ─────── N:1 devices · tokens · rotations
 ```
@@ -160,8 +177,8 @@ SIRC ACCOUNT (identidad) → PROFILE (preferencias) → SUBCRIPCIÓN/ENTITLEMENT
   solo referencias de sesión seguras.
 - **Profile**: display_name, moneda preferida (opcional); config del conductor
   permanece local.
-- **Subscription/Entitlement**: estado derivado por el backend; `tier =
-  FREE/PREMIUM`.
+- **Subscription/Entitlement**: estado derivado por el backend; `state` =
+  `TRIAL_ACTIVE`/`PREMIUM_ACTIVE`/etc.
 - **Local entitlement cache**: reflejo firmado con TTL (§7) que alimenta el
   gate offline; nunca es autoridad.
 
@@ -180,17 +197,29 @@ premium; ante duda/expiración → bloquear y revalidar online.
 - Estado: 1 fila por usuario (auto-creada en sign-in). No guardar config del conductor (eso es local).
 
 ### plans
-- Nuestro esquema. Catálogo de planes (conceptualmente **FREE → PREMIUM**;
-  niveles extra TBD — ver `SUBSCRIPTION_MODEL.md` §2).
-- Campos: `id`, `code` (único, ej. `sirc_free`, `sirc_pro_monthly`,
-  `sirc_pro_yearly`), `name`, `base_plan_id_play` (código del BasePlan de Play,
-  nullable para FREE), `offer_id_play` (nullable), `entitlements` (JSON de
-  features), `active`.
+- Nuestro esquema. Catálogo de planes (conceptualmente **Trial 14 días →
+  suscripción Weekly/Monthly/Annual**; ver `SUBSCRIPTION_MODEL.md` §2).
+- Campos: `id`, `code` (único, ej. `sirc_weekly`, `sirc_monthly`,
+  `sirc_annual`, `sirc_trial`), `name`, `base_plan_id_play` (código del BasePlan
+  de Play; `sirc_trial` es un estado de cuenta conceptual, no un plan de Play
+  facturable), `offer_id_play` (nullable), `entitlements` (JSON de features),
+  `active`.
 - Propietario: SIRC (administración). RLS: lectura pública (catálogo), escritura
   solo admin (service role).
-- **FREE no requiere compra**: el `entitlement = FREE` se adjudica en el alta de
-  cuenta (0€), con `server_issued_at`/`server_expires_at` y revocación posible por
-  servidor. No relaja la seguridad (`SECURITY_MODEL.md` §seguridad del Free).
+- **Trial (14 días)**: NO requiere compra; el backend adjudica el estado
+  `TRIAL_ACTIVE` en el alta/momento de la cuenta (`trial_start`/`trial_end`/
+  `trial_status`), con `server_issued_at`/`server_expires_at` y revocación/
+  bloqueo por servidor (anti-abuso §2.7). No relaja la seguridad
+  (`SECURITY_MODEL.md` §6.1bis).
+
+### trial (control anti-abuso)
+- Nuestro esquema. `user_id` (único), `trial_start`, `trial_end`, `status`
+  (`ACTIVE`/`EXPIRED`/`RESTRICTED`), `source` (`account`/`play_offer` nullable),
+  `revoked_at` nullable.
+- Propietario: Edge Function / backend (adjudicación en alta de cuenta).
+- **El trial es server-side**: NO se confía en fecha local, almacenamiento local
+  ni instalación (reinstalación/borrado de datos/cambio de dispositivo/múltiples
+  cuentas/reloj manipulado se controlan contra `auth.uid()` y sesiones).
 
 ### subscriptions
 - Nuestro esquema. Estado operativo por compra.
@@ -200,13 +229,16 @@ premium; ante duda/expiración → bloquear y revalidar online.
 
 ### entitlements
 - Nuestro esquema. `user_id`, `plan_id`, `status` (ACTIVE/SUSPENDED/GRACE),
-  `tier` (`FREE`/`PREMIUM`), `server_issued_at`, `server_expires_at` (TTL),
-  `cache_signature_server` (firma HMAC del estado), `revoked_at` nullable.
+  `tier` (`TRIAL`/`PREMIUM`), `state` (uno de los estados conceptuales
+  `TRIAL_ACTIVE`/`TRIAL_EXPIRED`/`PREMIUM_ACTIVE`/`SUBSCRIPTION_EXPIRED`/
+  `ACCOUNT_RESTRICTED`/`ACCOUNT_UNKNOWN`), `server_issued_at`,
+  `server_expires_at` (TTL), `cache_signature_server` (firma HMAC del estado),
+  `revoked_at` nullable.
 - Propietario: Edge Function. El cliente **jamás** escribe entitlements.
 - RLS: `user_id = auth.uid()` para cache server-leído; escritura solo service role.
-- `tier = FREE` se adjudica en sign-up (0€); `tier = PREMIUM` por suscripción
-  verificada (`subscriptionsv2.get`). El estado del Free es revocable por
-  servidor igual que el premium.
+- `state = TRIAL_ACTIVE` se adjudica server-side en el alta de cuenta (14 días,
+  `trial` tabla); `state = PREMIUM_ACTIVE` por suscripción verificada
+  (`subscriptionsv2.get`). Todo estado es revocable/bloqueable por servidor.
 
 ### devices
 - `id uuid`, `user_id`, `install_id` (cifrado local, referencial para el servidor), `platform` (android), `app_version`, `integrity_last_verdict` (nullable, resumen), `is_revoked`.

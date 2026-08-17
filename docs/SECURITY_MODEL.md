@@ -1,12 +1,13 @@
-# SIRC — Modelo de Seguridad (v2)
+# SIRC — Modelo de Seguridad (v3)
 
 > Documento formal de seguridad, suscripción y modelo de confianza de SIRC.
 > Resultado del **Roadmap Gate** (LOOP de consistencia: estrategia competitiva +
 > informe ejecutivo + arquitectura + roadmap + modelo comercial de suscripción +
 > seguridad) y **ampliado por el LOOP Backend Supabase** (16-ago-2026: T15–T20,
-> API de Play v2 - `subscriptionsv2`, backend basado en Supabase) y **por el
-> LOOP Modelo Free** (16-ago-2026: entitlement `FREE`/`PREMIUM`, seguridad del
-> Free, regla D15.3).
+> API de Play v2 - `subscriptionsv2`, backend basado en Supabase), por el
+> **LOOP Modelo Free** (16-ago-2026) y **revisado por el LOOP Modelo Comercial
+> TRIAL → SUSCRIPCIÓN** (16-ago-2026: entitlement `TRIAL_ACTIVE`/`PREMIUM_ACTIVE`
+> etc., seguridad del trial, anti-abuso §6.1bis, modelo de suscripción).
 > **No implementa nada**: define la arquitectura objetivo y las
 > mitigaciones para el futuro.
 >
@@ -277,29 +278,33 @@ Detalles técnicos del flujo:
 - La app funciona sin backend para el pipeline: el backend solo gana en
   verificaciones de cuenta/suscripción.
 
-### 5.5 Seguridad del Free (D15.3)
+### 5.5 Seguridad del modelo Trial → Suscripción (D15.3/D16)
 
-El modelo **SIRC FREE** (descarga gratuita + cuenta gratuita) **no relaja el
-modelo de seguridad**:
+El modelo **TRIAL 14 días completo → suscripción Weekly/Monthly/Annual**
+(descarga gratuita + cuenta gratuita) **no relaja el modelo de seguridad**:
 
-- El Free es `entitlement = FREE` adjudicado **server-side**; el límite del Free
-  (`FREE_LIMITS = TBD`) se decide server-side, no por ocultar botones en el APK.
+- El trial (`TRIAL_ACTIVE`) se adjudica **server-side** por cuenta; su duración
+  (14 días) se decide en el backend, no por ocultar funciones en el APK.
 - Manipular/clonar el APK para "desbloquear" features premium **no produce
   premium indefinido**: el gate consulta `EntitlementRepository` (online o caché
-  firmado con TTL); el backend conserva revocación y gestión por cuenta.
+  firmado con TTL); el backend conserva revocación, bloqueo (`ACCOUNT_RESTRICTED`)
+  y gestión por cuenta.
+- `POST_TRIAL = SUBSCRIPTION_REQUIRED`: tras el trial o expiración de la
+  suscripción, el estado pasa a `TRIAL_EXPIRED`/`SUBSCRIPTION_EXPIRED` y el
+  acceso premium se interrumpe (paywall local sin espera de red).
 - La clave de firma del caché y los secretos server-only **nunca** viven en el
   APK (`BACKEND_ARCHITECTURE.md` §2.5).
-- T15–T20 (APK modificado/repackaged) aplican igualmente a la fase Free:
-  Integridad, RLS, RTDN y TTL son las mismas barreras.
+- T15–T20 (APK modificado/repackaged) aplican igualmente al trial y la
+  suscripción: Integridad, RLS, RTDN y TTL son las mismas barreras.
 
 ## 6. Suscripción offline (crítico para SIRC)
 
 ### 6.1 Preguntas y respuestas
 
 - **¿Debe funcionar SIRC completamente offline?** El **núcleo de captura sí** y
-  sin backend (privacidad). La **suscripción premium** requiere conectividad
-  periódica (ver TTL). El **entitlement FREE** también se cachea con el mismo
-  TTL y se revalida online: el estado local nunca es autoridad sobre el tier.
+  sin backend (privacidad). La **suscripción premium y el trial** requieren
+  conectividad periódica (ver TTL) para mantener/cachear el estado; el estado
+  local nunca es autoridad sobre Premium.
 - **¿Cuánto puede funcionar sin renovar entitlement?** Definimos un **TTL
   máximo de 24–72 h** (a configurar, decisión S2) para el caché de entitlement.
 - **¿Cómo se protege el periodo offline?** El caché está cifrado y **firmado por
@@ -314,7 +319,24 @@ modelo de seguridad**:
 - **¿Cómo evitar un entitlement cacheado indefinido?** TTL + refresh (al
   conectarse), + invalidación por RTDN, + firma server HMAC (caduca).
 
-### 6.2 Alternativas evaluadas
+### 6.1bis Trial anti-abuso (14 días, D16.2)
+
+El trial es un **vector de abuso** si se controla solo en el cliente. Reglas
+(`BACKEND_ARCHITECTURE.md` §2.7, `SUBSCRIPTION_MODEL.md` §1.3):
+
+- Fuente de verdad del trial: **backend por cuenta** (`trial_start`/
+  `trial_end`/`trial_status` en tabla `trial`), adjudicada en el alta de cuenta.
+- **Reinstalación / borrado de datos / cambio de dispositivo**: el trial persiste
+  en la cuenta (`auth.uid()`); borrar el almacenamiento local no lo reinicia.
+- **Múltiples cuentas**: mitigado por control de dispositivos/sesiones, rate
+  limiting y políticas de abuso en Edge Function; sin bloquear usuarios
+  legítimos (UX equilibrada).
+- **Reloj manipulado**: `trial_end` se compara contra tiempo del servidor
+  (`serverUtc`), nunca contra el reloj local como autoridad.
+- **No confiar en**: identificadores locales fácilmente fabricables, `install_id`
+  aislado, fecha del sistema.
+
+## 6.2 Alternativas evaluadas
 
 | Estrategia | Pros | Contras | Veredicto para SIRC |
 |---|---|---|---|

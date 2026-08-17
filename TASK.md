@@ -6,6 +6,56 @@
 
 ## Tarea actual
 
+**LOOP ENGINEERING — MODELO COMERCIAL: TRIAL 14 DÍAS + SUSCRIPCIÓN
+WEEKLY/MONTHLY/ANNUAL + PRECIOS INTERNACIONALES (16-ago-2026). Solo
+documentación; sin código.**
+Se definió el modelo comercial definitivo (descarga gratuita + cuenta + trial
+Premium completo de 14 días → suscripción), reemplazando el modelo FREE anterior.
+
+Decisiones registradas (ver `.ai/DECISIONS.md` D16.1–D16.6):
+
+- **D16.1 — Modelo comercial Trial → Premium**: `FREE_TRIAL = 14 DAYS`,
+  `TRIAL_ACCESS = FULL_PREMIUM`, `POST_TRIAL = SUBSCRIPTION_REQUIRED`; **sin
+  Free Premium permanente** (`FREE_LIMITS` eliminado; D15.1/D15.2 superadas).
+- **D16.2 — Trial Premium completo de 14 días** (adquisición + validación),
+  controlado server-side con anti-abuso (reinstalación/borrado/cambio de
+  dispositivo/múltiples cuentas/reloj manipulado).
+- **D16.3 — Suscripciones Weekly / Monthly / Annual** (anual con ahorro claro;
+  descuentos concretos por decisión posterior).
+- **D16.4 — USD como referencia de pricing + regionalización por Google Play**
+  (sin conversión manual, sin reloj local; Play = autoridad comercial).
+- **D16.5 — Pricing evolutivo ligado al valor agregado + grandfathering**
+  (no fijar precios aún; matriz de decisión §5bis).
+- **D16.6 — Cuenta obligatoria** para controlar trial y entitlement.
+
+Entregables:
+
+- **`docs/SUBSCRIPTION_MODEL.md`** — §1 modelo definitivo Trial→Suscripción,
+  §2 planes Weekly/Monthly/Annual, §2ter moneda USD + regionalización, §3
+  entitlement por estados (`TRIAL_ACTIVE`…`ACCOUNT_UNKNOWN`), §5bis pricing
+  evolutivo + matriz de decisión.
+- **`docs/BACKEND_ARCHITECTURE.md`** — planes `sirc_weekly/monthly/annual`,
+  tabla `trial` (anti-abuso §2.7), entitlement con `state` conceptual, cuenta.
+- **`docs/SECURITY_MODEL.md`** — §5.5 seguridad Trial→Suscripción, §6.1bis
+  trial anti-abuso, estados y offline; v3.
+- **`docs/PRODUCT_STRATEGY.md`** — pilar <1 s (UX), P1/P1bis trial, roadmap
+  con E1b (cuenta+trial+suscripción) sin etapa FREE.
+- **`docs/PRODUCT_COMPETITIVE_ANALYSIS.md`** — DecideRider (CLP $3.490/mes,
+  trial ~14 días) verificado; Ruta Rentable (trial ~3 días, precio no
+  publicado); formato `VERIFIED`/`SOURCE`; §5 precios y trials.
+- **`docs/ROADMAP.md`**, **`docs/PROJECT.md`**, **`docs/ARCHITECTURE.md`** —
+  objetivo <1 s (UX) / <3 s (E2E), E1b con trial y suscripción, sin etapa FREE.
+- **`.ai/RULES.md`** — reglas 9j (trial→suscripción), 9k (precios USD/Play),
+  9l (entitlement + <1 s), 9m (trial anti-abuso). `.ai/CONTEXT.md` y
+  `.ai/DECISIONS.md` (D16.1–D16.6) actualizados.
+
+**Siguiente: (en curso)** verificar `git status`, commit (solo docs) + push y
+entregar reporte final del LOOP (A–R). No implementar cuenta/trial/backend/
+Billing/paywall/UI (regla R16/9f/9i/9j). No iniciar el siguiente Sprint sin
+autorización.
+
+## Tarea anterior
+
 **LOOP ENGINEERING — MODELO FREE + SUPABASE ACCOUNT GATE (16-ago-2026). Solo
 documentación; sin código.**
 Se definió el modelo de adquisición inicial (descarga gratuita + cuenta + plan

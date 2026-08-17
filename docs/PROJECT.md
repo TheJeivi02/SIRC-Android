@@ -7,8 +7,8 @@
 
 **SIRC (Sistema Inteligente de Rentabilidad para Conductores)** es una aplicación
 Android nativa para que conductores de plataformas de movilidad (Uber, DiDi,
-Cabify, InDrive) decidan en **menos de 3 segundos** si una oferta de viaje es
-rentable.
+Cabify, InDrive) decidan **en menos de 1 segundo** si una oferta de viaje es
+rentable (objetivo UX; `<3 s` es el límite técnico/E2E histórico de validación).
 
 La app lee —sin interactuar— el contenido visible de la plataforma mediante un
 **Accessibility Service de solo lectura**, detecta la oferta en pantalla y
@@ -33,7 +33,9 @@ Configuración y persistencia local de un historial básico.
   overlay) es **100 % local** y ninguna oferta/dato de pantalla sale del
   dispositivo. Como app de pago por suscripción (ver `SECURITY_MODEL.md`),
   identidad, suscripción, entitlement e integridad usarán servicios remotos
-  mínimos — aún no implementados (E1b); nunca contenido de pantalla.
+  mínimos — aún no implementados (E1b); nunca contenido de pantalla. Modelo
+  comercial: **descarga gratuita + cuenta + trial Premium completo de 14 días →
+  suscripción Weekly/Monthly/Annual** (ver `SUBSCRIPTION_MODEL.md`).
 - **Multi-plataforma desacoplada.** Uber, DiDi, Cabify e InDrive se tratan como
   plataformas desacopladas con extractores por palabras clave, sin depender de
   APIs públicas inexistentes.

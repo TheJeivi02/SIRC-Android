@@ -8,8 +8,8 @@
 
 **SIRC (Sistema Inteligente de Rentabilidad para Conductores)** es una app
 Android nativa (Kotlin, Jetpack Compose, Material 3) que ayuda a conductores de
-Uber, DiDi, Cabify e InDrive a decidir en **<3 segundos** si una oferta de viaje
-es rentable.
+Uber, DiDi, Cabify e InDrive a decidir en **<1 segundo** si una oferta de viaje
+es rentable (objetivo UX; `<3 s` es el límite técnico/E2E histórico).
 
 > **Modelo de negocio y localidad (Roadmap Gate, 16-ago-2026)**:
 > SIRC pasa a ser **aplicación de pago por suscripción** y el modelo de
@@ -51,6 +51,22 @@ es rentable.
 > > > - **Secretos**: client-safe (URL + publishable key) en el APK;
 > > >   server-only (service_role, service account Play, claves privadas, keystore)
 > > >   jamás en git/GitHub/APK/chat (D15.5, §2.5).
+> > >
+> > > > **LOOP Modelo Comercial TRIAL → SUSCRIPCIÓN (16-ago-2026)** — decisiones
+> > > > **D16.1–D16.6**, reglas **9j–9m**; detalle en `docs/SUBSCRIPTION_MODEL.md`
+> > > > §1–§5bis y `docs/PRODUCT_COMPETITIVE_ANALYSIS.md` §5:
+> > > > - **Modelo definitivo**: descarga gratuita + **cuenta gratuita** + **TRIAL
+> > > >   Premium completo 14 días** → **suscripción Weekly/Monthly/Annual**
+> > > >   (`FREE_TRIAL = 14 DAYS`, `TRIAL_ACCESS = FULL_PREMIUM`,
+> > > >   `POST_TRIAL = SUBSCRIPTION_REQUIRED`). **No hay Free Premium
+> > > >   permanente**; `FREE_LIMITS` **eliminado** (D15.1/D15.2 superadas).
+> > > > - **Precios**: USD referencia; **Google Play regionaliza** (autoridad
+> > > >   comercial; sin conversión manual/reloj local). Definitivos NO fijados
+> > > >   (matriz §5bis); pricing evolutivo + grandfathering (D16.5, regla 9k).
+> > > > - **Entitlement**: `TRIAL_ACTIVE`/`TRIAL_EXPIRED`/`PREMIUM_ACTIVE`/
+> > > >   `SUBSCRIPTION_EXPIRED`/`ACCOUNT_RESTRICTED`/`ACCOUNT_UNKNOWN`;
+> > > >   server-side; **trial anti-abuso** (§6.1bis). Objetivo UX: **<1 s**
+> > > >   (`<3 s` límite E2E); paywall local sin espera de red.
 
 **Cómo funciona (flujo real):**
 
@@ -224,34 +240,38 @@ Service **nunca** interactúa con otras apps.
 
 - **Ruta de producto consolidada**: `docs/PRODUCT_STRATEGY.md` (diferenciación
   ADOPTAR/MEJORAR/EVITAR/DIFERENCIAR, prioridades P0–P3, arquitectura futura,
-  etapas E0–E4 con **E1a/E1b** + **FREE/BETA ABIERTA** entre ambas). **Sprint 12
+  etapas E0–E4 con **E1a/E1b**). **Sprint 12
   = E1a: beta cerrada de validación del núcleo SIN monetización** (planificado,
-  sin implementar); backend de cuenta + entitlement + Play Integrity + RTDN
-  quedan en **E1b** (posterior, sobre datos de la beta).
+  sin implementar); cuenta + trial 14 días + backend de cuenta + entitlement +
+  Play Integrity + RTDN quedan en **E1b** (posterior, sobre datos de la beta).
 - **Backend**: **Supabase** (Auth + RLS + Edge Functions + Postgres) para
   identidad/suscripción/entitlement — `docs/BACKEND_ARCHITECTURE.md`. Nada de
   ofertas/pantallas se sube. Plan **Pro** en producción. **ACCOUNT GATE**: si se
   necesitan credenciales reales → detenerse y pedir configuración al usuario
-  (reglas 9i/9j).
-- **Modelo inicial (D15)**: **descarga gratuita + cuenta gratuita + plan FREE**
-  (entitlement `FREE` server-side, 0 €); monetización Premium **progresiva (E3)**.
-  `FREE_LIMITS = TBD` (no inventar). — `docs/SUBSCRIPTION_MODEL.md`.
+  (reglas 9i).
+- **Modelo comercial (D16, vigente)**: **descarga gratuita + cuenta gratuita +
+  TRIAL Premium completo de 14 días → suscripción Weekly/Monthly/Annual**;
+  `FREE_TRIAL = 14 DAYS`, `TRIAL_ACCESS = FULL_PREMIUM`, `POST_TRIAL =
+  SUBSCRIPTION_REQUIRED`; el trial se controla server-side (anti-abuso).
+  USD referencia de pricing + regionalización por Google Play (precios
+  definitivos no fijados). — `docs/SUBSCRIPTION_MODEL.md`.
 - **Herramientas**: OpenCode principal + Antigravity complementario (evaluación
   en `docs/ANTIGRAVITY_EVALUATION.md`); prohibido doble-agente simultáneo en el
   mismo branch (regla R17).
 - **Modelo comercial**: **apk de pago por suscripción**; el APK es manipulable.
   Autorización premium decide el backend, no el cliente (`docs/SECURITY_MODEL.md`,
-  threat model T1–T20; reglas 9d/9e/9f). La fase inicial es **descarga
-  gratuita + plan FREE** (ver dirección de producto arriba; D15).
+  threat model T1–T20; reglas 9d/9e/9f). Modelo vigente: **descarga gratuita +
+  trial 14 días completo → suscripción Weekly/Monthly/Annual** (D16, ver
+  dirección de producto arriba).
 - **LOCAL-FIRST** (reemplaza "100 % local"): procesamiento de ofertas 100 %
   local sin salida de datos de pantalla; servicios remotos mínimos solo para
   estado comercial/de cuenta.
 - **Análisis competitivo verificado**: `docs/PRODUCT_COMPETITIVE_ANALYSIS.md`
-  (Ruta Rentable, Motorista One, GigU verificados; autoindrive/Maxymo/Mystro
-  sin verificación).
+  (Ruta Rentable, Motorista One, GigU, DecideRider verificados con precios y
+  trials documentados; autoindrive/Maxymo/Mystro sin verificación).
 - **Regla de hierro**: prohibida cualquier automatización de clics/gestos
   (auto-aceptar, contra-ofertas). SIRC es la herramienta legalista: solo
-  lectura + <3 s + local-first (reglas 9b–9f en `.ai/RULES.md`).
+  lectura + <1 s (UX; <3 s E2E) + local-first (reglas 9b–9f en `.ai/RULES.md`).
 - **Nada fuera de las prioridades P0–P3** sin aprobación explícita.
 
 ## Estado del proyecto

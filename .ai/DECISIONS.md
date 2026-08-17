@@ -524,6 +524,96 @@ para dev/test. El núcleo LOCAL-FIRST funciona sin backend.
 
 **Consecuencias:** `BACKEND_ARCHITECTURE.md` §2.6 y §3 (arquitectura de cuenta).
 
+> **NOTA (LOOP Modelo Comercial, 16-ago-2026): ** D15.1 (modelo FREE) y D15.2
+> (`FREE_INITIAL_MODEL`/`FREE_LIMITS`) quedan **superadas** por las decisiones
+> **D16.1–D16.3** (Trial 14 días completo → suscripción Weekly/Monthly/Annual).
+> Se conservan como registro histórico; la definición vigente es la de D16.x.
+> `FREE_LIMITS = TBD` se **elimina** del modelo activo (búsqueda en §22 del LOOP).
+
+## LOOP MODELO COMERCIAL — TRIAL 14 DÍAS + SUSCRIPCIÓN WEEKLY/MONTHLY/ANNUAL (16-ago-2026)
+
+LOOP ENGINEERING: definir el modelo comercial definitivo (descarga gratuita +
+cuenta + trial Premium completo de 14 días → suscripción con tres
+periodicidades), pricing en USD con regionalización por Google Play, entitlement
+por estados y seguridad anti-abuso del trial. Solo análisis y documentación; sin
+código. Detalle: `docs/SUBSCRIPTION_MODEL.md` §1–§5bis,
+`docs/PRODUCT_COMPETITIVE_ANALYSIS.md` §5.
+
+### D16.1 — Modelo comercial Trial → Premium
+
+**Contexto:** el requisito "dos 3 free" del LOOP anterior (D15.2) quedó sin
+especificación; la dirección de producto ahora es explícita: no hay Free
+permanente.
+
+**Decisión:** SIRC: **descarga gratuita → registro de cuenta gratuito → acceso
+inicial completamente gratuito → período de prueba Premium completo de 14 días →
+posteriormente basada en suscripción** con planes **semanal, mensual y anual**.
+Definición formal: `FREE_TRIAL = 14 DAYS`, `TRIAL_ACCESS = FULL_PREMIUM`,
+`POST_TRIAL = SUBSCRIPTION_REQUIRED`. Adquisición + validación vía trial.
+
+**Alternativas descartadas:** Free permanente con versión reducida (no se busca);
+modelo FREE_LIMITS (D15.2, superado).
+
+**Consecuencias:** regla 9j; `SUBSCRIPTION_MODEL.md` §1; `ROADMAP.md`.
+
+### D16.2 — Trial Premium completo de 14 días (adquisición + validación)
+
+**Decisión:** el trial es de **14 días con TODAS las funciones Premium** y dos
+objetivos simultáneos: **adquisición** (experimentar el producto completo) y
+**validación** (errores, OCR, captura, rendimiento, problemas por plataforma,
+feedback, comportamiento, UX, features valiosas). El trial es **server-side** y
+asociado a la cuenta (anti-abuso: reinstalación, borrado de datos, cambio de
+dispositivo, múltiples cuentas, reloj manipulado) sin bloquear usuarios
+legítimos. Comunicación de crecimiento orgánico, sin técnicas engañosas ni spam.
+
+**Consecuencias:** `SECURITY_MODEL.md` §6.1bis; `BACKEND_ARCHITECTURE.md` §2.7;
+`.ai/RULES.md` 9m.
+
+### D16.3 — Suscripciones Weekly / Monthly / Annual
+
+**Decisión:** tres periodicidades: **SIRC Weekly** (probar tras el trial, uso
+ocasional, menor barrera), **SIRC Monthly** (opción principal, equilibrio
+precio/compromiso) y **SIRC Annual** (recurrentes, **mejor valor por período**,
+retención; **anual presenta claramente el ahorro** respecto al mensual).
+Descuentos concretos de la anual: **por decisión posterior de pricing**.
+
+**Consecuencias:** `SUBSCRIPTION_MODEL.md` §2; catálogo de planes en
+`BACKEND_ARCHITECTURE.md` §3 (codes `sirc_weekly/monthly/annual`).
+
+### D16.4 — USD como referencia de pricing + regionalización por Google Play
+
+**Decisión:** SIRC define los precios internos **inicialmente en USD** y Google
+**Play localiza/regionaliza** la oferta (mostrada en la moneda del usuario:
+Ecuador USD, otros países moneda local — cuando Play lo permita). **Prohibido**
+crear conversiones manuales en la app, usar el tipo de cambio del dispositivo o
+el reloj local. **El precio mostrado por Google Play es la autoridad comercial
+final** para la compra. **NO se fijan todavía los valores definitivos** de los
+planes (validación con datos de la fase trial y matriz de decisión §5bis).
+
+**Consecuencias:** regla 9k; `SUBSCRIPTION_MODEL.md` §2ter.
+
+### D16.5 — Pricing evolutivo ligado al valor agregado del producto
+
+**Decisión:** no maximizar precio desde el lanzamiento: **precio de entrada
+competitivo**; las fases de valor (más plataformas → nocturno → AHU/análisis →
+funciones financieras → IA/avanzadas) justifican mayor valor comercial. **NO
+aumentar precios solo por el paso del tiempo.** Los usuarios existentes reciben
+**grandfathering o protección de precio a definir posteriormente, antes de
+implementar billing** (no se inventa la política exacta). Objetivo de pricing:
+**mejor relación valor/precio para el conductor**, no ser el más barato.
+
+**Consecuencias:** regla 9k; `SUBSCRIPTION_MODEL.md` §5bis; matriz de decisión.
+
+### D16.6 — Cuenta obligatoria para controlar trial y entitlement
+
+**Decisión:** el usuario debe **crear una cuenta** para usar SIRC: identifica al
+usuario, asocia trial, asocia compras, restaura entitlement, sincroniza estado,
+controla abuso, obtiene feedback y da continuidad entre dispositivos. La cuenta
+**no ralentiza el análisis de ofertas** (LOCAL-FIRST; objetivo <1 s).
+
+**Consecuencias:** regla 9l; `SUBSCRIPTION_MODEL.md` §1.2; `BACKEND_ARCHITECTURE.md`
+§3 (cuenta).
+
 ## SPRINT 11 — Eliminación de FakeParser (WP-E1-01)
 
 ### D11.6 — Eliminación de `FakeParser` de la ruta de producción

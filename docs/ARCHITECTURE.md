@@ -15,18 +15,19 @@
 - Bajo consumo de batería y rendimiento (límites duros y deduplicación en el
   flujo de accesibilidad).
 
-> **Principio de producto LOCAL-FIRST (Roadmap Gate, 16-ago-2026; aún sin
-> cambios de código):** el pipeline de ofertas es 100 % local (sin salida de
-> datos de pantalla). En la etapa **E1b** (ver `SECURITY_MODEL.md`, ROADMAP,
-> `BACKEND_ARCHITECTURE.md`) se añadirán componentes remotos de
-> cuenta/suscripción/entitlement/integridad implementados sobre **Supabase**
-> (Auth + RLS + Edge Functions) y expuestos como **contratos de `:domain`**
-> (p. ej. `EntitlementRepository`, `AuthRepository`), implementados en módulos
-> Android, sin contaminar `:domain`/`:core:platform`/`:core:capture` (que deben
-> seguir Kotlin puro). La verificación de compra usa la Google Play Developer
-> API v2 (`purchases.subscriptionsv2.get`) desde las Edge Functions;
-> `purchases.subscriptions.get` está deprecada. Decisiones registradas:
-> D14.1–D14.4 en `.ai/DECISIONS.md`.
+> **Principio de producto LOCAL-FIRST (Roadmap Gate, 16-ago-2026; actualizado por
+> el LOOP Modelo Comercial 16-ago-2026; aún sin cambios de código):** el pipeline
+> de ofertas es 100 % local (sin salida de datos de pantalla). En la etapa **E1b**
+> (ver `SECURITY_MODEL.md`, ROADMAP, `BACKEND_ARCHITECTURE.md`) se añadirán
+> componentes remotos de cuenta/suscripción/entitlement/integridad implementados
+> sobre **Supabase** (Auth + RLS + Edge Functions) y expuestos como **contratos
+> de `:domain`** (p. ej. `EntitlementRepository`, `AuthRepository`),
+> implementados en módulos Android, sin contaminar `:domain`/`:core:platform`/
+> `:core:capture` (que deben seguir Kotlin puro). Modelo comercial: **trial 14
+> días → suscripción Weekly/Monthly/Annual** (D16.x). La verificación de compra
+> usa la Google Play Developer API v2 (`purchases.subscriptionsv2.get`) desde
+> las Edge Functions; `purchases.subscriptions.get` está deprecada. Decisiones
+> registradas: D14.1–D14.4 y D16.x en `.ai/DECISIONS.md`.
 
 ## Estructura de módulos
 
@@ -469,7 +470,7 @@ Detalles de diseño del overlay:
 | Parseo heurístico por keywords | No hay API pública de las apps de transporte; el reconocimiento es configurable y mejorable sin tocar el núcleo. |
 | `domain` y `core:platform` puros Kotlin | Velocidad de pruebas, cero dependencias Android en la lógica crítica. |
 | Historial en Room (no en memoria) | Sobrevive reinicios y es la base de futuros reportes. |
-| Indicadores ≤ 4 | Restricción de producto: el conductor decide en <3 s. |
+| Indicadores ≤ 4 | Restricción de producto: el conductor decide en <1 s (objetivo UX; <3 s límite E2E). |
 | `ValidationRecorder` en memoria (buffer 500) | Modo de validación RC1: registra `CaptureError`/`OcrFailed`/`ParseFailed`/`FrameDiscarded`/`RuleFailed`/`OfferRejected` y exporta un informe; efímero por diseño (sin desgaste de almacenamiento). |
 | `OverlayDataSource` como única fuente del estado del overlay | `OverlayService` y pantallas comparten el mismo estado; FGS no depende de un ViewModel con ciclo de vida. |
 | `DriverConfig` agregado en una fila | Perfil/vehículo/costos/plataformas/umbrales persisten atómicos; fila existente = configurado. |
@@ -506,7 +507,7 @@ Detalles de diseño del overlay:
 | `ProfitEvaluationEngine` delega en `ProfitEngine` | Reutiliza el motor probado (decisión/margen/umbrales) y solo añade la derivación de costos desde `DriverConfig`; sin duplicar fórmulas. |
 | Umbrales solo desde `DriverConfig.thresholds` | La decisión respeta siempre los objetivos del conductor; el motor no define constantes propias. |
 | `ConfidenceEngine` con niveles | Combina completitud, coherencia de métricas, moneda y coherencia de reglas (`RuleEvaluation` opcional, sin fallos); `LOW` = "Información insuficiente" y nunca ACCEPT/REJECT. |
-| Recomendación `ACCEPT`/`REJECT`/`WARNING` | El conductor decide en <3 s: el overlay muestra qué hacer, el motivo principal y el % de confianza derivado del margen. |
+| Recomendación `ACCEPT`/`REJECT`/`WARNING` | El conductor decide en <1 s (objetivo UX; <3 s E2E): el overlay muestra qué hacer, el motivo principal y el % de confianza derivado del margen. |
 | Historial en memoria `OfferEvaluationRepository` | `InMemoryOfferEvaluationRepository` (100 ofertas) alimenta el overlay y el panel de depuración en tiempo real, sin I/O de Room en el camino crítico; el historial persistente de `:feature:history` se mantiene aparte. |
 | `OfferPerformanceTracker` con promedio de 20 | Retiene las últimas 100 ofertas (memoria acotada) y expone promedios móviles por etapa para medir el rendimiento real de captura/OCR/parseo/evaluación/overlay. |
 | `OfferSnapshot.texts` | El snapshot transporta los textos OCR además de la imagen cruda, para que el overlay evalúe el contenido visible real de la oferta. |
