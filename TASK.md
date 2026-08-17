@@ -6,6 +6,38 @@
 
 ## Tarea actual
 
+**LOOP ENGINEERING — SPRINT 12 / E1a: VALIDACIÓN REAL DEL NÚCLEO (16-ago-2026).
+BLOQUEADO / PENDING por falta de dispositivos físicos. Sin cambios de código.**
+
+El Sprint 12 (E1a) busca evidencia física reproducible del núcleo SIRC
+(instalación, captura, OCR, detección/parsing multi-plataforma, evaluación,
+overlay, ciclo de vida, estabilidad, batería, privacidad) antes de implementar
+monetización (Supabase, autenticación, Trial, Play Billing, entitlement,
+Play Integrity — todo en E1b). Partiendo del baseline `75cbac1` (main,
+origin/main idéntico, working tree limpio).
+
+**Estado: BLOQUEADO / PENDING — SIN EVIDENCIA.**
+
+- **Hardware**: `adb devices -l` → ningún dispositivo físico conectado; solo
+  existe AVD emulador `Pixel_7_API_35` (no sustituye lo físico).
+- **Auditoría pre-validación completada**: matriz por área (INST/CAP/OCR/PLT/
+  VEL/EST/CVD/BAT/OVL/DEC/CFG/ERR/PRV/SEC/EV) en `PENDING — SIN EVIDENCIA`.
+- **Evidencia local separada**: baseline en verde (`ktlintCheck`, `lintDebug`,
+  `assembleDebug`, unit tests) y `app-debug.apk` generado; NO constituye
+  evidencia física.
+- **Documento**: `docs/testing/SPRINT_12_DEVICE_VALIDATION.md` (§1–14: objetivo,
+  baseline, dispositivos, versiones, metodología, matriz, resultados,
+  métricas, fallos, severidad, evidencias, limitaciones, conclusión).
+- **No se inventaron métricas ni resultados** (OCR/permisos/<1 s/<3 s/etc.
+  quedan pendientes de medir).
+
+**Siguiente: (bloqueado)** necesita que el usuario conecte ≥1 dispositivo
+físico (ideal 2–3, Android 10–15) para ejecutar la matriz de
+`docs/testing/SPRINT_12_DEVICE_VALIDATION.md`. No cerrar el Sprint como
+completado; no abrir Sprint 13 ni otro LOOP sin autorización explícita.
+
+## Tarea anterior
+
 **LOOP ENGINEERING — MODELO COMERCIAL: TRIAL 14 DÍAS + SUSCRIPCIÓN
 WEEKLY/MONTHLY/ANNUAL + PRECIOS INTERNACIONALES (16-ago-2026). Solo
 documentación; sin código.**
