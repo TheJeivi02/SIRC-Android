@@ -6,28 +6,30 @@
 
 ## Tarea actual
 
-**LOOP ENGINEERING COMPLETADO — Sincronización Integral Local → GitHub.**
-Auditoría + sync + verificación. El repositorio `TheJeivi02/SIRC-Android`
-queda sincronizado: `origin/main` == `main` == `dacece8`, 0 unpushed /
-0 unpulled, working tree limpio, árboles idénticos (316 archivos).
+**LOOP ENGINEERING COMPLETADO — Consolidación estratégica (3 fuentes).**
+Se cruzaron la auditoría técnica del repositorio (Sprints 1–11), el informe
+ejecutivo de estrategia (`docs/Informe Ejecutivo de Estrategia y Diseño…`) y la
+investigación de mercado con verificación web (16-ago-2026). Sincronizado en
+`origin/main`. Solo documentación; sin cambios de código.
 
-Resumen de la sincronización:
+Entregables:
 
-- **Cierre Sprint 11 `456ca67` verificado** localmente y presente en el
-  historial remoto (es el commit cierre de Sprint 11; `dacece8` es el estado
-  posterior publicado).
-- Se publicaron los 25 commits de Sprint 11 (WP-E1/E2/E3) pendientes en
-  GitHub.
-- Commit de sincronización `dacece8`: añadidos al versionado `AGENTS.md`,
-  informe ejecutivo, prompts NotebookLM, imágenes de test, `docs/remediation/`
-  (13) y plan WP-E3-02; ROADMAP completa con la sección Sprint 11;
-  `.gitignore` ampliado para excluir artefactos de análisis de APK (`res/`,
-  jars, `R.txt`, `repository-tree.txt`, etc.).
-- Validación en verde: ktlint, unit tests (todos los módulos), `lintDebug`,
-  `assembleDebug`, `assembleDebugAndroidTest`.
+- **`docs/PRODUCT_COMPETITIVE_ANALYSIS.md`** — análisis competitivo verificado:
+  Ruta Rentable / Motorista One / GigU (✅ web), Viaje Rentable y Radar de
+  Viajes (⚠️ mención), DecideRider (⚠️ bots sin verificar), Autoindrive /
+  Maxymo / Mystro (**NO VERIFICADO**). Matriz por capacidades + brechas.
+- **`docs/PRODUCT_STRATEGY.md`** — posicionamiento "legalista", matriz
+  ADOPTAR/MEJORAR/EVITAR/DIFERENCIAR, Product Gap Analysis, prioridades
+  **P0–P3**, arquitectura de producto futura y etapas E0–E4.
+- **`docs/ROADMAP.md`** — nueva sección "Ruta estratégica de producto" y
+  **Sprint 12 = Lanzamiento controlado (beta cerrada + Play Integrity)**,
+  decidido y planificado (sin implementar).
+- **`.ai/RULES.md`** — reglas 9b (prohibida la automatización de clics/gestos)
+  y 9c (prioridades P0–P3). **`.ai/CONTEXT.md`** — bloque "Dirección de
+  producto". **`.ai/DECISIONS.md`** — D12.1 y D12.2.
 
-**Siguiente: (pausa)** Sprint 11 cerrado y publicado. No iniciar otro WP sin
-aprobación explícita.
+**Siguiente: (pausa)** Sprint 12 planificado; no implementar nada sin abrir la
+tarea explícitamente (regla R16).
 
 ## Tarea anterior
 

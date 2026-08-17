@@ -258,6 +258,39 @@ clásico (con `@Suppress("DEPRECATION")`) para API 24–29. `reclampOverlay`,
 
 **Consecuencia:** sin warnings de deprecación y preparado para Android 15.
 
+## ESTRATEGIA DE PRODUCTO — Ruta consolidada (Sprint 12 planificación)
+
+Decisión de dirección de producto a partir de las tres fuentes (auditoría
+técnica, informe estratégico, análisis competitivo). Sin cambios de código;
+solo dirección. Documentación: `docs/PRODUCT_STRATEGY.md` y
+`docs/PRODUCT_COMPETITIVE_ANALYSIS.md`.
+
+### D12.1 — Diferenciador: "solo lectura + <3 s + 100 % local"
+
+**Contexto:** la investigación de mercado (FUENTE 3) confirmó que ninguna app
+verificada combina decisión <3 s, solo lectura estricto, 100 % local y
+multi-plataforma real; varias compiten con automatización de clics
+(DecideRider, Autoindrive/Maxymo/Mystro, algunas no verificadas).
+
+**Decisión:** el posicionamiento de SIRC es la herramienta **legalista**:
+jamás automatizar interacción (auto-clic, auto-accept, gestos). Eso es a la vez
+un diferenciador de marca y un requisito de Google Play.
+
+**Consecuencias:** se añadieron reglas 9b/9c a `.ai/RULES.md`; la
+automatización queda en la matriz EVITAR de `PRODUCT_STRATEGY.md`.
+
+### D12.2 — El próximo hito es "Lanzamiento controlado" (beta cerrada + Play Integrity)
+
+**Contexto:** el RC1 está endurecido y en verde; el informe estratégico
+prescribe Play Integrity (Strong) como Hito 1; el mercado premia la narrativa
+"Iegal, solo lectura".
+
+**Decisión:** Sprint 12 = etapa E1 (beta cerrada real + Play Integrity + política
+de Play al día). Las prioridades P0–P3 quedan fijadas en `PRODUCT_STRATEGY.md`.
+
+**Consecuencias:** nueva sección "Ruta estratégica de producto" y "Sprint 12"
+en `docs/ROADMAP.md`. No se implementa código hasta abrir la tarea (regla R16).
+
 ## SPRINT 11 — Eliminación de FakeParser (WP-E1-01)
 
 ### D11.6 — Eliminación de `FakeParser` de la ruta de producción

@@ -305,6 +305,44 @@ arquitectura.
 
 - Estado: **completado** (cierre en `456ca67`).
 
+## Ruta estratégica de producto (etapas)
+
+> Consolidación de las tres fuentes (auditoría técnica, informe estratégico y
+> análisis competitivo). Detalle en `docs/PRODUCT_STRATEGY.md` y
+> `docs/PRODUCT_COMPETITIVE_ANALYSIS.md`.
+
+| Etapa | Alcance | Estado |
+|---|---|---|
+| E0 — Cierre técnico | Remediación + RC1 + auditorías (Sprints 4–11) | ✅ completado |
+| E1 — Lanzamiento controlado | Beta cerrada real + Play Integrity (Strong) + hardening de política Play | 🔵 **PRÓXIMO (Sprint 12)** |
+| E2 — Crecimiento multi-plataforma | Descriptores DiDi/InDrive/Cabify + umbrales dinámicos + modo nocturno | ⬜ pendiente |
+| E3 — Diferenciación | Dashboard AHU/tendencias + ahorro energía SOC-aware + modo anti-fatiga | ⬜ pendiente |
+| E4 — Expansión | Ecosistema Lite/Pro + Android 16 + LATAM | ⬜ pendiente |
+
+### Decisiones que guían la ruta
+
+- **Prohibido cualquier automatización de clics/gestos** (auto-aceptar,
+  contra-ofertas, `performAction`): riesgo de baneo y violación de Play. El
+  diferenciador de SIRC es "solo lectura + <3 s + 100 % local".
+- **Prioridades P0–P3** definidas en `docs/PRODUCT_STRATEGY.md`; ninguna
+  feature fuera de ellas entra al roadmap sin aprobación explícita.
+
+## Sprint 12 — Lanzamiento controlado (beta cerrada + Play Integrity) 🔵 Planificado
+
+Primer entregable de la etapa **E1**. Decisión justificada por las tres fuentes
+(documento completo en `docs/PRODUCT_STRATEGY.md` §7).
+
+- **Objetivo**: poner SIRC frente a conductores reales (beta cerrada) con
+  integridad declarada y política de Play al día.
+- **Alcance previsto (por confirmar al abrir la tarea)**:
+  - Play Integrity (Strong) detrás de contrato de dominio + declaración de uso.
+  - Rutas de beta cerrada (lista de testers, descarga, primera cohorte).
+  - Revisión/ajustes de `GOOGLE_PLAY_COMPLIANCE.md` para la versión beta.
+  - Validación de overlay <3 s en campo y registro de telemetría de decisión
+    local (100 % local, sin subir datos).
+- Estado: **planificado — sin implementar** (regla R16: no implementar sin
+  instrucción explícita).
+
 ## Sprint 3 — Accessibility
 
 Canal de lectura del contenido visible de las plataformas.

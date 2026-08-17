@@ -34,13 +34,26 @@
    información derivada: ganancia, ganancia/hora, ganancia/km e insignia de
    decisión. Nunca repetir monto/distancia/tiempo como los muestra la app.
 
+## Estrategia de producto
+
+9b. **Prohibido cualquier automatización de interacción** (auto-aceptar,
+    auto-rechazar, contra-ofertas, clics, gestos). Es el mayor riesgo de baneo
+    del conductor y viola la política de Play. La ruta de producto que guía
+    esto está en `docs/PRODUCT_STRATEGY.md` (matriz EVITAR/DIFERENCIAR).
+9c. **Respetar las prioridades P0–P3 definidas** en
+    `docs/PRODUCT_STRATEGY.md`. No implementar features fuera de roadmap sin
+    aprobación explícita; P0 (robustez/cumplimiento) y P1 (ruta inmediata)
+    siempre tienen prioridad sobre features aspiracionales.
+
 ## Seguridad, privacidad y Google Play
 
 9. **Accessibility Service SOLO lectura.** Prohibido: `performAction`,
    `dispatchGesture`, key events, automatizar aceptar/rechazar viajes o
    interactuar con la interfaz de otras apps.
 10. **100 % local.** Sin backend, sin telemetría, sin anuncios, sin subir datos
-    de pantalla. Todo el historial vive en Room.
+    de pantalla. Todo el historial vive en Room. La integridad (Play Integrity)
+    y el ahorro de energía (SOC) —cuando existan— se exponen como contratos de
+    `:domain` para mantener los módulos Kotlin puro.
 11. **Respetar la declaración de propósito** de `accessibility_service_config.xml`
     y el subtipo `specialUse` del Foreground Service. Mantener al día
     `docs/GOOGLE_PLAY_COMPLIANCE.md`.

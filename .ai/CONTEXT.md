@@ -177,6 +177,20 @@ es rentable.
 información derivada (ganancia, métricas) con colores semáforo. El Accessibility
 Service **nunca** interactúa con otras apps.
 
+## Dirección de producto (LEER antes de tocar código)
+
+- **Ruta de producto consolidada**: `docs/PRODUCT_STRATEGY.md` (diferenciación
+  ADOPTAR/MEJORAR/EVITAR/DIFERENCIAR, prioridades P0–P3, arquitectura futura,
+  etapas E0–E4 y **Sprint 12 = Lanzamiento controlado**: beta cerrada + Play
+  Integrity, planificado, sin implementar).
+- **Análisis competitivo verificado**: `docs/PRODUCT_COMPETITIVE_ANALYSIS.md`
+  (Ruta Rentable, Motorista One, GigU verificados; autoindrive/Maxymo/Mystro
+  sin verificación).
+- **Regla de hierro**: prohibida cualquier automatización de clics/gestos
+  (auto-aceptar, contra-ofertas). SIRC es la herramienta legalista: solo
+  lectura + <3 s + 100 % local (reglas 9b/9c en `.ai/RULES.md`).
+- **Nada fuera de las prioridades P0–P3** sin aprobación explícita.
+
 ## Estado del proyecto
 
 - **FIX Overlay (verificación en emulador)**: el overlay crasheaba en
