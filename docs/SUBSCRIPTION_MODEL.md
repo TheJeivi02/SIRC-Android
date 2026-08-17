@@ -1,45 +1,82 @@
 # SIRC — Modelo de Suscripción (planes y entitlement conceptual)
 
 > Estructura conceptual de planes, precios de referencia y lifecycle de
-> entitlement de SIRC (LOOP ENGINEERING — Backend Supabase, 16-ago-2026).
+> entitlement de SIRC (LOOP ENGINEERING — Backend Supabase, 16-ago-2026),
+> **actualizada por el LOOP Modelo Free + Supabase Account Gate** (16-ago-2026).
 >
 > **ESTADO: diseño SOLO.** No se definen precios finales ni se crean productos
 > en Play. Sin asociación de planes reales todavía. Referencia de precios de
-> mercado verificada en `docs/PRODUCT_STRATEGY.md` §… (matriz de competidores)
-> y este documento.
+> mercado verificada (matriz de competidores) y este documento.
 >
 > Regla: **no crear planes artificiales**; cada nivel debe corresponder a valor
 > real para un conductor. El precio final considerará mercado, poder adquisitivo
 > objetivo, competencia, costo de infraestructura, margen y conversión.
 
-## 1. Estructura conceptual de planes
+## 1. Modelo comercial inicial: DESCARGA GRATUITA + PLAN FREE
 
-Propuesta en **tres niveles** + futuro, alineada con los pilares del producto
-(decisión <3 s local, solo lectura, overlay).
+**DECISIÓN (D15.1)**: SIRC se distribuye **gratuitamente** (sin precio de
+descarga) y arranca con un nivel **SIRC FREE** basado en cuenta. **La
+monetización Premium es posterior y progresiva** (E3), no inmediata.
 
-| Nivel | Qué puede hacer el usuario | Valor que justifica el pago | Estado |
+Objetivos de la fase inicial (en orden):
+
+1. Conseguir usuarios.     6. Validar rendimiento.
+2. Conseguir datos de uso. 7. Validar UX.
+3. Detectar errores reales. 8. Obtener feedback.
+4. Validar OCR.             9. Mejorar el producto.
+5. Validar captura.        10. Construir base real antes de monetizar.
+
+La **cuenta SIRC** (FREE) sirve para: identificar al usuario, sincronizar
+configuración cuando corresponda, gestionar entitlement, soporte, recuperación
+de cuenta, futuras suscripciones y **métricas agregadas estrictamente
+necesarias**. La cuenta **no** es dependencia del camino crítico de análisis de
+ofertas (LOCAL-FIRST; regla 9e).
+
+> **¿Existe límite en el Free?** `FREE_INITIAL_MODEL = ENABLED`, `FREE_LIMITS =
+> TBD`. La interpretación del requisito ("dos 3 free") no es clara —puede ser 3
+> días, 3 meses, 3 funciones, 3 análisis, 3 plataformas u otro—. **NO se inventa
+> ningún límite aquí**: se definirá con una decisión explícita posterior,
+> basada en datos de la beta. (Decisión D15.2.)
+
+## 2. Estructura conceptual de planes
+
+Propuesta en **dos niveles + futuro**, alineada con la fase de adquisición y los
+pilares del producto (decisión <3 s local, solo lectura, overlay).
+
+| Nivel | Qué puede hacer el usuario | Objetivo principal | Estado |
 |---|---|---|---|
-| **Free / Trial** | Evaluación de ofertas con información derivada básica, overlay, historial limitado en el tiempo, acceso a fetching setup de arranque. | Validar el valor real de "decisión en <3 s". Prueba limitada en número de ofertas/días (diseño de trial por confirmar). | En el roadmap de onboarding (E1b), no fija de precio todavía. |
-| **SIRC Basic** (plan base de pago) | Uso completo del núcleo: overlay <3 s, OCR, evaluación de rentabilidad completa, historial, dashboard básico, soporte de 1 plataforma (Uber). | **El valor central**: no perder dinero en decisiones; rentabilidad calculada local con costos reales del conductor. | Plan de pago mínimo. Definir en E1b. |
-| **SIRC Pro** (nivel superior) | Multi-plataforma (DiDi/InDrive/Cabify), umbrales dinámicos, modo nocturno, dashboard AHU y ahorro de energía SOC. | Capacidades que extienden la decisión a la cohorte multi-app y a la eficiencia energética. | Se desbloquea por features con `EntitlementRepository` server-side. |
-| **Futuro** | Ecosistema Lite/Pro compartido; alertas anti-fatiga; transferencia de datos entre dispositivos (con justificación explícita de producto). | Profesionalización y retención. | Requiere producto evolucionado (E3/E4). |
+| **SIRC FREE** | Descarga gratuita + cuenta gratuita. Uso del núcleo (overlay, evaluación, historial) con alcance aún por definir (`FREE_LIMITS = TBD`). | **Adquisición, beta pública/controlada, pruebas reales, feedback, detección de errores, validación de funcionalidades, crecimiento inicial.** | **Es el modelo de arranque.** Entitlement = `FREE` (server-side, no "todo desbloqueado localmente"). |
+| **SIRC PRO** (suscripción) | Features premium completas (alcance aún TBD; núcleo completo, multi-plataforma, umbrales dinámicos, nocturno, AHU, SOC). | Monetización **posterior y progresiva** (E3), sobre una base de usuarios que ya validó el valor. | Entitlement = `PREMIUM`, verificada server-side. Precios/límites **TBD**. |
+| **Futuro** | Ecosistema Lite/Pro compartido; alertas anti-fatiga; niveles intermedios si el mercado lo exige. | Profesionalización y retención. | Requiere producto evolucionado (E3/E4). |
 
-### Free/Trial — matices importantes
-- **No debe ser un "free forever" que invita a no pagar.** Propuesta: trial de
-  tiempo (p. ej. 7–14 días `[INF]`, como el mercado: pruebas 3–15 días) con
-  features básicas. No inventar duración fija: se ajustará con datos de beta.
-- El trial se valida con la misma vía de entitlement (es un plan `trial` con
-  `expires_at`), no con lógica local.
+> Se **retiran del modelo activo** los roles intermedios "Basic/Pro" del diseño
+> anterior: ahora el arranque es **FREE → PREMIUM** y cualquier nivel adicional
+> queda **TBD** (no fijar precios, límites, cantidad de análisis, duración ni
+> número de plataformas hasta completar la investigación comercial).
+
+### SIRC FREE — matices importantes
+- La **descarga es gratuita** y **no hay precio inicial**. La existencia de una
+  cuenta **no** implica pago.
+- El objetivo del Free **no es maximizar ingreso inmediato** sino adquirir
+  usuarios y validar el producto.
+- **Seguridad del Free (regla)**: el Free NO es "todo desbloqueado localmente y
+  escondemos botones". Aunque sea gratuito, las capacidades premium se diseñan
+  para: validarse, respaldarse server-side, no otorgar premium indefinido por
+  manipulación local, usar Play Integrity como señal, poder revocarse desde el
+  backend y gestionarse por cuenta (ver `SECURITY_MODEL.md` §5.5 y
+  `BACKEND_ARCHITECTURE.md` §3).
+- El entitlement FREE se sirve igual que el premium (server + caché TTL), con
+  el plan `free` en la base (no solo lógica local).
 
 ### Qué hace que el usuario pague (evidencia de mercado)
 - El valor central es **decidir antes de aceptar** (semáforo <1 s, $/km + $/hora,
-  lucro neto). Ese valor es lo que encapsula **SIRC Basic**.
+  lucro neto). Ese valor es lo que encapsulará **SIRC PRO**.
 - Lo que mejor monetiza en el nicho (evidencia de `PRODUCT_STRATEGY.md`): el
   overlay + métricas duales + lucro neto; el auto-aceptar (multi-app) es el
   diferenciador de precio de competidores con automatización — **SIRC NO lo
   ofrecerá** (regla R9b).
 
-## 2. Precios de referencia (competencia verificada, 16-ago-2026)
+## 2bis. Precios de referencia (competencia verificada, 16-ago-2026)
 
 Matriz resumida (detalle y fuentes en `docs/PRODUCT_STRATEGY.md` §precios):
 
@@ -64,32 +101,36 @@ en EE.UU. Punto medio competitivo razonable para SIRC: **USD 4–7/mes** con
 descuento anual (~USD 2,5–4,2/mes) y prueba gratuita 3–15 días `[INF]`.
 
 ### Cómo se incorporará este análisis (sin inventar)
-1. Convalidar con datos de beta (disposición a pagar, región).
-2. Definir precio final al abrir E1b con estos rangos como informed prior.
-3. Publicar planes en Play Console (BasePlans/Offers); desde Supabase se
-   mapeará `plan_id` ↔ `basePlanId_play`/`offerId_play`.
+1. Convalidar con datos de la fase FREE/beta (adquisición, uso real) y con
+   investigaciones posteriores antes de fijar precios.
+2. Definir precio final **en E3** (monetización) con estos rangos como informed
+   prior. En la fase inicial (E1a/Free) **no hay cobro**.
+3. Publicar planes en Play Console (BasePlans/Offers) cuando exista monetización;
+   desde Supabase se mapeará `plan_id` ↔ `basePlanId_play`/`offerId_play`.
 
 ## 3. Entitlement (política de acceso)
 
-El entitlement es el **permiso derivado**: qué features premium tiene el
-usuario AHORA. No es la suscripción en bruto (Play), es el estado que el backend
-deriva de ella.
+El entitlement es el **permiso derivado**: qué features tiene el usuario AHORA
+(FREE o PREMIUM). No es la suscripción en bruto (Play), es el estado que el
+backend deriva de ella.
 
 | Feature | Plan mínimo | Gate |
 |---|---|---|
-| Overlay + evaluación completa (núcleo) | **Basic** | `EntitlementRepository` (server + caché TTL) |
-| Multi-plataforma (DiDi/InDrive/Cabify) | **Pro** | ídem |
-| Umbrales dinámicos / modo nocturno | **Pro** | ídem |
-| Dashboard AHU / SOC ahorro (E3) | **Pro** | ídem |
-| Free/Trial | — | plan trial con `expires_at` |
+| Núcleo del Free (alcance por definir, `FREE_LIMITS = TBD`) | **FREE** | `EntitlementRepository` (server + caché TTL) — entitlement `FREE` |
+| Features premium (multi-plataforma, umbrales dinámicos, nocturno, AHU, SOC…) | **PRO** (premium) | ídem — entitlement `PREMIUM` |
 
 ### Reglas del entitlement
 - **El cliente no decide entitlement.** El gate premium consulta `EntitlementRepository`
-  con estado verificado (online) o caché firmado offline (TTL).
+  con estado verificado (online) o caché firmado offline (TTL). El usuario Free
+  tiene `entitlement = FREE`; el suscriptor `entitlement = PREMIUM`; el cliente
+  nunca es autoridad sobre PREMIUM.
 - El caché lleva `server_issued_at`/`server_expires_at` (decisión S2: TTL 24–72 h)
   explicado en `SECURITY_MODEL.md` §6.
 - Cambios de plan/renovación/refund se reflejan vía RTDN + verificación
   `purchases.subscriptionsv2.get` (ver `BACKEND_ARCHITECTURE.md` §4).
+- **El modelo FREE no relaja la seguridad**: una manipulación local no otorga
+  premium indefinido; el backend conserva capacidad de revocación y gestión por
+  cuenta (regla D15.3, `SECURITY_MODEL.md` §seguridad del Free).
 
 ## 4. Lifecycle de estados (entitlement ↔ Play)
 
@@ -138,18 +179,24 @@ Mapeo del entitlement de SIRC con el `SubscriptionState` moderno de Play
 - **Multi-dispositivo / reinstalación**: restore cubre re-enlace; `sessions`/
   `devices` dan trazabilidad (mitigación T6/T18).
 
-## 6. Decisión de diseño (para registrar en `.ai/DECISIONS.md`)
+## 6. Decisiones de diseño (registradas en `.ai/DECISIONS.md`)
 
-- **D14.x — Supabase como backend inicial** de identidad/suscripción/entitlement
+- **D14.1 — Supabase como backend inicial** de identidad/suscripción/entitlement
   (Auth + RLS + Edge Functions + Postgres), plan Pro antes de producción.
-- **D14.y — Planes en 3 niveles** (Free/Trial, Basic, Pro) + futuro; sin precios
-  finales; rangos de referencia de mercado registrados.
-- **D14.z — Entitlement TTL 24–72 h** (mantiene decisión S2); `subscriptionsv2.get`
+- **D14.3 — Entitlement TTL 24–72 h** (mantiene decisión S2); `subscriptionsv2.get`
   (no `subscriptions.get`, deprecado); integración RTDN + verificación on-demand.
+- **D15.1 — Descarga gratuita + SIRC FREE** con cuenta gratuita para
+  adquisición/validación; monetización Premium posterior y progresiva (E3).
+- **D15.2 — `FREE_INITIAL_MODEL = ENABLED`, `FREE_LIMITS = TBD`**: no se
+  inventa ningún límite del Free; se definirá con decisión explícita posterior.
+- **D15.3 — El Free NO relaja la seguridad**: entitlement server-side,
+  revocable, sin premium indefinido por manipulación local.
+- Planes activos: **FREE → PREMIUM**; niveles adicionales **TBD**.
 
 ## 7. NO implementar (riesgo de confusión)
 
 Este documento **no** crea: productos en Play, precio en la UI, planes en
 Supabase, tablas, `EntitlementRepository` de producción, banner de suscripción,
-ni ningún gate premium. Todo eso pertenece a la fase E1b (o E3) y requiere
-abrir tarea explícita (regla 9f/R16).
+ni ningún gate premium. El **Free** tampoco se implementa todavía: pertenece a
+las fases E1a/Free (validación) y E1b/E3 (cuenta/entitlement/monetización) y
+requiere abrir tarea explícita (regla 9f/R16).

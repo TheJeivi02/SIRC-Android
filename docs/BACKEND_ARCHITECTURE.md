@@ -1,7 +1,8 @@
 # SIRC — Arquitectura de Backend (conceptual, Supabase)
 
 > Diseño conceptual del backend de SIRC para el modelo de **app de pago por
-> suscripción** (LOOP ENGINEERING — Backend Supabase, 16-ago-2026).
+> suscripción** (LOOP ENGINEERING — Backend Supabase, 16-ago-2026),
+> **actualizado por el LOOP Modelo Free + Supabase Account Gate** (16-ago-2026).
 >
 > **ESTADO: documentación de diseño SOLO.** No existe proyecto Supabase, no hay
 > tablas, Edge Functions, SDK, Billing, Auth ni Play Integrity implementados, y
@@ -12,6 +13,34 @@
 > sección con `[DOC]` = documentación oficial, `[INF]` = inferencia razonada).
 > Relación con otros docs: `SECURITY_MODEL.md` (threat model y trust model),
 > `SUBSCRIPTION_MODEL.md` (planes/lifecycle), `PRODUCT_STRATEGY.md` (roadmap).
+
+## 0. Supabase ACCOUNT GATE (regla operativa)
+
+> **Regla (D15.4)**: si durante el trabajo se determina que para implementar o
+> probar Supabase realmente necesitamos crear/configurar recursos reales
+> (cuenta, proyecto, Project URL, publishable/anon key, Authentication, base de
+> datos, políticas RLS, etc.):
+
+1. **NO inventar valores ni usar credenciales ficticias.**
+2. **NO crear una cuenta en nombre del usuario.**
+3. **NO continuar** como si el backend estuviera configurado.
+4. **DETENERSE y solicitar al usuario**: *"Necesitamos crear/configurar la
+   cuenta de Supabase para continuar."*
+5. Proporcionar entonces la guía paso a paso (§0.1).
+
+### 0.1 Guía de configuración (para cuando el usuario la necesite)
+
+| Paso | Acción del usuario | Notas |
+|---|---|---|
+| 1 | Crear / iniciar sesión en Supabase (`supabase.com`) | Cuenta personal (email u OAuth). |
+| 2 | Crear el proyecto **SIRC** | Elegir región cercana al público objetivo (LATAM/MX recomendada, p. ej. `us-east` o `southamerica-east1` según disponibilidad `[INF]`). |
+| 3 | Configurar región/organización | Crear organización si no existe; asignar propietario. |
+| 4 | Obtener credenciales públicas | **Project URL** (`https://<ref>.supabase.co`) + **publishable key** (la antigua anon key; `sb_publishable_…`). |
+| 5 | Configurarlas de forma segura en el proyecto | En `local.properties`/inject con ocultación (NO en git) o como BuildConfig para debug; jamás commitear secretos. |
+
+**Importante**: NUNCA pedir al usuario que pegue en archivos públicos, GitHub o
+chat: `service_role` / secret key, claves privadas, secretos de webhook o
+credenciales de servidor (§10 secrets).
 
 ## 1. Principio: LOCAL-FIRST (el camino crítico NO pasa por Supabase)
 
@@ -77,6 +106,33 @@ pipeline de ofertas.
 - **Plan `[INF]`**: desarrollo en **Free** ok para E1b-bootstrap; **Pro ($25/mes)** antes de producción (sin pausa, backups, 8 GB).
 - **Importante**: este backend solo trata datos de cuenta; el valor que protege (habilidad premium de SIRC) se decide siempre contra Google, no contra lo que el APK diga.
 
+### 2.5 Secretos: client-safe vs server-only (D15.5)
+
+Regla operativa para NO filtrar material sensible:
+
+| Clase | Qué incluye | Dónde vive | Nunca en… |
+|---|---|---|---|
+| **Client-safe** | Project URL (`https://<ref>.supabase.co`), publishable key (anon/new). | APK / `local.properties` (gitignore) / BuildConfig de debug oculto | — |
+| **Server-only** | `service_role` (secret key), service account de Google Play (OAuth JWT), claves privadas, secretos de webhooks/RTDN, credenciales de firmado (keystore), Google Play Developer API credentials. | Edge Functions (`supabase secrets`), CI secret store | APK, git, GitHub, chat, `local.properties` |
+
+Reglas: (1) el APK **solo** transporta client-safe; (2) cualquier rotación de
+clave se documenta; (3) auditoría de quién accede a secretos server-only
+(regla R9g); (4) si un secreto aparece en git/chat/APK → revocar y rotar.
+
+### 2.6 Desarrollo local sin backend (dev sin Supabase)
+
+- **El núcleo LOCAL-FIRST funciona sin cuenta Supabase**: desarrollar y probar
+  el pipeline CAPTURA→OCR→PARSER→PROFIT→RECOMMENDATION→OVERLAY **no requiere
+  proyecto, credenciales ni red**.
+- El backend se aísla detrás de contratos `:domain` (`AuthRepository`,
+  `EntitlementRepository`); en ausencia de backend real se usa una
+  implementación _no-op/local_ (dev) que devuelve `entitlement = FREE` local
+  (solo dev/test; en producción el valor lo da el servidor).
+- **Account Gate**: insertar credenciales/URL **solo si el usuario las aporta**
+  (§0); no se bloquea el dev local ni los tests por no existir Supabase.
+- Las pruebas de `:domain`/`:core:*`/`:feature:overlay` siguen en verde sin
+  backend (dependencias hacia adentro; Kotlin puro).
+
 ## 3. Modelo de datos conceptual (entidades)
 
 > No implementar. Propietario, campos principales, estado, lifecycle, relaciones, RLS y privacidad mínima.
@@ -91,6 +147,28 @@ devices ──────── N:1 users · install/session binding
 sessions ─────── N:1 devices · tokens · rotations
 ```
 
+### Arquitectura de cuenta (lado cliente, D15.6)
+
+Cadena conceptual de la cuenta SIRC en el dispositivo:
+
+```
+SIRC ACCOUNT (identidad) → PROFILE (preferencias) → SUBCRIPCIÓN/ENTITLEMENT
+→ CACHE LOCAL ENTITLEMENT (firmado, TTL) → gate de feature
+```
+
+- **User/Identity**: lo aporta Supabase Auth (`auth.uid()`); el cliente guarda
+  solo referencias de sesión seguras.
+- **Profile**: display_name, moneda preferida (opcional); config del conductor
+  permanece local.
+- **Subscription/Entitlement**: estado derivado por el backend; `tier =
+  FREE/PREMIUM`.
+- **Local entitlement cache**: reflejo firmado con TTL (§7) que alimenta el
+  gate offline; nunca es autoridad.
+
+Gates de feature en el cliente consultan únicamente ese caché autorizado:
+`entitlement == FREE` → alcance Free; `entitlement == PREMIUM` → features
+premium; ante duda/expiración → bloquear y revalidar online.
+
 ### users
 - Fuente: **Supabase Auth** (`auth.users` gestionada por Supabase, no nuestro esquema `public`).
 - Propietario: sistema (Auth). No contiene datos de ofertas.
@@ -102,9 +180,17 @@ sessions ─────── N:1 devices · tokens · rotations
 - Estado: 1 fila por usuario (auto-creada en sign-in). No guardar config del conductor (eso es local).
 
 ### plans
-- Nuestro esquema. Catálogo de planes (SIRC Basic / Pro / futuro).
-- Campos: `id`, `code` (único, ej. `sirc_pro_monthly`, `sirc_pro_yearly`), `name`, `base_plan_id_play` (código del BasePlan de Play), `offer_id_play` (nullable), `entitlements` (JSON de features), `active`.
-- Propietario: SIRC (administración). RLS: lectura pública (catálogo), escritura solo admin (service role).
+- Nuestro esquema. Catálogo de planes (conceptualmente **FREE → PREMIUM**;
+  niveles extra TBD — ver `SUBSCRIPTION_MODEL.md` §2).
+- Campos: `id`, `code` (único, ej. `sirc_free`, `sirc_pro_monthly`,
+  `sirc_pro_yearly`), `name`, `base_plan_id_play` (código del BasePlan de Play,
+  nullable para FREE), `offer_id_play` (nullable), `entitlements` (JSON de
+  features), `active`.
+- Propietario: SIRC (administración). RLS: lectura pública (catálogo), escritura
+  solo admin (service role).
+- **FREE no requiere compra**: el `entitlement = FREE` se adjudica en el alta de
+  cuenta (0€), con `server_issued_at`/`server_expires_at` y revocación posible por
+  servidor. No relaja la seguridad (`SECURITY_MODEL.md` §seguridad del Free).
 
 ### subscriptions
 - Nuestro esquema. Estado operativo por compra.
@@ -113,9 +199,14 @@ sessions ─────── N:1 devices · tokens · rotations
 - RLS: `user_id = auth.uid()` (escribir solo vía Edge Function con service_role; leer por el dueño).
 
 ### entitlements
-- Nuestro esquema. `user_id`, `plan_id`, `status` (ACTIVE/SUSPENDED/GRACE), `server_issued_at`, `server_expires_at` (TTL), `cache_signature_server` (firma HMAC del estado), `revoked_at` nullable.
+- Nuestro esquema. `user_id`, `plan_id`, `status` (ACTIVE/SUSPENDED/GRACE),
+  `tier` (`FREE`/`PREMIUM`), `server_issued_at`, `server_expires_at` (TTL),
+  `cache_signature_server` (firma HMAC del estado), `revoked_at` nullable.
 - Propietario: Edge Function. El cliente **jamás** escribe entitlements.
 - RLS: `user_id = auth.uid()` para cache server-leído; escritura solo service role.
+- `tier = FREE` se adjudica en sign-up (0€); `tier = PREMIUM` por suscripción
+  verificada (`subscriptionsv2.get`). El estado del Free es revocable por
+  servidor igual que el premium.
 
 ### devices
 - `id uuid`, `user_id`, `install_id` (cifrado local, referencial para el servidor), `platform` (android), `app_version`, `integrity_last_verdict` (nullable, resumen), `is_revoked`.

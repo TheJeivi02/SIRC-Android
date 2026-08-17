@@ -71,6 +71,18 @@
     está **deprecada**); RTDN como señal (siempre re-consultar la API antes de
     mutar entitlement, dedupe por `messageId`). El cliente jamás adjudica
     entitlement.
+9i. **Supabase ACCOUNT GATE (D15.4):** si para implementar/probar Supabase se
+    necesita crear/configurar recursos reales (cuenta, proyecto, URL, publishable
+    key, Auth, DB, RLS) → **DETENERSE y solicitar al usuario la configuración**
+    (guía paso a paso en `docs/BACKEND_ARCHITECTURE.md` §0.1). **NUNCA inventar
+    credenciales ni crear cuentas en nombre del usuario**, ni continuar como si
+    el backend existiera. El dev local y los tests permanecen en verde sin
+    backend (§2.6).
+9j. **Modelo Free (D15.1–D15.3):** la fase inicial es descarga gratuita +
+    cuenta gratuita + plan FREE (server-side, revocable); NO se implementa aún;
+    `FREE_LIMITS = TBD` — **no inventar límites del Free** (fijarlos requiere
+    decisión explícita). El Free NO relaja seguridad: entitlement FREE se
+    adjudica server-side igual que PREMIUM.
 
 ## Colaboración multi-agente
 

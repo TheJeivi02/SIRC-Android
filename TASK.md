@@ -6,6 +6,53 @@
 
 ## Tarea actual
 
+**LOOP ENGINEERING — MODELO FREE + SUPABASE ACCOUNT GATE (16-ago-2026). Solo
+documentación; sin código.**
+Se definió el modelo de adquisición inicial (descarga gratuita + cuenta + plan
+FREE), el proceso de configuración del backend (Supabase Account Gate) y las
+reglas de secretos, eliminando los niveles intermedios propuestos.
+
+Decisiones registradas (ver `.ai/DECISIONS.md` D15.1–D15.6):
+
+- **D15.1 — Descarga gratuita + SIRC FREE**: la fase inicial es descarga
+  gratuita + cuenta gratuita + plan FREE (entitlement `FREE` server-side, 0 €);
+  monetización Premium **progresiva (E3)**, sobre base validada. Planes
+  activos **FREE → PREMIUM** (niveles intermedios Basic/Pro retirados).
+- **D15.2 — `FREE_INITIAL_MODEL = ENABLED`, `FREE_LIMITS = TBD`**: NO se
+  interpreta "dos 3 free" ni se inventa límite; se fijará por decisión explícita
+  posterior con datos de la beta.
+- **D15.3 — El Free NO relaja seguridad**: entitlement `FREE` server-side,
+  revocable; manipular el APK no da premium indefinido.
+- **D15.4 — Supabase ACCOUNT GATE**: si se necesitan credenciales reales de
+  Supabase → **DETENERSE y pedir configuración al usuario** (guía §0.1). Nunca
+  inventar credenciales ni crear cuentas. Dev local/tests en verde sin backend.
+- **D15.5 — Secretos client-safe vs server-only**: en el APK solo Project URL +
+  publishable key; service_role/service account/keystore/secretos JAMÁS en
+  git/GitHub/APK/chat.
+- **D15.6 — Arquitectura de cuenta**: identidad → profile → suscripción/
+  entitlement → caché local firmado (TTL) → gate; backend aislado tras
+  `AuthRepository`/`EntitlementRepository` (`:domain`).
+
+Entregables:
+
+- **`docs/SUBSCRIPTION_MODEL.md`** — §1 Modelo comercial inicial (descarga
+  gratuita + plan FREE) y §2 estructura **FREE → PREMIUM** reescrita; se
+  retiran los niveles Basic/Pro; `FREE_LIMITS = TBD`.
+- **`docs/BACKEND_ARCHITECTURE.md`** — §0 Supabase ACCOUNT GATE + guía de
+  configuración (§0.1); §2.5 secretos client-safe/server-only; §2.6 dev local
+  sin backend; §3 arquitectura de cuenta; planes con `sirc_free` y entitlement
+  con `tier` FREE/PREMIUM.
+- **`docs/SECURITY_MODEL.md`** — §5.5 Seguridad del Free (D15.3); entitlement
+  FREE/PREMIUM server-side; nota offline del tier FREE.
+- **`docs/PRODUCT_STRATEGY.md`** — P1bis (fase inicial de adquisición) y etapa
+  FREE/BETA ABIERTA en el roadmap; P1/E1b ref.
+
+**Siguiente: (en curso)** verificar `git status`, commit (solo docs) + push y
+entregar reporte final del LOOP (A–N). No implementar Free/backend/E1b sin abrir
+la tarea (regla R16/9f/9i).
+
+## Tarea anterior
+
 **LOOP ENGINEERING — BACKEND SUPABASE + EVALUACIÓN ANTIGRAVITY + ARQUITECTURA
 DE MONETIZACIÓN (16-ago-2026). Solo documentación; sin código.**
 Se decidió el backend inicial, el modelo de suscripción, se amplió el threat
@@ -30,28 +77,17 @@ Decisiones registradas (ver `.ai/DECISIONS.md` D14.1–D14.4):
 Entregables:
 
 - **`docs/BACKEND_ARCHITECTURE.md`** (nuevo) — Supabase (Auth/RLS/Edge
-  Functions/secrets), modelo de datos (users/profiles/plans/subscriptions/
-  entitlements/devices/sessions), flujo Play Billing→backend, RTDN, source of
-  truth, offline, T15–T20, privacidad.
-- **`docs/SUBSCRIPTION_MODEL.md`** (nuevo) — estructura conceptual de planes
-  (Free/Trial · Basic · Pro + futuro), matriz de precios de competencia
-  verificada (Motorista One, GigU, Maxymo, Mystro, Viaje Rentable, Operdrive…),
-  entitlement por features, lifecycle/estados y acción por evento RTDN.
-- **`docs/ANTIGRAVITY_EVALUATION.md`** (nuevo) — estado Antigravity 2.0/IDE/CLI,
-  comparativa OpenCode vs Antigravity y decisión OPCIÓN C.
-- **`docs/SECURITY_MODEL.md`** (v1→v2) — T15–T20 añadidos, T1–T14 referencias
-  corregidas, API de Play v2 y estados modernos, backend conceptual = Supabase.
-- **`docs/PRODUCT_STRATEGY.md`** — §1ter (Supabase), P1 actualizada (#1 backend,
-  #2 Play Billing v2), referencia a planes.
-- **`docs/ROADMAP.md`** — decisiones de la ruta actualizadas (Supabase, planes,
-  v2, herramientas).
-- **`.ai/RULES.md`** — reglas 9g (Supabase), 9h (verificación v2 server-side) y
-  R17 (multi-agente). `.ai/CONTEXT.md` — decisión de backend/planes/herramientas.
-  `.ai/DECISIONS.md` — D14.1–D14.4. `docs/ARCHITECTURE.md`, `docs/PROJECT.md`.
-
-**Siguiente: (en curso)** verificar `git status` y commit (solo docs) + push.
-Luego entregar reporte final del LOOP (A–Q). No implementar nada de E1b/E1a sin
-abrir la tarea (regla R16/9f).
+  Functions/secrets), modelo de datos, flujo Play Billing→backend, RTDN, source
+  of truth, offline, T15–T20, privacidad.
+- **`docs/SUBSCRIPTION_MODEL.md`** (nuevo) — estructura conceptual de planes,
+  matriz de precios de competencia verificada, entitlement, lifecycle/estados.
+- **`docs/ANTIGRAVITY_EVALUATION.md`** (nuevo) — estado Antigravity y decisión
+  OPCIÓN C.
+- **`docs/SECURITY_MODEL.md`** (v1→v2) — T15–T20, API de Play v2, Supabase.
+- **`docs/PRODUCT_STRATEGY.md`**, **`docs/ROADMAP.md`**, **`.ai/RULES.md`**
+  (9g/9h/R17), **`.ai/CONTEXT.md`**, **`.ai/DECISIONS.md`** (D14.1–D14.4),
+  **`docs/ARCHITECTURE.md`**, **`docs/PROJECT.md`** — actualizados. Commit
+  `2ec1f21` + push.
 
 ## Tarea anterior
 

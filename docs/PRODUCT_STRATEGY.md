@@ -136,13 +136,25 @@ deja de estar antes del lanzamiento público (no queda en P3).
    antes de producción (ver `docs/BACKEND_ARCHITECTURE.md`).
 2. **Entitlement server + Play Billing (suscripciones)** con verificación de
    token en servidor (**`purchases.subscriptionsv2.get`**) y RTDN (revocación en
-   tiempo real). Planes conceptuales en `docs/SUBSCRIPTION_MODEL.md` (Free/Trial,
-   Basic, Pro; sin precios finales).
+   tiempo real). Planes conceptuales en `docs/SUBSCRIPTION_MODEL.md` (**FREE →
+   PREMIUM**; sin precios finales ni límites del Free; `FREE_LIMITS = TBD`).
 3. **Play Integrity (Standard)** como señal combinada (appRecognition +
    licensing + deviceIntegrity tiered) — **no como barrera de suscripción**.
 4. **Play Integrity + entitlement offline con TTL corto** (DOC `SECURITY_MODEL`).
 5. **Cierre de descriptores multi-plataforma** (DiDi, InDrive, Cabify) para el
    lanzamiento.
+
+> **Fase inicial vs monetización**: P1 prepara **entitlement y cuenta** (Free),
+> pero **no es la fase de cobro**. La monetización Premium es **progresiva**
+> (E3), sobre una base de usuarios validada. La estrategia de adquisición
+> (descarga gratuita + cuenta gratuita + plan Free) se detalla en §6bis.
+
+### P1bis — Fase inicial de adquisición (FREE, conectada a E1a/Free y E1b)
+
+Estrategia: **descarga gratuita + cuenta gratuita + plan FREE + usuarios
+reales + feedback + telemetría mínima y privada + corrección de errores +
+mejora del producto** → madurez → **monetización progresiva**. No forzar pago
+prematuro. Detalle en `docs/SUBSCRIPTION_MODEL.md` §1.
 
 ### P2 — Diferenciación de ciclo medio (después del lanzamiento)
 
@@ -194,20 +206,21 @@ Bloques futuros (marcados con [ ]) se incorporan como nuevos contratos en
 separación actual. Play Integrity y el ahorro SOC-aware se modelarán detrás de
 interfaces de dominio para mantener los módulos puras testeables.
 
-## 6. Roadmap por etapas (cruzando las 3 fuentes + Roadmap Gate)
+## 6. Roadmap por etapas (cruzando las 3 fuentes + Roadmap Gate + Modelo Free)
 
-> Revisado por el gate de coherencia (16-ago-2026): E1 se divide en E1a/E1b
-> para no desplegar la seguridad comercial antes de validar el núcleo, pero
-> tampoco dejarla para el final. Detalle completo en `docs/ROADMAP.md` y
-> `docs/BETA_READINESS.md`.
+> Revisado por el gate de coherencia (16-ago-2026) y por el LOOP Modelo Free
+> (16-ago-2026): E1 se divide en E1a/E1b; la descarga gratuita + cuenta + plan
+> Free alimentan la adquisición ANTES de monetizar. Detalle completo en
+> `docs/ROADMAP.md`, `docs/BETA_READINESS.md` y `docs/SUBSCRIPTION_MODEL.md`.
 
 | Etapa | Alcance | Fuentes que la justifican |
 |---|---|---|
 | **E0 — Cierre técnico (completado, Sprint 11)** | Remediación, auditoría, RC1 verde. | FUENTE 1 (estado real). |
 | **E1a — Beta controlada (núcleo de producto)** | Beta cerrada sin monetización: overlay <3 s en campo, OCR, estabilidad, Play track; **Sprint 12**. | FUENTE 1 (RC1 listo); gate: validar producto antes de monetizar. |
-| **E1b — Integración comercial** | Suscripción (Play Billing) + entitlement server + Play Integrity (Standard) + RTDN + backend de cuenta. | FUENTE 2 Hito 1; `SECURITY_MODEL.md` (T1–T14). |
+| **FREE / BETA ABIERTA (adquisición)** | **Descarga gratuita + cuenta gratuita + plan FREE**; usuarios reales, feedback, telemetría mínima y privada, corrección de errores; crecimiento inicial. **Antes de endurecer la monetización.** | LOOP Modelo Free (D15.x): adquisición primero, monetización después. |
+| **E1b — Integración comercial (cuenta/entitlement)** | Backend Supabase (Auth/RLS/Edge Functions) + entitlement server + Play Integrity (Standard) + RTDN + cuenta SIRC. Suscripción Premium aún no como barrera de adquisición. | FUENTE 2 Hito 1; `SECURITY_MODEL.md` (T1–T20); `BACKEND_ARCHITECTURE.md`. |
 | **E2 — Crecimiento multi-plataforma** | Descriptores DiDi/InDrive/Cabify en producción + modo nocturno + umbrales dinámicos. | FUENTE 3 (multi-app); FUENTE 2 §5.1. |
-| **E3 — Diferenciación** | Dashboard AHU/tendencias + ahorro energía SOC-aware + modo anti-fatiga. | FUENTE 2 §5.2 y §4.2; FUENTE 3. |
+| **E3 — Diferenciación + monetización progresiva** | Dashboard AHU/tendencias + ahorro energía SOC-aware + modo anti-fatiga + **planes Premium (progresivos) sobre la base validada**. | FUENTE 2 §5.2 y §4.2; FUENTE 3; LOOP Modelo Free. |
 | **E4 — Expansión** | Ecosistema Lite/Pro + Android 16 + mercado LATAM más amplio. | FUENTE 2 §3.2 y §6.2. |
 
 ## 7. Decisión del próximo Sprint (justificada por las 3 fuentes + gate)

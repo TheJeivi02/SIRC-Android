@@ -4,7 +4,9 @@
 > Resultado del **Roadmap Gate** (LOOP de consistencia: estrategia competitiva +
 > informe ejecutivo + arquitectura + roadmap + modelo comercial de suscripción +
 > seguridad) y **ampliado por el LOOP Backend Supabase** (16-ago-2026: T15–T20,
-> API de Play v2 - `subscriptionsv2`, backend basado en Supabase).
+> API de Play v2 - `subscriptionsv2`, backend basado en Supabase) y **por el
+> LOOP Modelo Free** (16-ago-2026: entitlement `FREE`/`PREMIUM`, seguridad del
+> Free, regla D15.3).
 > **No implementa nada**: define la arquitectura objetivo y las
 > mitigaciones para el futuro.
 >
@@ -247,7 +249,12 @@ Detalles técnicos del flujo:
 ### 5.3 Entitlement server (fuente de verdad)
 
 - Backend mantiene: `account_id`, `purchase_tokens[]`, `subscription_state`,
-  `expiry_time`, `plan_id`, `linked_purchase_token`, `acknowledged`, `revoked`.
+  `expiry_time`, `plan_id`, `linked_purchase_token`, `acknowledged`, `revoked`;
+  y el entitlement derivado con `tier` (`FREE`/`PREMIUM`).
+- **Entitlement FREE**: se adjudica en el alta de cuenta (0 €), sin compra, con
+  `server_issued_at`/`server_expires_at` y revocación posible por servidor.
+  No es "premium desbloqueado con botones ocultos": es un estado server-side
+  igual de gestionable (ver "Seguridad del Free" más abajo).
 - **RTDN**: Google Cloud Pub/Sub notifica cambios (`SUBSCRIPTION_PURCHASED`,
   `RENEWED`, `CANCELED`, `ON_HOLD`, `IN_GRACE_PERIOD`, `RECOVERED`, `EXPIRED`,
   `REVOKED`, `voidedPurchaseNotification`, ...). El handler:
@@ -270,13 +277,29 @@ Detalles técnicos del flujo:
 - La app funciona sin backend para el pipeline: el backend solo gana en
   verificaciones de cuenta/suscripción.
 
+### 5.5 Seguridad del Free (D15.3)
+
+El modelo **SIRC FREE** (descarga gratuita + cuenta gratuita) **no relaja el
+modelo de seguridad**:
+
+- El Free es `entitlement = FREE` adjudicado **server-side**; el límite del Free
+  (`FREE_LIMITS = TBD`) se decide server-side, no por ocultar botones en el APK.
+- Manipular/clonar el APK para "desbloquear" features premium **no produce
+  premium indefinido**: el gate consulta `EntitlementRepository` (online o caché
+  firmado con TTL); el backend conserva revocación y gestión por cuenta.
+- La clave de firma del caché y los secretos server-only **nunca** viven en el
+  APK (`BACKEND_ARCHITECTURE.md` §2.5).
+- T15–T20 (APK modificado/repackaged) aplican igualmente a la fase Free:
+  Integridad, RLS, RTDN y TTL son las mismas barreras.
+
 ## 6. Suscripción offline (crítico para SIRC)
 
 ### 6.1 Preguntas y respuestas
 
 - **¿Debe funcionar SIRC completamente offline?** El **núcleo de captura sí** y
   sin backend (privacidad). La **suscripción premium** requiere conectividad
-  periódica (ver TTL).
+  periódica (ver TTL). El **entitlement FREE** también se cachea con el mismo
+  TTL y se revalida online: el estado local nunca es autoridad sobre el tier.
 - **¿Cuánto puede funcionar sin renovar entitlement?** Definimos un **TTL
   máximo de 24–72 h** (a configurar, decisión S2) para el caché de entitlement.
 - **¿Cómo se protege el periodo offline?** El caché está cifrado y **firmado por

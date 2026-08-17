@@ -436,6 +436,94 @@ resuelto.
 workspace/branch; worktrees aislados si se usa otro agente);
 `docs/ANTIGRAVITY_EVALUATION.md`.
 
+## LOOP MODELO FREE — DESCARGA GRATUITA + PLAN FREE + SUPABASE ACCOUNT GATE (16-ago-2026)
+
+LOOP ENGINEERING: definir el modelo de adquisición inicial (descarga gratuita +
+cuenta + plan FREE), el proceso de configuración del backend (Supabase Account
+Gate) y las reglas de secretos. Solo análisis y documentación; sin código.
+Detalle: `docs/SUBSCRIPTION_MODEL.md` §1/§2, `docs/BACKEND_ARCHITECTURE.md`
+§0/§2.5/§2.6.
+
+### D15.1 — Descarga gratuita + plan SIRC FREE para adquisición y validación
+
+**Contexto:** SIRC es app de pago por suscripción (D13.x/D14.x). Antes de cobrar,
+es necesario adquirir usuarios y validar el producto. No fijar precio ni límites
+sin evidencia.
+
+**Decisión:** **modelo inicial = descarga gratuita + cuenta gratuita + plan
+FREE** (entitlement `FREE` adjudicado server-side en el alta de cuenta, 0 €),
+con usuarios reales, feedback, telemetría mínima y privada, corrección de
+errores y mejora del producto. La **monetización Premium es progresiva (E3)**,
+sobre una base validada; en la fase inicial **no hay cobro**. Elimina los
+niveles intermedios (Basic/Pro) propuestos; quedan **FREE → PREMIUM** (+ niveles
+adicionales TBD). No se fijan precios finales.
+
+**Alternativas descartadas:** cobro desde el día 1 (monetizar producto no
+validado); solo-visible-lite (no valida); mantener 3 niveles sin demanda real.
+
+**Consecuencias:** `SUBSCRIPTION_MODEL.md` §1/§2; estrategia en
+`PRODUCT_STRATEGY.md` y `ROADMAP.md` (etapa FREE/BETA ABIERTA).
+
+### D15.2 — FREE_INITIAL_MODEL = ENABLED; FREE_LIMITS = TBD (no inventar)
+
+**Contexto:** se recibió la instrucción "dos 3 free" (posible referencia a 3
+días/3 funciones/3 análisis/3 plataformas) sin contexto suficiente para decidir.
+
+**Decisión:** activar el modelo Free con `FREE_INITIAL_MODEL = ENABLED`, pero
+**`FREE_LIMITS = TBD`**: NO se interpreta ni se inventa ningún límite del Free.
+Los límites se fijarán por **decisión explícita posterior**, usando datos de la
+beta (adopción, retención, coste de servidor) y validación con conductores.
+
+**Consecuencias:** ninguna implementación de límites; se documenta el placeholder
+en `SUBSCRIPTION_MODEL.md`.
+
+### D15.3 — El Free NO relaja la seguridad (entitlement server-side, revocable)
+
+**Contexto:** la tentación en un modelo Free es "desbloquear todo localmente y
+ocultar botones premium".
+
+**Decisión:** el Free mantiene el mismo modelo de seguridad: entitlement
+`FREE` es **server-side** (`tier`), gestionable/revocable por el servidor, con la
+misma Integridad, RLS, RTDN y TTL (T15–T20 aplican a la fase Free). Manipular el
+APK NO produce premium indefinido (el gate consulta `EntitlementRepository`).
+
+**Consecuencias:** `SECURITY_MODEL.md` §5.5 "Seguridad del Free".
+
+### D15.4 — Supabase ACCOUNT GATE (no inventar credenciales)
+
+**Contexto:** la implementación futura de Supabase requerirá recursos reales
+(cuenta, proyecto, URL, publishable key, Auth, DB, RLS).
+
+**Decisión:** si para implementar/probar Supabase se necesita crear/configurar
+recursos reales → **DETENERSE y solicitar al usuario la configuración**,
+proporcionando la guía paso a paso (`BACKEND_ARCHITECTURE.md` §0.1). Prohibido:
+inventar credenciales, crear cuentas en nombre del usuario o continuar como si
+el backend existiera. El dev local y los tests siguen en verde sin backend
+(`BACKEND_ARCHITECTURE.md` §2.6).
+
+**Consecuencias:** nueva regla de operación 9i; guía de configuración en
+`BACKEND_ARCHITECTURE.md` §0.
+
+### D15.5 — Secretos: client-safe vs server-only
+
+**Decisión:** **client-safe** (Project URL + publishable/anon key) es lo único
+que vive en el APK; **server-only** (`service_role`, service account de Play,
+claves privadas, secretos de webhook, keystore, API credentials) viven en Edge
+Functions/CI y JAMÁS en git/GitHub/APK/chat. Rotación documentada; auditoría
+R9g; cualquier fuga → revocar y rotar.
+
+**Consecuencias:** `BACKEND_ARCHITECTURE.md` §2.5.
+
+### D15.6 — Arquitectura de cuenta y desarrollo local sin backend
+
+**Decisión:** cadena conceptual de cuenta en cliente: **identidad → profile →
+suscripción/entitlement → caché local firmado (TTL) → gate de feature**. El
+backend se aísla detrás de contratos `:domain` (`AuthRepository`,
+`EntitlementRepository`); sin Supabase real se usa una implementación no-op/local
+para dev/test. El núcleo LOCAL-FIRST funciona sin backend.
+
+**Consecuencias:** `BACKEND_ARCHITECTURE.md` §2.6 y §3 (arquitectura de cuenta).
+
 ## SPRINT 11 — Eliminación de FakeParser (WP-E1-01)
 
 ### D11.6 — Eliminación de `FakeParser` de la ruta de producción

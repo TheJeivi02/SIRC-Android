@@ -31,10 +31,26 @@ es rentable.
 > >   la `subscriptions.get` está deprecada); RTDN = señal (re-consultar API,
 > >   dedupe `messageId`); entitlement offline con TTL 24–72 h; threat model
 > >   **T1–T20**.
-> > - **Planes**: estructura conceptual Free/Trial · Basic · Pro (+ futuro),
-> >   sin precios finales (referencia de mercado: USD 4–7/mes, anual ~2,5–4,2/mes).
 > > - **Herramientas**: **OpenCode principal + Antigravity complementario**
 > >   (no sustituye; sin doble agente simultáneo en el mismo branch — regla R17).
+> >
+> > > **LOOP Modelo Free (16-ago-2026)** — decisiones **D15.1–D15.6**, reglas
+> > > **9i–9j**; detalles en `docs/SUBSCRIPTION_MODEL.md` §1/§2 y
+> > > `docs/BACKEND_ARCHITECTURE.md` §0/§2.5/§2.6:
+> > > - **Modelo inicial = descarga gratuita + cuenta gratuita + plan FREE**
+> > >   (entitlement `FREE` server-side, 0 €, revocable); monetización Premium
+> > >   **progresiva (E3)**. Estructura de planes **FREE → PREMIUM** (niveles
+> > >   intermedios eliminados; adicionales TBD).
+> > > - **`FREE_INITIAL_MODEL = ENABLED`, `FREE_LIMITS = TBD`**: no se inventan
+> > >   límites del Free (decisión explícita posterior). El Free **no relaja
+> > >   seguridad** (D15.3, `SECURITY_MODEL.md` §5.5).
+> > > - **Supabase ACCOUNT GATE (D15.4/9i)**: si se necesita crear/configurar
+> > >   recursos reales de Supabase → **DETENERSE y pedir la configuración al
+> > >   usuario** (guía §0.1). Nunca inventar credenciales. Dev local y tests en
+> > >   verde sin backend (§2.6).
+> > > - **Secretos**: client-safe (URL + publishable key) en el APK;
+> > >   server-only (service_role, service account Play, claves privadas, keystore)
+> > >   jamás en git/GitHub/APK/chat (D15.5, §2.5).
 
 **Cómo funciona (flujo real):**
 
@@ -208,21 +224,25 @@ Service **nunca** interactúa con otras apps.
 
 - **Ruta de producto consolidada**: `docs/PRODUCT_STRATEGY.md` (diferenciación
   ADOPTAR/MEJORAR/EVITAR/DIFERENCIAR, prioridades P0–P3, arquitectura futura,
-  etapas E0–E4 con **E1a/E1b**). **Sprint 12 = E1a: beta cerrada de validación
-  del núcleo SIN monetización** (planificado, sin implementar); Play
-  Integrity + backend + suscripción + RTDN quedan en **E1b** (posterior, sobre
-  datos de la beta).
+  etapas E0–E4 con **E1a/E1b** + **FREE/BETA ABIERTA** entre ambas). **Sprint 12
+  = E1a: beta cerrada de validación del núcleo SIN monetización** (planificado,
+  sin implementar); backend de cuenta + entitlement + Play Integrity + RTDN
+  quedan en **E1b** (posterior, sobre datos de la beta).
 - **Backend**: **Supabase** (Auth + RLS + Edge Functions + Postgres) para
   identidad/suscripción/entitlement — `docs/BACKEND_ARCHITECTURE.md`. Nada de
-  ofertas/pantallas se sube. Plan **Pro** en producción.
-- **Modelo de suscripción**: planes Free/Trial · Basic · Pro (conceptual, sin
-  precios finales), entitlement y lifecycle — `docs/SUBSCRIPTION_MODEL.md`.
+  ofertas/pantallas se sube. Plan **Pro** en producción. **ACCOUNT GATE**: si se
+  necesitan credenciales reales → detenerse y pedir configuración al usuario
+  (reglas 9i/9j).
+- **Modelo inicial (D15)**: **descarga gratuita + cuenta gratuita + plan FREE**
+  (entitlement `FREE` server-side, 0 €); monetización Premium **progresiva (E3)**.
+  `FREE_LIMITS = TBD` (no inventar). — `docs/SUBSCRIPTION_MODEL.md`.
 - **Herramientas**: OpenCode principal + Antigravity complementario (evaluación
   en `docs/ANTIGRAVITY_EVALUATION.md`); prohibido doble-agente simultáneo en el
   mismo branch (regla R17).
 - **Modelo comercial**: **apk de pago por suscripción**; el APK es manipulable.
   Autorización premium decide el backend, no el cliente (`docs/SECURITY_MODEL.md`,
-  threat model T1–T14; reglas 9d/9e/9f).
+  threat model T1–T20; reglas 9d/9e/9f). La fase inicial es **descarga
+  gratuita + plan FREE** (ver dirección de producto arriba; D15).
 - **LOCAL-FIRST** (reemplaza "100 % local"): procesamiento de ofertas 100 %
   local sin salida de datos de pantalla; servicios remotos mínimos solo para
   estado comercial/de cuenta.
