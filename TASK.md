@@ -6,30 +6,46 @@
 
 ## Tarea actual
 
-**LOOP ENGINEERING COMPLETADO — Consolidación estratégica (3 fuentes).**
-Se cruzaron la auditoría técnica del repositorio (Sprints 1–11), el informe
-ejecutivo de estrategia (`docs/Informe Ejecutivo de Estrategia y Diseño…`) y la
-investigación de mercado con verificación web (16-ago-2026). Sincronizado en
-`origin/main`. Solo documentación; sin cambios de código.
+**ROADMAP GATE — SEGURIDAD Y SUSCRIPCIÓN (16-ago-2026). Solo documentación;
+sin código.** Se definió formalmente el nuevo modelo comercial (app de pago por
+suscripción) y se validó la coherencia entre estrategia, arquitectura y roadmap
+E0–E4.
+
+Decisiones registradas (ver `.ai/DECISIONS.md` D13.1–D13.4):
+
+- **LOCAL-FIRST** (reemplaza "100 % local"): pipeline de ofertas 100 % local,
+  ningún dato de pantalla sale del dispositivo; servicios remotos mínimos solo
+  para estado comercial/de cuenta.
+- **Nunca confiar en el cliente para autorización premium** (play Integrity =
+  señal, no barrera; entitlement en backend verificando `purchases.subscriptions.get`;
+  offline con TTL 24–72 h; RTDN para revocación).
+- **Sprint 12 reestructurado**: la propuesta original "beta + Play Integrity"
+  se **rechaza**. **Sprint 12 = E1a: beta cerrada de validación del núcleo SIN
+  monetización**; Play Integrity + backend + suscripción + RTDN = **E1b**
+  (posterior, sobre datos de la beta).
+- **`EncryptedSharedPreferences` deprecada**: si se necesitan secretos en E1b,
+  usar primitivas Keystore directas.
 
 Entregables:
 
-- **`docs/PRODUCT_COMPETITIVE_ANALYSIS.md`** — análisis competitivo verificado:
-  Ruta Rentable / Motorista One / GigU (✅ web), Viaje Rentable y Radar de
-  Viajes (⚠️ mención), DecideRider (⚠️ bots sin verificar), Autoindrive /
-  Maxymo / Mystro (**NO VERIFICADO**). Matriz por capacidades + brechas.
-- **`docs/PRODUCT_STRATEGY.md`** — posicionamiento "legalista", matriz
-  ADOPTAR/MEJORAR/EVITAR/DIFERENCIAR, Product Gap Analysis, prioridades
-  **P0–P3**, arquitectura de producto futura y etapas E0–E4.
-- **`docs/ROADMAP.md`** — nueva sección "Ruta estratégica de producto" y
-  **Sprint 12 = Lanzamiento controlado (beta cerrada + Play Integrity)**,
-  decidido y planificado (sin implementar).
-- **`.ai/RULES.md`** — reglas 9b (prohibida la automatización de clics/gestos)
-  y 9c (prioridades P0–P3). **`.ai/CONTEXT.md`** — bloque "Dirección de
-  producto". **`.ai/DECISIONS.md`** — D12.1 y D12.2.
+- **`docs/SECURITY_MODEL.md`** (nuevo) — trust model, threat model **T1–T14**
+  (impacto/probabilidad/mitigación/capa), análisis Play Integrity (Standard vs
+  Classic), flujo Billing→backend, offline con TTL, criptografía Keystore,
+  backend conceptual (10 servicios, sin datos de ofertas), privacidad.
+- **`docs/BETA_READINESS.md`** (nuevo) — checklist de entrada a beta
+  (P1–P6/PL1–PL4/S1–S4/U1–U5/L1–L4/T1–T4) + criterios de salida.
+- **`docs/ROADMAP.md`** — ruta E1a/E1b + Sprint 12 = E1a reescrito.
+- **`docs/PRODUCT_STRATEGY.md`** — pilares actualizados (LOCAL-FIRST,
+  suscripción), §1bis, prioridades P0–P3 revisadas, §6/7/8.
+- **`.ai/RULES.md`** — reglas **9d/9e/9f** (suscripción, LOCAL-FIRST, no
+  implementar E1b aún). `.ai/CONTEXT.md` — modelo y dirección actualizados.
+  `.ai/DECISIONS.md` — **D13.1–D13.4**.
+- **`docs/PROJECT.md`, `docs/ARCHITECTURE.md`, `docs/CODING_STANDARDS.md`,
+  `docs/GOOGLE_PLAY_COMPLIANCE.md`** — coherentes con LOCAL-FIRST.
 
-**Siguiente: (pausa)** Sprint 12 planificado; no implementar nada sin abrir la
-tarea explícitamente (regla R16).
+**Siguiente: (en curso)** verificar `git status`/git clean y commitear (solo
+docs) + push. Luego entregar el reporte final del LOOP (a-o). No implementar
+nada de E1b/E1a sin abrir la tarea (regla R16).
 
 ## Tarea anterior
 

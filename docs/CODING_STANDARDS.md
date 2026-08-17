@@ -104,7 +104,9 @@
     (no re-agregar/retirar de `WindowManager` en cada oferta).
   - Evitar trabajo en `onAccessibilityEvent` que no sea necesario.
 - **Seguridad y privacidad**:
-  - 100 % local: sin backend, sin telemetría, sin anuncios.
+  - LOCAL-FIRST: el pipeline de ofertas es **100 % local** (OCR, parsing,
+    evaluación, overlay, historial); el backend de cuenta (E1b) solo trata
+    estado comercial/suscripción/entitlement — **nunca** contenido de pantalla.
   - No registrar ni transmitir contenido de pantalla.
   - El Accessibility Service **solo lee**; prohibido `performAction`,
     `dispatchGesture` y automatizar decisiones de la plataforma.

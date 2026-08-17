@@ -79,8 +79,11 @@ No se solicitan permisos de ubicación, contactos, cámara ni almacenamiento.
 
 ## 5. Privacidad y datos
 
-- **Todo el procesamiento es local.** No hay backend, ni telemetría, ni SDK de
-  anuncios, ni analytics de terceros.
+- **Todo el procesamiento de ofertas es 100 % local (LOCAL-FIRST).** Ningún
+  contenido de pantalla o dato de viaje sale del dispositivo. No hay telemetría,
+  ni SDK de anuncios, ni analytics de terceros. (Estado actual: sin backend; en
+  la etapa E1b vendrán componentes remotos **solo** de suscripción/entitlement/
+  integridad — ver `docs/SECURITY_MODEL.md` — que no reciben datos de pantalla.)
 - Datos guardados (Room, cifrado del propio Android): configuración del
   conductor y historial de ofertas evaluadas.
 - El historial se puede borrar desde la pantalla de Historial.

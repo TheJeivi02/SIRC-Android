@@ -11,6 +11,16 @@ Android nativa (Kotlin, Jetpack Compose, Material 3) que ayuda a conductores de
 Uber, DiDi, Cabify e InDrive a decidir en **<3 segundos** si una oferta de viaje
 es rentable.
 
+> **Modelo de negocio y localidad (Roadmap Gate, 16-ago-2026)**:
+> SIRC pasa a ser **aplicación de pago por suscripción** y el modelo de
+> datos pasa de "100 % local" a **LOCAL-FIRST**: el procesamiento de ofertas
+> (OCR, parsing, evaluación, overlay, historial) sigue siendo **100 % local** y
+> ninguna oferta/dato de pantalla sale del dispositivo; identidad, suscripción,
+> entitlement, integridad (Play Integrity) y recuperación usarán **servicios
+> remotos mínimos** (etapa E1b, aún no implementados). El APK se considera
+> manipulable: nunca confiar en el cliente para autorización premium (ver
+> `docs/SECURITY_MODEL.md`, `docs/BETA_READINESS.md`, reglas 9d–9f).
+
 **Cómo funciona (flujo real):**
 
 > Nota SPRINT 10: **hardening RC1** (v1.0.0-rc1). **Modo de validación**:
@@ -170,8 +180,10 @@ es rentable.
    de reglas en producción.
 5. `OverlayService` (Foreground, `TYPE_APPLICATION_OVERLAY`) dibuja un
    `ComposeView` liviano con la recomendación, métricas y semáforo.
-6. Todo el análisis es **100 % local**: sin telemetría, sin backend, sin fuga de
-   contenido de pantalla.
+6. Todo el análisis de ofertas es **100 % local** (LOCAL-FIRST): ninguna oferta
+   o texto de pantalla sale del dispositivo. Los únicos servicios remotos
+   previstos (E1b) son comerciales/de cuenta (suscripción, entitlement,
+   integridad), nunca contenido de pantalla.
 
 **Filosofía**: NO repetir la información que ya muestra la plataforma; solo
 información derivada (ganancia, métricas) con colores semáforo. El Accessibility
@@ -181,14 +193,22 @@ Service **nunca** interactúa con otras apps.
 
 - **Ruta de producto consolidada**: `docs/PRODUCT_STRATEGY.md` (diferenciación
   ADOPTAR/MEJORAR/EVITAR/DIFERENCIAR, prioridades P0–P3, arquitectura futura,
-  etapas E0–E4 y **Sprint 12 = Lanzamiento controlado**: beta cerrada + Play
-  Integrity, planificado, sin implementar).
+  etapas E0–E4 con **E1a/E1b**). **Sprint 12 = E1a: beta cerrada de validación
+  del núcleo SIN monetización** (planificado, sin implementar); Play
+  Integrity + backend + suscripción + RTDN quedan en **E1b** (posterior, sobre
+  datos de la beta).
+- **Modelo comercial**: **apk de pago por suscripción**; el APK es manipulable.
+  Autorización premium decide el backend, no el cliente (`docs/SECURITY_MODEL.md`,
+  threat model T1–T14; reglas 9d/9e/9f).
+- **LOCAL-FIRST** (reemplaza "100 % local"): procesamiento de ofertas 100 %
+  local sin salida de datos de pantalla; servicios remotos mínimos solo para
+  estado comercial/de cuenta.
 - **Análisis competitivo verificado**: `docs/PRODUCT_COMPETITIVE_ANALYSIS.md`
   (Ruta Rentable, Motorista One, GigU verificados; autoindrive/Maxymo/Mystro
   sin verificación).
 - **Regla de hierro**: prohibida cualquier automatización de clics/gestos
   (auto-aceptar, contra-ofertas). SIRC es la herramienta legalista: solo
-  lectura + <3 s + 100 % local (reglas 9b/9c en `.ai/RULES.md`).
+  lectura + <3 s + local-first (reglas 9b–9f en `.ai/RULES.md`).
 - **Nada fuera de las prioridades P0–P3** sin aprobación explícita.
 
 ## Estado del proyecto

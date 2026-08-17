@@ -291,6 +291,73 @@ de Play al día). Las prioridades P0–P3 quedan fijadas en `PRODUCT_STRATEGY.md
 **Consecuencias:** nueva sección "Ruta estratégica de producto" y "Sprint 12"
 en `docs/ROADMAP.md`. No se implementa código hasta abrir la tarea (regla R16).
 
+## ROADMAP GATE — Seguridad y Suscripción (revisión de coherencia, 16-ago-2026)
+
+Revisión de coherencia entre estrategia competitiva, informe ejecutivo,
+arquitectura, roadmap E0–E4 y el nuevo modelo comercial (app de pago por
+suscripción). Solo documentación; sin cambios de código.
+Documentación: `docs/SECURITY_MODEL.md` y `docs/BETA_READINESS.md`.
+
+### D13.1 — Modelo LOCAL-FIRST (no "100 % local")
+
+**Contexto:** el modelo de negocio de pago por suscripción exige servicios
+remotos (identidad, suscripción, verificación de compra, integridad), lo que
+contradecía el principio literal "100 % local".
+
+**Decisión:** SIRC queda definido como **LOCAL-FIRST**. El procesamiento de
+ofertas (OCR, parsing, evaluación, overlay, historial) es 100 % local y
+**ninguna oferta/dato de pantalla sale del dispositivo**; los servicios remotos
+se limitan a estado comercial/de cuenta (autenticación, entitlement, verificación
+Play, Play Integrity, RTDN, recuperación).
+
+**Consecuencias:** reglas 9d/9e/9f y secciones "1bis" de
+`PRODUCT_STRATEGY.md`; el pipeline de captura no se contamina; la privacidad de
+pantalla se mantiene.
+
+### D13.2 — El APK se considera manipulable; la autorización vive en backend
+
+**Contexto:** como app de pago, el APK publicado puede ser repackaged/reescrito;
+confiar en chequeos locales de suscripción es inseguro.
+
+**Decisión:** **nunca confiar en el cliente para decisiones críticas de
+autorización.** El entitlement (suscripción activa, revocación) lo decide un
+backend que verifica con Google Play Developer APIs
+(`purchases.subscriptions.get`). Play Integrity es una **señal de entorno**
+(Standard + tiered por defecto, Classic con nonce solo para restaurar compra),
+no la barrera de suscripción. Offline: caché servidor firmada con TTL 24–72 h
+(el reloj local nunca es autoridad); RTDN para revocación.
+
+**Consecuencias:** threat model T1–T14 y trust model en `docs/SECURITY_MODEL.md`.
+
+### D13.3 — Sprint 12 = E1a (beta cerrada del núcleo, SIN monetización); E1b comercial después
+
+**Contexto:** la propuesta original "Sprint 12 = beta + Play Integrity (Strong)"
+mezclaba la validación de producto con la infraestructura de cobro/fraude.
+
+**Decisión:** **se rechaza la propuesta original y se reestructura.** Sprint 12 =
+**E1a**: beta cerrada de validación del núcleo (overlay <3 s, OCR, estabilidad
+10–15) **sin** Play Integrity con enforcement, sin billing, sin backend.
+Play Integrity + backend + suscripción + RTDN + entitlement = **E1b**, etapa
+posterior construida sobre los datos reales de la beta. La seguridad comercial
+no queda al final del roadmap (E1b precede a E2), pero tampoco se despliega
+antes de validar el producto.
+
+**Consecuencias:** `docs/ROADMAP.md` (tabla E1a/E1b + Sprint 12), §7 y
+guardrails 2–5 de `PRODUCT_STRATEGY.md`, P1 reordenada, `docs/BETA_READINESS.md`
+(checklist de entrada + criterios de salida) y regla 9f.
+
+### D13.4 — `EncryptedSharedPreferences` deprecada → primitivas Keystore directas
+
+**Contexto:** androidx.security `EncryptedSharedPreferences` está **deprecada**
+en 2026; no usarla en la cache de entitlement offline (E1b).
+
+**Decisión:** si hace falta cifrado local en E1b, usar **Keystore directamente**
+(hardware-backed, `isInsideSecureHardware`, StrongBox donde exista) para los
+secretos de cache; la autoridad de autorización sigue siendo el backend (T3).
+
+**Consecuencias:** sin dependencia deprecada; decisión aplicable solo al abrir
+E1b (no se implementa en Sprint 12).
+
 ## SPRINT 11 — Eliminación de FakeParser (WP-E1-01)
 
 ### D11.6 — Eliminación de `FakeParser` de la ruta de producción

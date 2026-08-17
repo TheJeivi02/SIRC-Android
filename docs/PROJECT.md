@@ -29,6 +29,11 @@ Configuración y persistencia local de un historial básico.
 - **Solo lectura.** El Accessibility Service no toca botones, no acepta/rechaza
   viajes y no simula gestos. Cumplimiento estricto de la política de Google
   Play (ver `GOOGLE_PLAY_COMPLIANCE.md`).
+- **LOCAL-FIRST.** El procesamiento de ofertas (OCR, parsing, evaluación,
+  overlay) es **100 % local** y ninguna oferta/dato de pantalla sale del
+  dispositivo. Como app de pago por suscripción (ver `SECURITY_MODEL.md`),
+  identidad, suscripción, entitlement e integridad usarán servicios remotos
+  mínimos — aún no implementados (E1b); nunca contenido de pantalla.
 - **Multi-plataforma desacoplada.** Uber, DiDi, Cabify e InDrive se tratan como
   plataformas desacopladas con extractores por palabras clave, sin depender de
   APIs públicas inexistentes.
@@ -84,6 +89,8 @@ Pruebas unitarias existentes: 14 (6 en `:domain`, 8 en `:core:platform`).
 - Arquitectura y decisiones: `docs/ARCHITECTURE.md`.
 - Estándares de código y reglas de arquitectura: `docs/CODING_STANDARDS.md`.
 - Cumplimiento de políticas de Play: `docs/GOOGLE_PLAY_COMPLIANCE.md`.
+- Modelo de seguridad y suscripción (LOCAL-FIRST): `docs/SECURITY_MODEL.md`.
+- Checklist de beta cerrada (E1a): `docs/BETA_READINESS.md`.
 - Historial de versiones: `docs/CHANGELOG.md`.
-- Plan de sprints: `docs/ROADMAP.md`.
+- Plan de sprints y ruta E0–E4: `docs/ROADMAP.md`.
 - Contexto para sesiones de IA: `.ai/CONTEXT.md`.

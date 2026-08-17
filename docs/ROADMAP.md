@@ -305,41 +305,68 @@ arquitectura.
 
 - Estado: **completado** (cierre en `456ca67`).
 
-## Ruta estratégica de producto (etapas)
+## Ruta estratégica de producto (etapas) — REVISADA (Roadmap Gate)
 
-> Consolidación de las tres fuentes (auditoría técnica, informe estratégico y
-> análisis competitivo). Detalle en `docs/PRODUCT_STRATEGY.md` y
-> `docs/PRODUCT_COMPETITIVE_ANALYSIS.md`.
+> Consolidación de las tres fuentes + **Roadmap Gate** (coherencia con modelo de
+> suscripción y seguridad; ver `docs/SECURITY_MODEL.md` y
+> `docs/BETA_READINESS.md`).
+>
+> **Reestructuración introducida por el gate**: la etapa E1 se divide en
+> **E1a (beta de validación del núcleo, sin monetización)** y **E1b
+> (integración comercial: suscripción, backend, Play Integrity)**. La seguridad
+> comercial NO queda al final del roadmap (se incorpora desde E1b), pero
+> tampoco desplaza la validación del núcleo de producto.
 
-| Etapa | Alcance | Estado |
-|---|---|---|
-| E0 — Cierre técnico | Remediación + RC1 + auditorías (Sprints 4–11) | ✅ completado |
-| E1 — Lanzamiento controlado | Beta cerrada real + Play Integrity (Strong) + hardening de política Play | 🔵 **PRÓXIMO (Sprint 12)** |
-| E2 — Crecimiento multi-plataforma | Descriptores DiDi/InDrive/Cabify + umbrales dinámicos + modo nocturno | ⬜ pendiente |
-| E3 — Diferenciación | Dashboard AHU/tendencias + ahorro energía SOC-aware + modo anti-fatiga | ⬜ pendiente |
-| E4 — Expansión | Ecosistema Lite/Pro + Android 16 + LATAM | ⬜ pendiente |
+| Etapa | Alcance | Objetivo | Valor | Dependencias | Riesgo | Seguridad | Criterio de salida |
+|---|---|---|---|---|---|---|---|
+| E0 — Cierre técnico | Remediación + RC1 + auditorías (Sprints 4–11) | Estabilidad y arquitectura | Base para beta | — | Bajo | Solo lectura intacto | ✅ completado |
+| **E1a — Beta controlada (núcleo de producto)** | Beta cerrada sin monetización; Play Console internal/closed track; validación overlay <3 s, OCR, estabilidad Android 10–15, multi-plataforma en ALPHA | Validar el producto real **antes** de construir cobro | Datos reales de campo | E0 | Medio (crash/calidad en campo) | Solo lectura + compliance ✓ (sin billing) | Checklist `BETA_READINESS.md` §2 (P1–P5, PL1–PL4, U1–U5, L1–L4) |
+| **E1b — Integración comercial** | Suscripción (Play Billing) + **entitlement server** + Play Integrity (Standard + tiered) + RTDN + backend de cuenta | Monetización segura | Ingresos recurrentes | E1a (datos de uso) | Alto (fraude/piratería) | **Ver `SECURITY_MODEL.md`** (threat model T1–T14, TTL offline, trust model) | End-to-end: compra→verificación→entitlement→revoCADo por RTDN probado |
+| E2 — Crecimiento multi-plataforma | Descriptores DiDi/InDrive/Cabify en producción + umbrales dinámicos + modo nocturno | Escalar cohorte multi-app | Crecimiento | E1 (base estable) | Medio | Integridad en features premium por E1b | 4 plataformas con overlay verificado en prod |
+| E3 — Diferenciación | Dashboard AHU/tendencias + ahorro energía SOC-aware + modo anti-fatiga | Profesionalización | Retención | E2 | Medio | Entitlement por features premium | Métricas AHU visibles y mejora de batería |
+| E4 — Expansión | Ecosistema Lite/Pro + Android 16 + LATAM | Mercado ampliado | Escala | E3 | Medio | Key Sharing API (JSSEC 5.6) entre Lite/Pro | Lite/Pro lanzado y compartiendo entitlement |
 
 ### Decisiones que guían la ruta
 
 - **Prohibido cualquier automatización de clics/gestos** (auto-aceptar,
   contra-ofertas, `performAction`): riesgo de baneo y violación de Play. El
-  diferenciador de SIRC es "solo lectura + <3 s + 100 % local".
-- **Prioridades P0–P3** definidas en `docs/PRODUCT_STRATEGY.md`; ninguna
+  diferenciador de SIRC es "solo lectura + <3 s + local-first".
+- **Modelo comercial**: **apk de pago por suscripción** (nueva restricción
+  formal). El APK se considera manipulable; la autorización de features premium
+  se decide en backend, no en cliente (`docs/SECURITY_MODEL.md`).
+- **LOCAL-FIRST** (reemplaza "100 % local"): el procesamiento de ofertas (OCR,
+  parsing, evaluación, overlay) permanece 100 % local y sin salida de datos de
+  pantalla; identidad/suscripción/entitlement/integridad usan **servicios
+  remotos mínimos**.
+- **Prioridades P0–P3** revisadas en `docs/PRODUCT_STRATEGY.md`; ninguna
   feature fuera de ellas entra al roadmap sin aprobación explícita.
 
-## Sprint 12 — Lanzamiento controlado (beta cerrada + Play Integrity) 🔵 Planificado
+## Sprint 12 — Beta controlada: validación núcleo de producto (E1a) 🔵 Planificado
 
-Primer entregable de la etapa **E1**. Decisión justificada por las tres fuentes
-(documento completo en `docs/PRODUCT_STRATEGY.md` §7).
+**Reemplaza la propuesta anterior** ("Sprint 12 = beta + Play Integrity").
+Decisión del Roadmap Gate (§12 de `docs/SECURITY_MODEL.md` y
+`docs/BETA_READINESS.md` §4): Play Integrity, backend, suscripción y RTDN NO
+entran en el Sprint 12; se desplazan a **E1b** (se construyen sobre los datos de
+la beta).
 
-- **Objetivo**: poner SIRC frente a conductores reales (beta cerrada) con
-  integridad declarada y política de Play al día.
-- **Alcance previsto (por confirmar al abrir la tarea)**:
-  - Play Integrity (Strong) detrás de contrato de dominio + declaración de uso.
-  - Rutas de beta cerrada (lista de testers, descarga, primera cohorte).
-  - Revisión/ajustes de `GOOGLE_PLAY_COMPLIANCE.md` para la versión beta.
-  - Validación de overlay <3 s en campo y registro de telemetría de decisión
-    local (100 % local, sin subir datos).
+Respondiendo al gate:
+
+- **A. ¿Es el siguiente Sprint?** Sí, pero redefinido: la beta cerrada SE
+  mantiene como próximo paso (el RC1 permite validar en campo), pero **sin**
+  Play Integrity ni billing. Añadir monetización antes de validar el núcleo
+  arriesga construir cobro sobre un producto aún no probado con conductores reales.
+- **B. Qué debe existir ANTES**: E0 completado (✅), checklist `BETA_READINESS.md`
+  §2 cumplida, Plan de testers y opt-in de Play Console, panel de métricas local.
+- **C. Qué se desarrolla en Sprint 12**: instrumentación de beta (métricas de
+  decisión local, encuesta, reporte de bugs), pulido de UX de errores, ajustes de
+  estabilidad según primer lote de testers, rellenado de la checklist.
+- **D. Qué queda para después**: entitlement, backend, Billing, RTDN, Play
+  Integrity con enforcement, modo anti-fatiga, AHU (E1b, E3).
+- **E. Pruebas obligatorias (mínimo)**: overlay <3 s cronometrado en ruta con
+  conductor, OCR en ≥3 dispositivos/Android 10–15, jornada ≥8 h sin crash,
+  cada plataforma soportada en ≥1 dispositivo real, revocación de permisos
+  (MediaProjection) y vuelta al servicio sin crash.
+
 - Estado: **planificado — sin implementar** (regla R16: no implementar sin
   instrucción explícita).
 

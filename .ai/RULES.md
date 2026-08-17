@@ -42,18 +42,38 @@
     esto está en `docs/PRODUCT_STRATEGY.md` (matriz EVITAR/DIFERENCIAR).
 9c. **Respetar las prioridades P0–P3 definidas** en
     `docs/PRODUCT_STRATEGY.md`. No implementar features fuera de roadmap sin
-    aprobación explícita; P0 (robustez/cumplimiento) y P1 (ruta inmediata)
-    siempre tienen prioridad sobre features aspiracionales.
+    aprobación explícita; P0 (robustez del núcleo) y P1 (lanzamiento comercial
+    seguro: suscripción + entitlement + integridad) siempre tienen prioridad
+    sobre features aspiracionales.
+
+## Modelo de negocio y seguridad (LOCAL-FIRST)
+
+9d. **SIRC es una aplicación de pago por suscripción.** El APK debe considerarse
+    **potencialmente manipulable**: nunca confiar en el cliente para decisiones
+    críticas de autorización (suscripción activa, entitlement, revocación,
+    identidad de cuenta). Esas decisiones viven en un backend verificado con
+    Google Play APIs (`docs/SECURITY_MODEL.md`).
+9e. **Principio LOCAL-FIRST** (reemplaza "100 % local"): el procesamiento de
+    ofertas (OCR, parsing, evaluación, overlay, historial) permanece 100 %
+    local y **ninguna oferta/dato de pantalla sale del dispositivo**; identidad,
+    suscripción, entitlement, integridad y recuperación usan **servicios remotos
+    mínimos**.
+9f. **No implementar** Play Integrity, Play Billing, suscripciones, backend,
+    RTDN ni entitlement hasta que se abra explícitamente **E1b** (etapa posterior
+    a la beta del núcleo; ver `docs/SECURITY_MODEL.md` y `docs/BETA_READINESS.md`).
 
 ## Seguridad, privacidad y Google Play
 
 9. **Accessibility Service SOLO lectura.** Prohibido: `performAction`,
    `dispatchGesture`, key events, automatizar aceptar/rechazar viajes o
    interactuar con la interfaz de otras apps.
-10. **100 % local.** Sin backend, sin telemetría, sin anuncios, sin subir datos
-    de pantalla. Todo el historial vive en Room. La integridad (Play Integrity)
-    y el ahorro de energía (SOC) —cuando existan— se exponen como contratos de
-    `:domain` para mantener los módulos Kotlin puro.
+10. **El procesamiento de ofertas es 100 % local** (LOCAL-FIRST): sin telemetría
+    de pantalla, sin subir datos de ofertas. El historial vive en Room. Cuando
+    exista el backend (E1b), solo se intercambia estado comercial/de cuenta
+    (cuenta, suscripción, entitlement, integridad), **nunca** contenido de
+    pantalla. La integridad (Play Integrity) y el ahorro de energía (SOC) —cuando
+    existan— se exponen como contratos de `:domain` para mantener los módulos
+    Kotlin puro.
 11. **Respetar la declaración de propósito** de `accessibility_service_config.xml`
     y el subtipo `specialUse` del Foreground Service. Mantener al día
     `docs/GOOGLE_PLAY_COMPLIANCE.md`.

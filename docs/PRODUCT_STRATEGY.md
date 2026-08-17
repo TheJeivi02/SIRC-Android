@@ -9,7 +9,7 @@
 
 ## 1. Posicionamiento estratégico
 
-**SIRC = la app de decisión de rentabilidad legalista, instantánea y 100 % local.**
+**SIRC = la app de decisión de rentabilidad legalista, instantánea y local-first.**
 
 Pilares innegociables (derivan de FUENTE 1 + FUENTE 2 + FUENTE 3):
 
@@ -18,11 +18,31 @@ Pilares innegociables (derivan de FUENTE 1 + FUENTE 2 + FUENTE 3):
    automatización es el mayor riesgo de baneo y viola la política de Play.
 2. **Decisión <3 s con mínima carga cognitiva.** Una mirada, color semáforo,
    información derivada, sin duplicar lo que muestra la plataforma.
-3. **100 % local.** Sin telemetría, sin backend, sin subir pantallas. Es
-   diferenciador frente a la mayoría del mercado.
+3. **LOCAL-FIRST (procesamiento local, servicios remotos mínimos).**
+   El procesamiento de ofertas (OCR, parsing, evaluación, overlay, historial)
+   es **100 % local y nunca sube datos de pantalla**; identidad, suscripción,
+   entitlement e integridad usan servicios remotos mínimos (ver
+   `docs/SECURITY_MODEL.md`). Reemplaza la frase "100 % local" para reflejar
+   el modelo comercial (ver §1bis).
 4. **Multi-plataforma real** (Uber, DiDi, InDrive, Cabify) como ruta de
    dominancia de la cohorte multi-app.
 5. **Rendimiento y batería como seguridad vial** (jornadas de 12 h).
+6. **Aplicación de pago por suscripción** (nueva restricción formal). El APK se
+   considera manipulable; la autorización de features premium se decide en
+   backend, no en el cliente (ver `docs/SECURITY_MODEL.md`).
+
+### 1bis. LOCAL-FIRST vs "100 % local" (decisión del Roadmap Gate)
+
+Tras el análisis de coherencia (seguridad × suscripción), **SIRC pasa de
+"100 % local" a "LOCAL-FIRST"** con esta separación explícita:
+
+| | Qué incluye | Ejemplos | ¿Dejaría de ser local? |
+|---|---|---|---|
+| **Procesamiento local** | Todo el pipeline de datos del conductor | OCR, parsing, evaluación, ganancia, $/h, $/km, recomendación, overlay, historial, dashboard | **Nunca**. Ninguna oferta capturada sale del dispositivo. |
+| **Servicios remotos mínimos** | Solo estado comercial/de cuenta | Autenticación, suscripción, entitlement, verificación de compra (Play), integridad (Play Integrity), RTDN, recuperación de cuenta | Sí, y es aceptado: es el coste del modelo de negocio. |
+
+Sin "100 % local" literal seguimos ganando el único "local" que importa para la
+privacidad y el <3 s: **los datos de pantalla no salen del dispositivo**.
 
 ## 2. Matriz de diferenciación (ADOPTAR / MEJORAR / EVITAR / DIFERENCIAR)
 
@@ -75,40 +95,43 @@ recomendaciones de la FUENTE 2.
 | Integridad | Sin Play Integrity | Validación Strong + declaración de uso legítimo | Integrar Play Integrity API (Hito 1 FUENTE 2) |
 | Anti-fatiga | No existe | Modo anti-fatiga (alertas suaves por tiempo conectado) | Nuevo módulo/pantalla (futuro) |
 
-## 4. Prioridades de producto (P0–P3)
+## 4. Prioridades de producto (P0–P3) — REVISADAS (Roadmap Gate)
 
-Prioridades redefinidas al cruzar las tres fuentes. La P0 es de supervivencia
-(no negociable), P1 es la ruta inmediata tras RC1, P2 y P3 se desprenden del
-informe estratégico.
+Prioridad revisada al cruzar las tres fuentes **+ el modelo de suscripción y
+seguridad**. La seguridad comercial se clasifica según riesgo real: NO se pone
+en P0 (la evidencia de una beta sin cobro no la justifica aún), pero TAMPOCO
+deja de estar antes del lanzamiento público (no queda en P3).
 
-### P0 — Robustez y cumplimiento (antes de cualquier feature nueva)
+### P0 — Robustez y cumplimiento (antes de la beta; supervivencia)
 
-- Todo lo que garantice beta estable en dispositivos reales (Android 10–15).
+- Entregar la beta controlada del núcleo de producto: overlay <3 s, OCR,
+  estabilidad Android 10–15, plataformas soportadas en ALPHA.
 - Política de Play y anti-baneo intactos (solo lectura, sin clics).
-- Sin regresiones de rendimiento/batería.
+- `BETA_READINESS.md` §2 cumplida (checklist de entrada a beta).
 
-### P1 — Ruta inmediata (valor directo al conductor)
+### P1 — Lanzamiento comercial seguro (necesario para el lanzamiento público; E1b)
 
-1. **Lanzar beta cerrada** con cohorte real (validar overlay <3 s en campo).
-2. **Play Integrity (Strong)** + alineación con declaración de accesibilidad
-   (FUENTE 2, §3.1).
-3. **Cierre de descriptores multi-plataforma** (DiDi, InDrive, Cabify) con
-   datasets y tests, para escalar la cohorte multi-app.
-4. **Umbrales dinámicos** con resalte visual (FUENTE 2, §5.1).
+1. **Entitlement server + Play Billing (suscripciones)** con verificación de
+   token en servidor y RTDN (revocación en tiempo real).
+2. **Play Integrity (Standard)** como señal combinada (appRecognition +
+   licensing + deviceIntegrity tiered) — **no como barrera de suscripción**.
+3. **Play Integrity + entitlement offline con TTL corto** (DOC `SECURITY_MODEL`).
+4. **Cierre de descriptores multi-plataforma** (DiDi, InDrive, Cabify) para el
+   lanzamiento.
 
-### P2 — Diferenciación de ciclo medio
+### P2 — Diferenciación de ciclo medio (después del lanzamiento)
 
 5. **Modo nocturno / contraste adaptativo** (adoptar de Ruta Rentable).
-6. **Dashboard de AHU** y tendencias por día/semana/mes (FUENTE 2, §5.2;
-   ampliación del dashboard actual).
+6. **Dashboard de AHU** y tendencias por día/semana/mes (FUENTE 2, §5.2).
 7. **Ahorro de energía inteligente** (SOC/temperatura; refresh 1 Hz detenido).
 
 ### P3 — Profesionalización (largo plazo)
 
 8. **Modo anti-fatiga** (alertas suaves por tiempo conectado).
 9. **Ecosistema Lite/Pro** con compartición segura de datos de rentabilidad
-   (FUENTE 2, §3.2, Key Sharing API — solo cuando exista el segundo producto).
-10. **Android 16 Ready** (Safer Intents, Ordered Broadcasts priority).
+   (FUENTE 2, §3.2, Key Sharing API — cuando exista el segundo producto).
+10. **Android 16 Ready** (Safer Intents, Ordered Broadcasts priority) —
+    mantenimiento continuo.
 
 ## 5. Arquitectura de producto futura (bloques conceptuales)
 
@@ -146,37 +169,47 @@ Bloques futuros (marcados con [ ]) se incorporan como nuevos contratos en
 separación actual. Play Integrity y el ahorro SOC-aware se modelarán detrás de
 interfaces de dominio para mantener los módulos puras testeables.
 
-## 6. Roadmap por etapas (cruzando las 3 fuentes)
+## 6. Roadmap por etapas (cruzando las 3 fuentes + Roadmap Gate)
+
+> Revisado por el gate de coherencia (16-ago-2026): E1 se divide en E1a/E1b
+> para no desplegar la seguridad comercial antes de validar el núcleo, pero
+> tampoco dejarla para el final. Detalle completo en `docs/ROADMAP.md` y
+> `docs/BETA_READINESS.md`.
 
 | Etapa | Alcance | Fuentes que la justifican |
 |---|---|---|
 | **E0 — Cierre técnico (completado, Sprint 11)** | Remediación, auditoría, RC1 verde. | FUENTE 1 (estado real). |
-| **E1 — Lanzamiento controlado** | Beta cerrada real + Play Integrity + Play Policy hardening. Comunica el diferenciador "solo lectura". | FUENTE 2 Hito 1; FUENTE 3 (riesgo de automatizadores como narrativa). |
-| **E2 — Crecimiento multi-plataforma** | Descriptores DiDi/InDrive/Cabify + modo nocturno + umbrales dinámicos. | FUENTE 3 (multi-app dominante del mercado); FUENTE 2 §5.1. |
-| **E3 — Diferenciación** | Dashboard AHU/tendencias + ahorro energía SOC-aware + modo anti-fatiga. | FUENTE 2 §5.2 y §4.2; FUENTE 3 (Ruta Rentable/Motorista One como referencia). |
+| **E1a — Beta controlada (núcleo de producto)** | Beta cerrada sin monetización: overlay <3 s en campo, OCR, estabilidad, Play track; **Sprint 12**. | FUENTE 1 (RC1 listo); gate: validar producto antes de monetizar. |
+| **E1b — Integración comercial** | Suscripción (Play Billing) + entitlement server + Play Integrity (Standard) + RTDN + backend de cuenta. | FUENTE 2 Hito 1; `SECURITY_MODEL.md` (T1–T14). |
+| **E2 — Crecimiento multi-plataforma** | Descriptores DiDi/InDrive/Cabify en producción + modo nocturno + umbrales dinámicos. | FUENTE 3 (multi-app); FUENTE 2 §5.1. |
+| **E3 — Diferenciación** | Dashboard AHU/tendencias + ahorro energía SOC-aware + modo anti-fatiga. | FUENTE 2 §5.2 y §4.2; FUENTE 3. |
 | **E4 — Expansión** | Ecosistema Lite/Pro + Android 16 + mercado LATAM más amplio. | FUENTE 2 §3.2 y §6.2. |
 
-## 7. Decisión del próximo Sprint (justificada por las 3 fuentes)
+## 7. Decisión del próximo Sprint (justificada por las 3 fuentes + gate)
 
-**Sprint 12 = "Lanzamiento controlado (beta cerrada + Play Integrity)"**,
-primer entregable de la etapa E1.
+**Sprint 12 = "Beta controlada: validación núcleo de producto (E1a)"**,
+**reemplaza** la propuesta anterior "beta + Play Integrity".
 
-Justificación cruzada:
+Justificación del gate (detalle en `docs/BETA_READINESS.md` §4 y
+`docs/SECURITY_MODEL.md` §12):
 
-- **FUENTE 1 (técnica)**: RC1 está endurecido y en verde (Sprint 11). El
-  siguiente paso lógico es **poner el producto frente a conductores reales y
-  validar el overlay <3 s en campo**; sin Play Integrity el riesgo de
-  coexistencia con herramientas fraudulentas permanece.
-- **FUENTE 2 (estratégica)**: el Hito 1 prescribe textualmente *"Validación de
-  Integridad y Core: Play Integrity (Strong) y arquitectura de accesibilidad
-  Read-Only"*, y el §3 hace de la integridad la prioridad uno.
-- **FUENTE 3 (mercado)**: la narrativa ganadora frente a automatizadores es
-  "legal, solo lectura, <3 s". Lanzar una beta cerrada con integridad declarada
-  convierte esa narrativa en proof point, no en promesa.
+- **A. ¿Es el siguiente?** Sí: el RC1 permite validar en campo. Pero se
+  **refina**: Play Integrity/Billing/backend pasan a **E1b**, construidos con
+  los datos reales de la beta y sin riesgo de monetizar un producto no validado.
+- **B. Antes de la beta**: E0 ✅ + checklist `BETA_READINESS.md` §2 + Play
+  Console internal/closed track + métricas locales.
+- **C. En Sprint 12**: instrumentación de beta (métricas de decisión local,
+  encuesta, reporte de bugs), pulido de UX de errores, primeros ajustes de
+  estabilidad.
+- **D. Después (E1b/E3)**: entitlement, backend, Billing, RTDN, Play Integrity
+  enforcement, anti-fatiga, AHU.
+- **E. Pruebas obligatorias**: overlay <3 s cronometrado en ruta, OCR en ≥3
+  dispositivos (Android 10–15), jornada ≥8 h sin crash, cada plataforma en ≥1
+  dispositivo real, revocación de MediaProjection sin crash.
 
-> NOTA: este Sprint 12 es una **decisión de planificación** registrada en
-> `docs/ROADMAP.md` y `TASK.md`. No se implementa código hasta que la tarea se
-> abra explícitamente (regla R16 de `.ai/RULES.md`).
+> NOTA: es una **decisión de planificación** registrada en `docs/ROADMAP.md`,
+> `docs/BETA_READINESS.md` y `TASK.md`. No se implementa código hasta que la
+> tarea se abra explícitamente (regla R16 de `.ai/RULES.md`).
 
 ## 8. Guardrails estratégicos para agentes
 
@@ -184,9 +217,15 @@ Justificación cruzada:
    interacción con otras apps (regla R9 ampliada; riesgo de baneo).
 2. La **prioridad de producto es P0/P1**: cualquier feature que no provenga de
    las prioridades documentadas se considera fuera de roadmap y requiere
-   aprobación explícita.
+   aprobación explícita. La seguridad comercial vive en **P1 (E1b)**, no en P0
+   ni P3.
 3. Los módulos `:domain`, `:core:platform`, `:core:capture` son Kotlin puro y
-   testeables; Play Integrity / SOC / datos de sensor se exponen como contratos
-   de dominio.
-4. Toda decisión que modifique la ruta (orden de prioridades) debe registrarse
+   testeables; Play Integrity / entitlement / backend / SOC se exponen como
+   **contratos de dominio** (`EntitlementRepository`, etc.), jamás lógica Android
+   en el núcleo.
+4. **Nunca** confiar en el cliente para autorización premium (principio del
+   `SECURITY_MODEL.md`): el APK se considera manipulable.
+5. Todo dato de pantalla/ocfertas permanece local; el backend solo trata estado
+   comercial/de cuenta (LOCAL-FIRST).
+6. Toda decisión que modifique la ruta (orden de prioridades) debe registrarse
    aquí y en `.ai/DECISIONS.md`.

@@ -15,6 +15,14 @@
 - Bajo consumo de batería y rendimiento (límites duros y deduplicación en el
   flujo de accesibilidad).
 
+> **Principio de producto LOCAL-FIRST (Roadmap Gate, 16-ago-2026; aún sin
+> cambios de código):** el pipeline de ofertas es 100 % local (sin salida de
+> datos de pantalla). En la etapa **E1b** (ver `SECURITY_MODEL.md` y ROADMAP)
+> se añadirán componentes remotos de cuenta/suscripción/entitlement/integridad
+> expuestos como **contratos de `:domain`** (p. ej. `EntitlementRepository`),
+> implementados en módulos Android, sin contaminar `:domain`/`:core:platform`/
+> `:core:capture` (que deben seguir Kotlin puro).
+
 ## Estructura de módulos
 
 | Módulo | Capa | Tipo | Responsabilidad |
