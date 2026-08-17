@@ -6,46 +6,52 @@
 
 ## Tarea actual
 
-**ROADMAP GATE — SEGURIDAD Y SUSCRIPCIÓN (16-ago-2026). Solo documentación;
-sin código.** Se definió formalmente el nuevo modelo comercial (app de pago por
-suscripción) y se validó la coherencia entre estrategia, arquitectura y roadmap
-E0–E4.
+**LOOP ENGINEERING — BACKEND SUPABASE + EVALUACIÓN ANTIGRAVITY + ARQUITECTURA
+DE MONETIZACIÓN (16-ago-2026). Solo documentación; sin código.**
+Se decidió el backend inicial, el modelo de suscripción, se amplió el threat
+model y se redefinió el rol de las herramientas de agente.
 
-Decisiones registradas (ver `.ai/DECISIONS.md` D13.1–D13.4):
+Decisiones registradas (ver `.ai/DECISIONS.md` D14.1–D14.4):
 
-- **LOCAL-FIRST** (reemplaza "100 % local"): pipeline de ofertas 100 % local,
-  ningún dato de pantalla sale del dispositivo; servicios remotos mínimos solo
-  para estado comercial/de cuenta.
-- **Nunca confiar en el cliente para autorización premium** (play Integrity =
-  señal, no barrera; entitlement en backend verificando `purchases.subscriptions.get`;
-  offline con TTL 24–72 h; RTDN para revocación).
-- **Sprint 12 reestructurado**: la propuesta original "beta + Play Integrity"
-  se **rechaza**. **Sprint 12 = E1a: beta cerrada de validación del núcleo SIN
-  monetización**; Play Integrity + backend + suscripción + RTDN = **E1b**
-  (posterior, sobre datos de la beta).
-- **`EncryptedSharedPreferences` deprecada**: si se necesitan secretos en E1b,
-  usar primitivas Keystore directas.
+- **D14.1 — Supabase como backend inicial**: Auth + RLS + Edge Functions +
+  Postgres para identidad/suscripción/entitlement; camino crítico de oferta
+  100 % local; plan **Pro** en producción (Free pausa proyectos); sin Realtime
+  ni Storage; ninguna oferta/pantalla se sube.
+- **D14.2 — Play API v2**: verificación server-side con
+  `purchases.subscriptionsv2.get` (la `subscriptions.get` está **deprecada**);
+  RTDN = señal (re-consultar API, dedupe `messageId`, JWT OIDC del push).
+- **D14.3 — Entitlement + offline**: TTL 24–72 h (S2); source of truth por
+  capas (Play=transacción, Backend=operativa, Supabase=persistencia,
+  Cliente=caché); threat model ampliado a **T15–T20**.
+- **D14.4 — Herramientas**: **OpenCode principal + Antigravity complementario**
+  (no sustituye); regla **R17** (prohibido doble-agente simultáneo en el mismo
+  branch).
 
 Entregables:
 
-- **`docs/SECURITY_MODEL.md`** (nuevo) — trust model, threat model **T1–T14**
-  (impacto/probabilidad/mitigación/capa), análisis Play Integrity (Standard vs
-  Classic), flujo Billing→backend, offline con TTL, criptografía Keystore,
-  backend conceptual (10 servicios, sin datos de ofertas), privacidad.
-- **`docs/BETA_READINESS.md`** (nuevo) — checklist de entrada a beta
-  (P1–P6/PL1–PL4/S1–S4/U1–U5/L1–L4/T1–T4) + criterios de salida.
-- **`docs/ROADMAP.md`** — ruta E1a/E1b + Sprint 12 = E1a reescrito.
-- **`docs/PRODUCT_STRATEGY.md`** — pilares actualizados (LOCAL-FIRST,
-  suscripción), §1bis, prioridades P0–P3 revisadas, §6/7/8.
-- **`.ai/RULES.md`** — reglas **9d/9e/9f** (suscripción, LOCAL-FIRST, no
-  implementar E1b aún). `.ai/CONTEXT.md` — modelo y dirección actualizados.
-  `.ai/DECISIONS.md` — **D13.1–D13.4**.
-- **`docs/PROJECT.md`, `docs/ARCHITECTURE.md`, `docs/CODING_STANDARDS.md`,
-  `docs/GOOGLE_PLAY_COMPLIANCE.md`** — coherentes con LOCAL-FIRST.
+- **`docs/BACKEND_ARCHITECTURE.md`** (nuevo) — Supabase (Auth/RLS/Edge
+  Functions/secrets), modelo de datos (users/profiles/plans/subscriptions/
+  entitlements/devices/sessions), flujo Play Billing→backend, RTDN, source of
+  truth, offline, T15–T20, privacidad.
+- **`docs/SUBSCRIPTION_MODEL.md`** (nuevo) — estructura conceptual de planes
+  (Free/Trial · Basic · Pro + futuro), matriz de precios de competencia
+  verificada (Motorista One, GigU, Maxymo, Mystro, Viaje Rentable, Operdrive…),
+  entitlement por features, lifecycle/estados y acción por evento RTDN.
+- **`docs/ANTIGRAVITY_EVALUATION.md`** (nuevo) — estado Antigravity 2.0/IDE/CLI,
+  comparativa OpenCode vs Antigravity y decisión OPCIÓN C.
+- **`docs/SECURITY_MODEL.md`** (v1→v2) — T15–T20 añadidos, T1–T14 referencias
+  corregidas, API de Play v2 y estados modernos, backend conceptual = Supabase.
+- **`docs/PRODUCT_STRATEGY.md`** — §1ter (Supabase), P1 actualizada (#1 backend,
+  #2 Play Billing v2), referencia a planes.
+- **`docs/ROADMAP.md`** — decisiones de la ruta actualizadas (Supabase, planes,
+  v2, herramientas).
+- **`.ai/RULES.md`** — reglas 9g (Supabase), 9h (verificación v2 server-side) y
+  R17 (multi-agente). `.ai/CONTEXT.md` — decisión de backend/planes/herramientas.
+  `.ai/DECISIONS.md` — D14.1–D14.4. `docs/ARCHITECTURE.md`, `docs/PROJECT.md`.
 
-**Siguiente: (en curso)** verificar `git status`/git clean y commitear (solo
-docs) + push. Luego entregar el reporte final del LOOP (a-o). No implementar
-nada de E1b/E1a sin abrir la tarea (regla R16).
+**Siguiente: (en curso)** verificar `git status` y commit (solo docs) + push.
+Luego entregar reporte final del LOOP (A–Q). No implementar nada de E1b/E1a sin
+abrir la tarea (regla R16/9f).
 
 ## Tarea anterior
 

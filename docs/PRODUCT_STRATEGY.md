@@ -44,6 +44,26 @@ Tras el análisis de coherencia (seguridad × suscripción), **SIRC pasa de
 Sin "100 % local" literal seguimos ganando el único "local" que importa para la
 privacidad y el <3 s: **los datos de pantalla no salen del dispositivo**.
 
+### 1ter. Backend inicial: SUPABASE (decisión del LOOP Backend, 16-ago-2026)
+
+El backend de suscripción/entitlement se implementará sobre **Supabase**
+(Auth + PostgreSQL + RLS + Edge Functions), bajo el flujo de verificación de
+compra de Google Play (`purchases.subscriptionsv2.get`). Motivo: cero
+infraestructura, Auth+MFA out-of-the-box, RLS como barrera por-fila sobre datos
+de cuenta, y Edge Functions con secretos gestionados para el único flujo que
+necesita servidor (verificar compras). Detalle completo y riesgos en
+`docs/BACKEND_ARCHITECTURE.md`.
+
+- **NO se sube ninguna oferta/captura/historial** (LOCAL-FIRST estricto; regla
+  R9e): Supabase solo guarda identidad, suscripción, entitlement, dispositivos y
+  sesiones.
+- Supabase NO permite evadir el pago: la autoridad sigue siendo la Google Play
+  Developer API (el pago se verifica server-side, no en Supabase).
+- Plan: desarrollo en **Free**, **Pro** al salir a producción (pausa por
+  inactividad del Free inaceptable en prod).
+- Actualización API crítica: `purchases.subscriptions.get` **deprecada** →
+  usar **`purchases.subscriptionsv2.get`** (ver `SECURITY_MODEL.md` v2).
+
 ## 2. Matriz de diferenciación (ADOPTAR / MEJORAR / EVITAR / DIFERENCIAR)
 
 Basada en la brecha detectada en `PRODUCT_COMPETITIVE_ANALYSIS.md` y las
@@ -111,12 +131,17 @@ deja de estar antes del lanzamiento público (no queda en P3).
 
 ### P1 — Lanzamiento comercial seguro (necesario para el lanzamiento público; E1b)
 
-1. **Entitlement server + Play Billing (suscripciones)** con verificación de
-   token en servidor y RTDN (revocación en tiempo real).
-2. **Play Integrity (Standard)** como señal combinada (appRecognition +
+1. **Backend Supabase** (Auth + RLS + Edge Functions) como servicio de
+   identidad/suscripción/entitlement; desarrollo en plan **Free**, **Pro**
+   antes de producción (ver `docs/BACKEND_ARCHITECTURE.md`).
+2. **Entitlement server + Play Billing (suscripciones)** con verificación de
+   token en servidor (**`purchases.subscriptionsv2.get`**) y RTDN (revocación en
+   tiempo real). Planes conceptuales en `docs/SUBSCRIPTION_MODEL.md` (Free/Trial,
+   Basic, Pro; sin precios finales).
+3. **Play Integrity (Standard)** como señal combinada (appRecognition +
    licensing + deviceIntegrity tiered) — **no como barrera de suscripción**.
-3. **Play Integrity + entitlement offline con TTL corto** (DOC `SECURITY_MODEL`).
-4. **Cierre de descriptores multi-plataforma** (DiDi, InDrive, Cabify) para el
+4. **Play Integrity + entitlement offline con TTL corto** (DOC `SECURITY_MODEL`).
+5. **Cierre de descriptores multi-plataforma** (DiDi, InDrive, Cabify) para el
    lanzamiento.
 
 ### P2 — Diferenciación de ciclo medio (después del lanzamiento)

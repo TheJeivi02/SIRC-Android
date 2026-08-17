@@ -17,11 +17,16 @@
 
 > **Principio de producto LOCAL-FIRST (Roadmap Gate, 16-ago-2026; aún sin
 > cambios de código):** el pipeline de ofertas es 100 % local (sin salida de
-> datos de pantalla). En la etapa **E1b** (ver `SECURITY_MODEL.md` y ROADMAP)
-> se añadirán componentes remotos de cuenta/suscripción/entitlement/integridad
-> expuestos como **contratos de `:domain`** (p. ej. `EntitlementRepository`),
-> implementados en módulos Android, sin contaminar `:domain`/`:core:platform`/
-> `:core:capture` (que deben seguir Kotlin puro).
+> datos de pantalla). En la etapa **E1b** (ver `SECURITY_MODEL.md`, ROADMAP,
+> `BACKEND_ARCHITECTURE.md`) se añadirán componentes remotos de
+> cuenta/suscripción/entitlement/integridad implementados sobre **Supabase**
+> (Auth + RLS + Edge Functions) y expuestos como **contratos de `:domain`**
+> (p. ej. `EntitlementRepository`, `AuthRepository`), implementados en módulos
+> Android, sin contaminar `:domain`/`:core:platform`/`:core:capture` (que deben
+> seguir Kotlin puro). La verificación de compra usa la Google Play Developer
+> API v2 (`purchases.subscriptionsv2.get`) desde las Edge Functions;
+> `purchases.subscriptions.get` está deprecada. Decisiones registradas:
+> D14.1–D14.4 en `.ai/DECISIONS.md`.
 
 ## Estructura de módulos
 

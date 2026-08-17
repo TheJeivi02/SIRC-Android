@@ -61,6 +61,25 @@
 9f. **No implementar** Play Integrity, Play Billing, suscripciones, backend,
     RTDN ni entitlement hasta que se abra explícitamente **E1b** (etapa posterior
     a la beta del núcleo; ver `docs/SECURITY_MODEL.md` y `docs/BETA_READINESS.md`).
+9g. **Backend inicial = Supabase** (Auth + RLS + Edge Functions + Postgres)
+    para identidad/suscripción/entitlement; el plan pasa a **Pro** al salir a
+    producción (el Free pausa proyectos por inactividad). `service_role`/
+    secret keys y la service account de Play **nunca** en el APK (solo la
+    publishable key + URL del proyecto). Detalle en `docs/BACKEND_ARCHITECTURE.md`.
+9h. **Verificación de compra SOLO server-side** con la Google Play Developer API
+    **`purchases.subscriptionsv2.get`** (la API `purchases.subscriptions.get`
+    está **deprecada**); RTDN como señal (siempre re-consultar la API antes de
+    mutar entitlement, dedupe por `messageId`). El cliente jamás adjudica
+    entitlement.
+
+## Colaboración multi-agente
+
+17. **Prohibido que dos agentes modifiquen simultáneamente el mismo workspace o
+    branch.** Si se usan varios agentes (OpenCode + Antigravity, etc.): worktrees
+    aislados, commits separados, revisión humana e integración controlada. El
+    **agente principal** (OpenCode) mantiene autoridad sobre arquitectura,
+    roadmap, WPs, integración y release (ver `docs/ANTIGRAVITY_EVALUATION.md`
+    si existe, y la sección "Herramientas" de `.ai/CONTEXT.md`).
 
 ## Seguridad, privacidad y Google Play
 

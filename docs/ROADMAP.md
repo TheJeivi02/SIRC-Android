@@ -321,7 +321,7 @@ arquitectura.
 |---|---|---|---|---|---|---|---|
 | E0 — Cierre técnico | Remediación + RC1 + auditorías (Sprints 4–11) | Estabilidad y arquitectura | Base para beta | — | Bajo | Solo lectura intacto | ✅ completado |
 | **E1a — Beta controlada (núcleo de producto)** | Beta cerrada sin monetización; Play Console internal/closed track; validación overlay <3 s, OCR, estabilidad Android 10–15, multi-plataforma en ALPHA | Validar el producto real **antes** de construir cobro | Datos reales de campo | E0 | Medio (crash/calidad en campo) | Solo lectura + compliance ✓ (sin billing) | Checklist `BETA_READINESS.md` §2 (P1–P5, PL1–PL4, U1–U5, L1–L4) |
-| **E1b — Integración comercial** | Suscripción (Play Billing) + **entitlement server** + Play Integrity (Standard + tiered) + RTDN + backend de cuenta | Monetización segura | Ingresos recurrentes | E1a (datos de uso) | Alto (fraude/piratería) | **Ver `SECURITY_MODEL.md`** (threat model T1–T14, TTL offline, trust model) | End-to-end: compra→verificación→entitlement→revoCADo por RTDN probado |
+| **E1b — Integración comercial** | Suscripción (Play Billing) + **entitlement server** + Play Integrity (Standard + tiered) + RTDN + backend de cuenta | Monetización segura | Ingresos recurrentes | E1a (datos de uso) | Alto (fraude/piratería) | **Ver `SECURITY_MODEL.md`** (threat model T1–T20, TTL offline, trust model) y `docs/BACKEND_ARCHITECTURE.md` (Supabase) | End-to-end: compra→verificación→entitlement→revocación por RTDN probado |
 | E2 — Crecimiento multi-plataforma | Descriptores DiDi/InDrive/Cabify en producción + umbrales dinámicos + modo nocturno | Escalar cohorte multi-app | Crecimiento | E1 (base estable) | Medio | Integridad en features premium por E1b | 4 plataformas con overlay verificado en prod |
 | E3 — Diferenciación | Dashboard AHU/tendencias + ahorro energía SOC-aware + modo anti-fatiga | Profesionalización | Retención | E2 | Medio | Entitlement por features premium | Métricas AHU visibles y mejora de batería |
 | E4 — Expansión | Ecosistema Lite/Pro + Android 16 + LATAM | Mercado ampliado | Escala | E3 | Medio | Key Sharing API (JSSEC 5.6) entre Lite/Pro | Lite/Pro lanzado y compartiendo entitlement |
@@ -338,8 +338,18 @@ arquitectura.
   parsing, evaluación, overlay) permanece 100 % local y sin salida de datos de
   pantalla; identidad/suscripción/entitlement/integridad usan **servicios
   remotos mínimos**.
+- **Backend inicial (E1b) = Supabase** (Auth + RLS + Edge Functions + Postgres;
+  plan **Pro** en producción) para identidad/suscripción/entitlement; ver
+  `docs/BACKEND_ARCHITECTURE.md`. Verificación de compra con Play API **v2**
+  (`subscriptionsv2.get`). **No implementar antes de E1b** (regla 9f).
+- **Modelo de suscripción**: estructura conceptual Free/Trial · Basic · Pro
+  (+ futuro) en `docs/SUBSCRIPTION_MODEL.md`; sin precios finales; el precio se
+  fija al abrir E1b sobre datos de la beta.
 - **Prioridades P0–P3** revisadas en `docs/PRODUCT_STRATEGY.md`; ninguna
   feature fuera de ellas entra al roadmap sin aprobación explícita.
+- **Herramientas**: OpenCode principal + Antigravity complementario
+  (`docs/ANTIGRAVITY_EVALUATION.md`); prohibido doble agente simultáneo en el
+  mismo branch (regla R17).
 
 ## Sprint 12 — Beta controlada: validación núcleo de producto (E1a) 🔵 Planificado
 

@@ -20,6 +20,21 @@ es rentable.
 > remotos mínimos** (etapa E1b, aún no implementados). El APK se considera
 > manipulable: nunca confiar en el cliente para autorización premium (ver
 > `docs/SECURITY_MODEL.md`, `docs/BETA_READINESS.md`, reglas 9d–9f).
+>
+> > **LOOP Backend (16-ago-2026)** — detalles en `docs/BACKEND_ARCHITECTURE.md`,
+> > `docs/SUBSCRIPTION_MODEL.md`, `docs/ANTIGRAVITY_EVALUATION.md`, reglas
+> > 9g–9h y R17, decisiones D14.1–D14.4:
+> > - **Backend inicial = Supabase** (Auth + RLS + Edge Functions + Postgres)
+> >   para identidad/suscripción/entitlement; **Pro** en producción. Nunca
+> >   service keys en el APK. Ninguna oferta/pantalla se sube (local-first).
+> > - **Verificación de compra**: Play API **v2** (`purchases.subscriptionsv2.get`,
+> >   la `subscriptions.get` está deprecada); RTDN = señal (re-consultar API,
+> >   dedupe `messageId`); entitlement offline con TTL 24–72 h; threat model
+> >   **T1–T20**.
+> > - **Planes**: estructura conceptual Free/Trial · Basic · Pro (+ futuro),
+> >   sin precios finales (referencia de mercado: USD 4–7/mes, anual ~2,5–4,2/mes).
+> > - **Herramientas**: **OpenCode principal + Antigravity complementario**
+> >   (no sustituye; sin doble agente simultáneo en el mismo branch — regla R17).
 
 **Cómo funciona (flujo real):**
 
@@ -197,6 +212,14 @@ Service **nunca** interactúa con otras apps.
   del núcleo SIN monetización** (planificado, sin implementar); Play
   Integrity + backend + suscripción + RTDN quedan en **E1b** (posterior, sobre
   datos de la beta).
+- **Backend**: **Supabase** (Auth + RLS + Edge Functions + Postgres) para
+  identidad/suscripción/entitlement — `docs/BACKEND_ARCHITECTURE.md`. Nada de
+  ofertas/pantallas se sube. Plan **Pro** en producción.
+- **Modelo de suscripción**: planes Free/Trial · Basic · Pro (conceptual, sin
+  precios finales), entitlement y lifecycle — `docs/SUBSCRIPTION_MODEL.md`.
+- **Herramientas**: OpenCode principal + Antigravity complementario (evaluación
+  en `docs/ANTIGRAVITY_EVALUATION.md`); prohibido doble-agente simultáneo en el
+  mismo branch (regla R17).
 - **Modelo comercial**: **apk de pago por suscripción**; el APK es manipulable.
   Autorización premium decide el backend, no el cliente (`docs/SECURITY_MODEL.md`,
   threat model T1–T14; reglas 9d/9e/9f).

@@ -358,6 +358,84 @@ secretos de cache; la autoridad de autorización sigue siendo el backend (T3).
 **Consecuencias:** sin dependencia deprecada; decisión aplicable solo al abrir
 E1b (no se implementa en Sprint 12).
 
+## LOOP BACKEND — SUPABASE + ANTIGRAVITY (16-ago-2026)
+
+LOOP ENGINEERING: decidir el backend inicial (Supabase), el modelo de
+suscripción, ampliar el threat model a T20 y redefinir las herramientas de
+agente (OpenCode vs Antigravity). Solo análisis y documentación; sin código.
+Detalle: `docs/BACKEND_ARCHITECTURE.md`, `docs/SUBSCRIPTION_MODEL.md`,
+`docs/ANTIGRAVITY_EVALUATION.md`.
+
+### D14.1 — Supabase como backend inicial (identidad + suscripción + entitlement)
+
+**Contexto:** la app es de pago por suscripción (D13.x). El backend debe cubrir
+Auth, RLS, Edge Functions (verify-purchase, RTDN), Postgres para una ventana de
+datos mínima (sin ofertas), y secretos gestionados.
+
+**Decisión:** **Supabase** (Auth + PostgreSQL + RLS + Edge Functions) como
+backend inicial para identidad/suscripción/entitlement. Camino crítico de
+oferta permanece **100 % local** (LOCAL-FIRST, regla 9e): ningún dato de
+oferta/pantalla se sube. Plan **Pro** ($25/mes) al salir a producción (el Free
+pausa proyectos por inactividad). `service_role`/secret keys y la service
+account de Play **nunca** en el APK (solo publishable key + URL). NO se usan
+Realtime ni Storage.
+
+**Alternativas descartadas:** backend a medida (Go/Node) — más simple a priori
+pero sin identidad/RLS/secrets gestionados; RevenueCat — dependencia de tercero
+de pago con menos control; no-backend — inviable para autorización premium.
+
+**Consecuencias:** nuevas reglas 9g/9h; `docs/BACKEND_ARCHITECTURE.md`.
+
+### D14.2 — Verificación de compra con Play API v2 (`subscriptionsv2.get`)
+
+**Contexto:** investigando la doc oficial (16-ago-2026), la API v3
+`purchases.subscriptions.get` está **DEPRECADA**.
+
+**Decisión:** verificación server-side con **`purchases.subscriptionsv2.get`**
+(`subscriptionState`: ACTIVE/IN_GRACE_PERIOD/ON_HOLD/PAUSED/CANCELED/EXPIRED/
+PENDING/...). RTDN vía Pub/Sub = señal (siempre re-consultar la API antes de
+mutar; dedupe por `messageId`; verificar push con JWT OIDC). Acknowledge en
+backend (ventana 3 días). `linkedPurchaseToken` invalida el token anterior
+(plan change). Restore usa `queryPurchasesAsync` + re-verificación.
+
+**Consecuencias:** `SECURITY_MODEL.md` v2 y `BACKEND_ARCHITECTURE.md` §4
+actualizados.
+
+### D14.3 — Entitlement + offline con TTL 24–72 h y source of truth por capas
+
+**Contexto:** qué significa "source of truth" cuando hay Play, backend, Supabase
+y cliente.
+
+**Decisión:** **Play = fuente de la transacción; Backend (Edge Functions) =
+fuente operativa del entitlement; Supabase = persistencia/servicio;
+Cliente = caché local firmado con TTL 24–72 h (decisión S2)**. Todo fraude
+comercial se mitiga en servidor; el cliente jamás adjudica. Threat model
+ampliado a **T15–T20** (APK premium modificado, eliminar login de suscripción,
+entitlement local, compartir APK, cuenta válida con cliente manipulado, reloj
+manipulado). No se promete protección absoluta; objetivo: elevar el coste y
+evitar premium offline indefinido.
+
+**Consecuencias:** `SECURITY_MODEL.md` §3 ampliado; `SUBSCRIPTION_MODEL.md`
+(lifecycle y acciones por estado).
+
+### D14.4 — OpenCode como agente principal + Antigravity complementario
+
+**Contexto:** se pidió evaluar Google Antigravity (2.0/IDE/CLI) como posible
+reemplazo o complemento del flujo con OpenCode.
+
+**Decisión:** **OPCIÓN C: OpenCode principal + Antigravity complementario.**
+OpenCode mantiene la autoridad (arquitectura, roadmap, WPs, integración,
+release, git/GitHub). Antigravity se valora como **complemento exploratorio**
+para investigación web (browser agent) y para aprovechar las **Android skills/
+CLI** oficiales de Google como referencia. NO sustituye a OpenCode: sin evidencia
+oficial de superioridad en repos Gradle grandes, calidad de código profunda
+inferior según comunidad, public preview, sin BYOK, y el Loop Engineering ya está
+resuelto.
+
+**Consecuencias:** regla R17 (prohibido doble-agente simultáneo en el mismo
+workspace/branch; worktrees aislados si se usa otro agente);
+`docs/ANTIGRAVITY_EVALUATION.md`.
+
 ## SPRINT 11 — Eliminación de FakeParser (WP-E1-01)
 
 ### D11.6 — Eliminación de `FakeParser` de la ruta de producción

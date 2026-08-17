@@ -90,6 +90,9 @@ Pruebas unitarias existentes: 14 (6 en `:domain`, 8 en `:core:platform`).
 - Estándares de código y reglas de arquitectura: `docs/CODING_STANDARDS.md`.
 - Cumplimiento de políticas de Play: `docs/GOOGLE_PLAY_COMPLIANCE.md`.
 - Modelo de seguridad y suscripción (LOCAL-FIRST): `docs/SECURITY_MODEL.md`.
+- Arquitectura de backend (Supabase, E1b): `docs/BACKEND_ARCHITECTURE.md`.
+- Modelo de suscripción (planes/entitlement): `docs/SUBSCRIPTION_MODEL.md`.
+- Evaluación de herramientas de agente (OpenCode vs Antigravity): `docs/ANTIGRAVITY_EVALUATION.md`.
 - Checklist de beta cerrada (E1a): `docs/BETA_READINESS.md`.
 - Historial de versiones: `docs/CHANGELOG.md`.
 - Plan de sprints y ruta E0–E4: `docs/ROADMAP.md`.
