@@ -10,10 +10,26 @@
 EN CURSO: 1 dispositivo; OCR REAL demostrado (Escenario A); 4 HALLAZGOS MANUALES
 (DVC-01…DVC-04) + K1 DIAGNOSTICADOS Y REGISTRADOS. CORRECCIONES COMPLETADAS:
 FIX-01 (overlay), FIX-02 (captura E2E), FIX-03 (config editable), FIX-04 (parser
-monto). PENDIENTE: FIX-05 (higiene artefactos) — esperando autorización.
+monto), FIX-05 (higiene de artefactos). PENDIENTE: cierre del Sprint 12 / decisión
+DVC-02 / pruebas in-field — esperando autorización.
 PLAN: `docs/superpowers/plans/2026-08-16-sprint-12-fixes.md`.**
 
 ### PROGRESO DE CORRECCIONES (autorizado)
+
+- **[x] WP-12-FIX-05 — Higiene de artefactos COMPLETADO (18-ago-2026).**
+  Sin cambios de código de producción (solo device storage + docs). Convención
+  vigente: todo artefacto de prueba bajo `/sdcard/SIRC_TEST/{images,logs,
+  evidence,exports,tmp}/`. Se confirmó que `/sdcard/sirc_test` y
+  `/sdcard/SIRC_TEST` son la MISMA carpeta (sdcard case-insensitive; sin
+  duplicados). Catálogo previo: 52 archivos en raíz de SIRC_TEST + `fix03/` (2)
+  + 3 sueltos en `/sdcard` (`sirc5.xml`, `sirc_home.xml`, `sirc_overlay.png`).
+  Reubicados **57 archivos** sin borrar nada: 14 → `images/`, 2 → `logs/`,
+  3 → `evidence/` (+`fix03/` → `evidence/fix03/`), 38 → `tmp/`. Raíz `/sdcard`
+  limpia de `sirc_*` sueltos. No se tocaron archivos personales
+  (`find` Download/DCIM/Pictures/Documents/Movies/Music/Android → 0
+  coincidencias `sirc`). Integridad verificada: 57 antes = 57 después, tamaños
+  intactos, evidencias clave legibles. Al terminar Sprint 12 basta borrar la
+  única carpeta `/sdcard/SIRC_TEST/`. Detalle en plan §FIX-05 "N. Resultado".
 
 - **[x] WP-12-FIX-03 — Config editable post-onboarding (DVC-01) COMPLETADO y VERIFICADO en DEVICE-01.**
   Settings ahora edita TODO lo que el onboarding persiste (perfil, vehículo, combustible,
@@ -153,12 +169,11 @@ PLAN: `docs/superpowers/plans/2026-08-16-sprint-12-fixes.md`.**
 
 ### Próximos pasos (NO abiertos — esperar autorización)
 
-1. **AUTORIZAR el siguiente WP del plan**: **WP-12-FIX-05** (higiene de artefactos).
-   Orden restante: FIX-05 (higiene). (FIX-01, FIX-02, FIX-03 y FIX-04 hechos.)
-   FIX-03 dejó hallazgos para el siguiente WP: `adb input text` flaky en este dispositivo
-   (caracteres fantasma al teclear); uiautomator no refleja `selected` de FilterChip de Compose.
-2. Decidir si se mantiene/elimina el mecanismo debug (§6.3).
-3. No corregir DVC-02 todavía. No cerrar el Sprint. No abrir Sprint 13 ni otro LOOP sin autorización explícita.
+1. **Cerrar el Sprint 12 / E1a** (o continuar según decisión del usuario):
+   decidir DVC-02 (captura de pantalla MediaProjection), el mecanismo debug (§6.3)
+   y las pruebas in-field con cuenta real de Uber/InDrive (pendiente usuario).
+2. Todos los WP-12-FIX (01–05) están completados. No abrir Sprint 13 ni otro
+   LOOP sin autorización explícita.
 
 ## Tarea anterior
 

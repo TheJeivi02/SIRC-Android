@@ -283,6 +283,15 @@ Service **nunca** interactúa con otras apps.
 
 ## Estado del proyecto
 
+- **SPRINT 12 WP-12-FIX-05 completado (higiene de artefactos, 18-ago-2026)**:
+  sin cambios de código de producción (solo device storage + docs). Convención
+  vigente: todo artefacto de prueba en `/sdcard/SIRC_TEST/{images,logs,evidence,
+  exports,tmp}/`. Se confirmó que `/sdcard/sirc_test` y `/sdcard/SIRC_TEST` son
+  la MISMA carpeta (sdcard case-insensitive; sin duplicados). Reubicados 57
+  archivos sin borrar (14→images, 2→logs, 3→evidence + fix03→evidence/fix03,
+  38→tmp); raíz `/sdcard` limpia de `sirc_*` sueltos; 0 coincidencias `sirc` en
+  carpetas personales; 57 antes = 57 después (integridad). Al terminar Sprint 12
+  basta borrar la única carpeta `/sdcard/SIRC_TEST/`.
 - **SPRINT 12 WP-12-FIX-03 completado (config editable post-onboarding, DVC-01)**:
   Settings edita TODO lo que el onboarding persiste (perfil, vehículo,
   combustible, mantenimiento, otros costos, plataformas, umbrales, overlay) con

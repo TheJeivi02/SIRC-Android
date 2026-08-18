@@ -635,10 +635,10 @@ Ninguna. Puede ir al final (mientras FIX‑04 use el dataset es plagiaño de pru
 
 ### H. Criterios de aceptación
 
-- [ ] `/sdcard/SIRC_TEST/{images,logs,evidence,exports,tmp}/` creado.
-- [ ] Artefactos existentes movidos (nada en la raíz `/sdcard` con prefijo sirc).
-- [ ] No se borra nada personal (lista previa verificada).
-- [ ] Procedimiento documentado (¿dónde? este doc o `docs/testing/`).
+- [x] `/sdcard/SIRC_TEST/{images,logs,evidence,exports,tmp}/` creado.
+- [x] Artefactos existentes movidos (nada en la raíz `/sdcard` con prefijo sirc).
+- [x] No se borra nada personal (lista previa verificada).
+- [x] Procedimiento documentado (ver "N. Resultado" a continuación).
 
 ### I. Pruebas necesarias
 
@@ -661,6 +661,41 @@ convención de rutas.
 ### M. Qué NO debe hacerse todavía
 
 **No borrar nada.**
+
+### N. Resultado (18-ago-2026) — COMPLETADO ✅
+
+**Procedimiento (convención vigente de artefactos de prueba):** todas las
+pruebas de SIRC en dispositivo escriben bajo `/sdcard/SIRC_TEST/` con
+subdirectorios por tipo:
+
+- `images/` — screenshots/capturas (PNG/JPG): `debug_panel_offer*.png`,
+  `sirc_overlay.png`, `sirc_smoke1.png`, `sirc_state_checks_ok.png`,
+  `sirc_e2e_uber_img.png`, imágenes OCR `imagen 1/2/3 *.jpg`.
+- `logs/` — logs del pipeline (`e2e_final.log`, `e2e_pipeline.log`).
+- `evidence/` — evidencia formal por WP (`README.txt`, `offer_history.txt`,
+  `fix03/` con su evidencia).
+- `exports/` — exportaciones (vacíía hoy; reservada para exports del panel).
+- `tmp/` — artefactos temporales (`uiautomator dump` `sirc_ui*.xml`, `ui.xml`,
+  `home_*.xml`, `debug_*.xml`, `sirc5.xml`, `sirc_home.xml`).
+
+**Hecho (18-ago):**
+- Catálogo previo real del device: `/sdcard/SIRC_TEST/` con 52 archivos en raíz
+  + `fix03/` (2) + 3 sueltos en `/sdcard` (`sirc5.xml`, `sirc_home.xml`,
+  `sirc_overlay.png`). Se confirmó que `/sdcard/sirc_test` y `/sdcard/SIRC_TEST`
+  son la MISMA carpeta (sdcard case-insensitive): no había duplicados.
+- Reubicados **57 archivos** (sin borrar ninguno): 14 → `images/`, 2 → `logs/`,
+  3 → `evidence/` (+`fix03/` → `evidence/fix03/`), 38 → `tmp/`.
+- Raíz `/sdcard` quedó sin archivos `sirc_*` sueltos (solo la carpeta SIRC_TEST).
+- No se tocaron archivos personales: `/sdcard/Download` y `/sdcard/DCIM`
+  catalogados como NO-tocar (sin coincidencias `sirc`). Verificado con
+  `find` en Download/DCIM/Pictures/Documents/Movies/Music/Android → 0
+  coincidencias `sirc`.
+- **Integridad**: 57 archivos antes = 57 después; tamaños intactos; evidencias
+  clave legibles (`README.txt`, `offer_history.txt`, `e2e_final.log`,
+  `fix03_evidence.txt`, `shot_settings_platforms.png`). Nada se eliminó.
+- **Sin cambios de código de producción** (solo device storage + docs).
+- **Limpieza final del Sprint**: al terminar Sprint 12 bastará borrar la única
+  carpeta `/sdcard/SIRC_TEST/`.
 
 ---
 
