@@ -20,4 +20,8 @@ abstract class OverlayModule {
     @Binds
     @Singleton
     abstract fun bindOverlayDataSource(impl: PipelineOverlayDataSource): OverlayDataSource
+
+    @Binds
+    @Singleton
+    abstract fun bindOverlayServiceLauncher(impl: AndroidOverlayServiceLauncher): OverlayServiceLauncher
 }

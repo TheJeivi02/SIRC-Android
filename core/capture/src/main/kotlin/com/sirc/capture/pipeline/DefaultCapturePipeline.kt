@@ -76,6 +76,8 @@ class DefaultCapturePipeline @Inject constructor(
     private suspend fun processInternal(request: CaptureRequest): OfferSnapshot? {
         val totalStartNanos = System.nanoTime()
 
+        logger.info(TAG, "request recibido: origin=${request.origin} package=${request.packageName}")
+
         if (!cache.isNew(request)) {
             logger.debug(TAG, "captura idéntica ya procesada, omitida")
             validationRecorder.record(
@@ -98,11 +100,17 @@ class DefaultCapturePipeline @Inject constructor(
         val result = detectionEngine.detect(texts, request.packageName, request.origin)
         val detectionMillis = elapsedMillis(detectionStartNanos)
         if (!result.isRecognized) {
+            logger.info(TAG, "detección: no reconocida (${result.resolution}) en ${"%.1f".format(detectionMillis)} ms")
             validationRecorder.record(
                 ValidationEvent.FrameDiscarded(request.timestampMillis, DiscardReason.UNSUPPORTED_PLATFORM),
             )
             return idle()
         }
+        logger.info(
+            TAG,
+            "detección: ${result.descriptor?.platform} / ${result.screenDetection.type} " +
+                "en ${"%.1f".format(detectionMillis)} ms",
+        )
 
         if (!featureFlags.isEnabled(FeatureFlag.PARSER)) return idle()
 
@@ -139,6 +147,13 @@ class DefaultCapturePipeline @Inject constructor(
             )
             _snapshots.tryEmit(snapshot)
             logger.debug(TAG, "snapshot ${snapshot.platform} guardado")
+            logger.info(
+                TAG,
+                "snapshot ${snapshot.platform} guardado: parse ${"%.1f".format(parseMillis)} ms · " +
+                    "total ${"%.1f".format(totalMillis)} ms",
+            )
+        } else {
+            logger.info(TAG, "sin oferta parseable: pantalla ${result.screenDetection.type}")
         }
         _lastMetrics.value =
             ProcessingMetrics(

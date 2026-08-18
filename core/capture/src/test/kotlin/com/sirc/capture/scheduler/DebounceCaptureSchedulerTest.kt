@@ -1,5 +1,6 @@
 package com.sirc.capture.scheduler
 
+import com.sirc.capture.log.TestLogger
 import com.sirc.capture.model.CaptureRequest
 import com.sirc.domain.model.RidePlatform
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -12,7 +13,7 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DebounceCaptureSchedulerTest {
-    private val scheduler = DebounceCaptureScheduler()
+    private val scheduler = DebounceCaptureScheduler(TestLogger())
 
     @Test
     fun `emite solo el último request tras el debounce`() =
@@ -63,6 +64,29 @@ class DebounceCaptureSchedulerTest {
 
             advanceTimeBy(120L)
             assertEquals(listOf(2L), emitted)
+        }
+
+    @Test
+    fun `loguea al encolar y al emitir tras el debounce`() =
+        runTest {
+            val logger = TestLogger()
+            val scheduler = DebounceCaptureScheduler(logger)
+            backgroundScope.launch {
+                scheduler.debouncedRequests(debounceMillis = 100L).collect { }
+            }
+            runCurrent()
+
+            scheduler.schedule(request(1L))
+            advanceTimeBy(200L)
+
+            assertEquals(
+                listOf(
+                    "D DebounceCaptureScheduler: request encolado: id=1 package=${RidePlatform.UBER.packageName}",
+                    "I DebounceCaptureScheduler: request emitido tras debounce: id=1 " +
+                        "package=${RidePlatform.UBER.packageName} textos=0",
+                ),
+                logger.messages,
+            )
         }
 
     private fun request(id: Long): CaptureRequest =

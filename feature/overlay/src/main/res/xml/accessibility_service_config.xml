@@ -8,5 +8,5 @@
     android:canRetrieveWindowContent="true"
     android:description="@string/accessibility_service_description"
     android:notificationTimeout="100"
-    android:packageNames="com.ubercab,com.didiglobal.passenger,com.cabify.rider,com.leadingsoft.ride.driver"
+    android:packageNames="com.ubercab,com.ubercab.driver,com.didiglobal.passenger,com.cabify.rider,com.leadingsoft.ride.driver,sinet.startup.inDriver"
     android:settingsActivity="com.sirc.app.MainActivity" />

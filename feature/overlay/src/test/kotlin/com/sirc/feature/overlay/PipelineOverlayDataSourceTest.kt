@@ -94,6 +94,37 @@ class PipelineOverlayDataSourceTest {
         }
 
     @Test
+    fun `start marca el overlay visible esperando oferta`() =
+        runBlocking {
+            dataSource.start()
+
+            assertEquals(OverlayState.WAITING, dataSource.uiState.value.status)
+            assertTrue(dataSource.uiState.value.visible)
+            assertNull(dataSource.uiState.value.evaluation)
+        }
+
+    @Test
+    fun `start con flag OVERLAY desactivada mantiene el overlay oculto`() =
+        runBlocking {
+            featureFlags.setEnabled(FeatureFlag.OVERLAY, false)
+
+            dataSource.start()
+
+            assertEquals(OverlayState.DISABLED, dataSource.uiState.value.status)
+            assertFalse(dataSource.uiState.value.visible)
+        }
+
+    @Test
+    fun `start y luego stop vuelven a ocultar el overlay`() =
+        runBlocking {
+            dataSource.start()
+            dataSource.stop()
+
+            assertEquals(OverlayState.DISABLED, dataSource.uiState.value.status)
+            assertFalse(dataSource.uiState.value.visible)
+        }
+
+    @Test
     fun `estado ERROR del pipeline se refleja en el overlay`() =
         runBlocking {
             pipeline.state.value = OverlayState.ERROR

@@ -11,7 +11,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -68,7 +67,6 @@ fun OverlayContent(
     Box(
         modifier =
             Modifier
-                .fillMaxSize()
                 .graphicsLayer {
                     alpha = visibility
                     scaleX = OVERLAY_SCALE_MIN + (OVERLAY_SCALE_MAX - OVERLAY_SCALE_MIN) * visibility

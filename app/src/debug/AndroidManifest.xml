@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      Manifest exclusivo de builds DEBUG (source set `debug`). El receiver
+      inyecta imágenes de prueba en el pipeline de captura y SOLO existe en
+      debug; Release no lo incluye. Sin permisos adicionales.
+    -->
+    <application tools:ignore="MissingApplicationIcon">
+        <receiver
+            android:name=".debug.DebugImageOcrReceiver"
+            android:exported="true"
+            tools:ignore="ExportedReceiver">
+            <intent-filter>
+                <action android:name="com.sirc.debug.OCR_TEST" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

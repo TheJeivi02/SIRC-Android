@@ -105,4 +105,32 @@ class PlatformDetectionEngineTest {
 
         assertEquals(CaptureInputType.OCR, result.origin)
     }
+
+    @Test
+    fun `el seed resuelve InDrive con el paquete de Ecuador`() {
+        val registry = PlatformDescriptorRegistry(PlatformDescriptors.all())
+
+        val result =
+            PlatformDetectionEngine(registry).detect(
+                texts = emptyList(),
+                packageName = "sinet.startup.inDriver",
+            )
+
+        assertEquals(DetectionResolution.PACKAGE_MATCH, result.resolution)
+        assertEquals(RidePlatform.INDRIVE, result.descriptor?.platform)
+    }
+
+    @Test
+    fun `el seed resuelve Uber con el paquete de la app de conductor`() {
+        val registry = PlatformDescriptorRegistry(PlatformDescriptors.all())
+
+        val result =
+            PlatformDetectionEngine(registry).detect(
+                texts = emptyList(),
+                packageName = "com.ubercab.driver",
+            )
+
+        assertEquals(DetectionResolution.PACKAGE_MATCH, result.resolution)
+        assertEquals(RidePlatform.UBER, result.descriptor?.platform)
+    }
 }

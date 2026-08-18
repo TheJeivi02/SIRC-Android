@@ -57,19 +57,17 @@ class GenericPlatformExtractor(
         fun score(amount: AmountCandidate): Int {
             val ctx = amount.context.lowercase()
             var s = 0
-            if (amount.currency != null) s += 2
+            if (amount.hasCurrencyMarker) s += 2
             if (keywords.totalKeywords.any { ctx.contains(it) }) s += 4
             if (keywords.fareKeywords.any { ctx.contains(it) }) s += 1
             return s
         }
 
-        // Si nada indica un monto, preferimos el de mayor valor (el total suele ser el mayor).
+        // Solo montos con marcador de moneda o contexto de oferta califican:
+        // sin eso el total no es fiable (distancias, ratings y ruido ya quedan
+        // fuera en el parser).
         val scored = parsed.amounts.filter { score(it) > 0 }
-        return if (scored.isNotEmpty()) {
-            scored.maxByOrNull { score(it) * 1000 + it.value.toInt() }
-        } else {
-            parsed.amounts.maxByOrNull { it.value }
-        }
+        return scored.maxByOrNull { score(it) * 1000 + it.value.toInt() }
     }
 
     companion object {

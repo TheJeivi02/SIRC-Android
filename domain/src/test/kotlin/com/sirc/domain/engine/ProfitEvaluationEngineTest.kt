@@ -39,6 +39,49 @@ class ProfitEvaluationEngineTest {
     }
 
     @Test
+    fun `el costo por km manual de la configuracion no altera el derivado`() {
+        val base = config(fuelPrice = 24.0, consumptionKmPerUnit = 12.0, maintenance = 0.5)
+        val withManual = base.copy(costs = base.costs.copy(costPerKm = 999.0))
+
+        assertEquals(2.5, ProfitEvaluationEngine.driverCosts(withManual).costPerKm, 0.001)
+    }
+
+    @Test
+    fun `cambiar los componentes actualiza el costo por km derivado`() {
+        val base = config(fuelPrice = 24.0, consumptionKmPerUnit = 12.0, maintenance = 0.5)
+        val expensive =
+            base.copy(
+                fuelPrice = 48.0,
+                maintenanceCostPerKm = 1.5,
+                additionalCosts = listOf(AdditionalCost(label = "Peajes", costPerKm = 0.6)),
+            )
+
+        assertEquals(2.5, ProfitEvaluationEngine.driverCosts(base).costPerKm, 0.001)
+        // 48/12 + 1.5 + 0.6 = 4.0 + 1.5 + 0.6 = 6.1
+        assertEquals(6.1, ProfitEvaluationEngine.driverCosts(expensive).costPerKm, 0.001)
+    }
+
+    @Test
+    fun `un aumento de costos cambia la decision de la evaluacion`() {
+        val offer = offer(total = 120.0, distanceKm = 10.0, durationMin = 30.0)
+        val cheap = config(fuelPrice = 24.0, consumptionKmPerUnit = 12.0, maintenance = 0.5)
+        val costly =
+            cheap.copy(
+                fuelPrice = 24.0,
+                maintenanceCostPerKm = 4.0,
+                vehicle = cheap.vehicle.copy(consumptionKmPerUnit = 4.0),
+            )
+
+        val cheapDecision = engine.evaluate(offer, cheap).evaluation.decision
+        val costlyDecision = engine.evaluate(offer, costly).evaluation.decision
+
+        // Con costos bajos (2.5/km) la oferta es rentable; con costos altos
+        // (6+4=10/km) la misma oferta deja de serlo.
+        assertEquals(Decision.PROFITABLE, cheapDecision)
+        assertTrue(costlyDecision != Decision.PROFITABLE)
+    }
+
+    @Test
     fun `consumo cero no produce costo de combustible infinito`() {
         val config = config(fuelPrice = 24.0, consumptionKmPerUnit = 0.0, maintenance = 0.5)
 

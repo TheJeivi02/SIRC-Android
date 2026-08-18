@@ -100,9 +100,16 @@ es rentable (objetivo UX; `<3 s` es el límite técnico/E2E histórico).
 > diálogo. Nuevo **Dashboard** (`StatsViewModel` + `StatsScreen` con gráficos
 > Canvas) alimentado por `HistoryStatsCalculator`. **Modo Beta**: flags
 > `RULES`/`DETAILED_LOGS`/`METRICS` y **Exportar diagnóstico** (share).
-> **OverlayService** reescrito (vista única persistente, `FLAG_NOT_TOUCHABLE`,
+> **OverlayService** reescrito (vista única persistente, `FLAG_NOT_FOCUSABLE`,
 > `onConfigurationChanged`); `OverlayContent` con animaciones y crossfade;
 > MediaProjection recrea el virtual display ante cambios de configuración.
+> Desde FIX-01 (SPRINT 12): la ventana es un **banner** (`WRAP_CONTENT`, sin
+> `fillMaxSize`) que no bloquea los toques de la app, `PipelineOverlayDataSource
+> .start()` activa el estado `WAITING` (indicador "Esperando oferta…" real al
+> encender el overlay), los fallos de `addView`/`updateViewLayout` se registran
+> con `logger.error/warn` y `isRunning` se corrige con el estado real del
+> servicio vía `OverlayController.onServiceRunning()` (extraído
+> `OverlayServiceLauncher` para testear el controller sin Android).
 >
 > Nota SPRINT 7: la oferta capturada se evalúa en detalle y el overlay muestra
 > una **recomendación accionable**. `PipelineOverlayDataSource` mapea el snapshot
@@ -276,6 +283,57 @@ Service **nunca** interactúa con otras apps.
 
 ## Estado del proyecto
 
+- **SPRINT 12 WP-12-FIX-03 completado (config editable post-onboarding, DVC-01)**:
+  Settings edita TODO lo que el onboarding persiste (perfil, vehículo,
+  combustible, mantenimiento, otros costos, plataformas, umbrales, overlay) con
+  persistencia real en Room y efecto real en el motor. **costPerKm es DERIVADO**
+  (única fuente de verdad: `fuelPrice/consumptionKmPerUnit +
+  maintenanceCostPerKm + Σ additionalCosts.costPerKm`); la UI lo muestra como
+  "Costo por km (calculado)" SOLO lectura y edita sus componentes; el motor
+  ignora `costs.costPerKm` manual; al guardar `normalizeCostPerKm()` persiste la
+  columna con el derivado. `AccessibilityCaptureInput` ahora aplica un **gate de
+  plataformas** (solo procesa ofertas de plataformas activas; set vacío = acepta
+  todas como fallback anti-regresión; logs info de rechazo). Tests nuevos:
+  `SettingsViewModelTest` (6), `AccessibilityCaptureInputTest` (3),
+  `ProfitEvaluationEngineTest` (+3). **2 bugs reales encontrados y corregidos en
+  dispositivo**: (1) campos `rememberSaveable` no re-sembrados al cargar la
+  config persistida (el campo "Año" mostraba 2020 con BD=2021) → `reloadTick` como
+  resetKey en `NumericField`/`IntField`/`costDrafts`; (2) crash
+  `Parcel: unknown type for value CostDraft` → `costDrafts` pasa de
+  `rememberSaveable` a `remember(reloadTick)`. Validación física (Infinix X6850):
+  derivado 0.5417 → combustible 0.5→1.5 → 0.625 en vivo → +costo "Peaje"/0.3 →
+  0.925 en vivo; activar Cabify; ciudad Quito→Guayaquil; guardar → BD
+  `costPerKm=0.925` normalizado, `fuelPrice=1.5`, `additionalCosts='Peaje^_0.3'`,
+  `platforms='CABIFY,INDRIVE,UBER'`; tras force-stop/reopen TODO persiste. Suite
+  AGENTS completa en verde. Evidencia: `/sdcard/SIRC_TEST/fix03/`.
+- **SPRINT 12 WP-12-FIX-02 completado (captura E2E, DVC-04)**: el flujo real
+  (accesibilidad/MediaProjection → OCR → detección → parser → evaluación →
+  overlay) DEMOSTRADO en DEVICE-01 (Infinix X6850) con ofertas reales de InDrive
+  Ecuador. Causa raíz de la ruta silenciosa: el servicio SÍ estaba
+  bindeado/suscrito, pero `android:packageNames` de
+  `accessibility_service_config.xml` filtraba a nivel sistema los eventos del
+  paquete real de InDrive en Ecuador — **`sinet.startup.inDriver`** (hallazgo
+  clave para el futuro soporte InDrive Ecuador; el dispositivo NO tiene
+  `com.ubercab.driver`, solo `com.ubercab` pasajero). Cambios: config XML
+  `packageNames` ampliado (Uber/DiDi/Cabify/InDrive + `sinet.startup.inDriver`),
+  `PlatformDescriptors.kt` con `packageNames` por plataforma, e instrumentación
+  con `SircLogger` (info/warn de rechazos y latencias) en
+  `AccessibilityCaptureInput`, `DebounceCaptureScheduler` (logger obligatorio),
+  `DefaultCapturePipeline`, `MediaProjectionCaptureInput` y
+  `PipelineOverlayDataSource` (log "overlay mostrando:"). Evidencia en físico:
+  `detección: INDRIVE / REQUEST`, `snapshot INDRIVE guardado: parse 5.7–13.9 ms ·
+  total 24.7–40.9 ms`, `overlay mostrando: INDRIVE · $2.9/$3.1 · REJECT
+  (origen=ACCESSIBILITY · eval 1.3–8.6 ms · reglas 0.0–0.7 ms · overlay
+  8.8–15.6 ms)`, ventana overlay `Requested 885x280 · isVisible=true ·
+  HAS_DRAWN`; Room `offer_history` con 74 ofertas reales (id 61–71 ACCEPT/WARNING
+  de ofertas >$5). MediaProjection: 1 frame real enriquecido (300759 bytes PNG;
+  OCR ~2.5 s en frame completo) y degradación a textos al denegarse
+  (`PROJECT_MEDIA=ignore`). Tests nuevos: `DebounceCaptureSchedulerTest` (+1) y
+  `PlatformDetectionEngineTest` (+2 seed `sinet.startup.inDriver`→INDRIVE /
+  `com.ubercab.driver`→UBER). Suite AGENTS completa en verde. Evidencia en
+  `/sdcard/SIRC_TEST/`. Hallazgos para el siguiente WP: panel Debug con sesión en
+  memoria (se pierde al reiniciar SIRC), uiautomator "null root node" tras ciclo
+  de overlay, OCR ~2.5 s en frames MediaProjection completos.
 - **FIX Overlay (verificación en emulador)**: el overlay crasheaba en
   instalación limpia al iniciarse (regresión de `6d62dba`). Tres causas
   encadenadas: (1) `ViewTreeLifecycleOwner.set` recibía `LifecycleRegistry` en

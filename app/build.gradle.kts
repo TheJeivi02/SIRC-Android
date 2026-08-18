@@ -56,6 +56,7 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(project(":core:capture"))
     implementation(project(":core:capture:android"))
+    implementation(project(":core:platform"))
     implementation(project(":feature:overlay"))
     implementation(project(":feature:settings"))
     implementation(project(":feature:history"))

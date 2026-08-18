@@ -18,6 +18,7 @@ object PlatformDescriptors {
     val UBER: PlatformDescriptor =
         PlatformDescriptor(
             platform = RidePlatform.UBER,
+            packageNames = listOf("com.ubercab", "com.ubercab.driver"),
             detectionRules = OfferDetectionEngine.defaultRules(),
             offerTypes =
                 listOf(
@@ -86,11 +87,12 @@ object PlatformDescriptors {
     val INDRIVE: PlatformDescriptor =
         PlatformDescriptor(
             platform = RidePlatform.INDRIVE,
+            packageNames = listOf("com.leadingsoft.ride.driver", "sinet.startup.inDriver"),
             detectionRules = OfferDetectionEngine.defaultRules(),
             offerTypes = emptyList(),
             extractorKeywords =
                 PlatformKeywords(
-                    totalKeywords = listOf("oferta", "precio", "total", "monto"),
+                    totalKeywords = listOf("oferta", "precio", "total", "monto", "aceptar"),
                     fareKeywords = listOf("pago", "tarifa"),
                 ),
             defaultCurrency = "MXN",

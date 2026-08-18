@@ -7,6 +7,8 @@ data class AmountCandidate(
     val value: Double,
     val currency: String?,
     val context: String,
+    /** true si el candidato trae un marcador de moneda (símbolo o código). */
+    val hasCurrencyMarker: Boolean = false,
 )
 
 /** Resultado del análisis heurístico del texto visible en pantalla. */
@@ -34,12 +36,20 @@ class OfferTextParser @Inject constructor() {
             for (match in AMOUNT_RUN.findAll(text)) {
                 val value = parseAmount(match.groupValues[3]) ?: continue
                 if (value <= 0.0 || value > MAX_AMOUNT) continue
+                if (hasLeadingZero(match.groupValues[3])) continue
                 val context = contextAround(text, match.range)
                 if (looksLikeUnit(context)) continue
+                val hasCurrencyMarker =
+                    match.groupValues[1].isNotBlank() ||
+                        match.groupValues[2].isNotBlank() ||
+                        match.groupValues[4].isNotBlank()
+                // Sin marcador de moneda (símbolo o código) no es un monto
+                // fiable: ignora direcciones, ratings, conteos y ruido del OCR.
+                if (!hasCurrencyMarker) continue
                 val currency =
                     match.groupValues[4].ifBlank { match.groupValues[1] }
                         .ifBlank { currencyFromSymbol(match.groupValues[2]) }
-                amountCandidates += AmountCandidate(value, currency, context)
+                amountCandidates += AmountCandidate(value, currency, context, hasCurrencyMarker)
             }
             for (match in DISTANCE_REGEX.findAll(text)) {
                 val km = parseDouble(match.groupValues[1]) ?: continue
@@ -86,12 +96,19 @@ class OfferTextParser @Inject constructor() {
         return UNIT_WORDS.any { normalized.contains(it) }
     }
 
-    private fun dedupeAmounts(amounts: List<AmountCandidate>): List<AmountCandidate> {
-        val seen = mutableSetOf<Pair<Double, String?>>()
-        return amounts.filter { seen.add(it.value to it.currency) }
-    }
+    /** Rechaza números con cero a la izquierda ("090", "012") que el OCR da
+     *  como ruido (p. ej. "$090 incluido"); permite decimales como "0.50". */
+    private fun hasLeadingZero(raw: String): Boolean = raw.length > 1 && raw[0] == '0' && raw[1].isDigit()
 
-    private fun parseAmount(raw: String): Double? {
+    private fun dedupeAmounts(amounts: List<AmountCandidate>): List<AmountCandidate> =
+        amounts.groupBy { it.value to it.currency }
+            .values
+            .mapNotNull { group -> group.maxByOrNull { it.context.length } }
+
+    private fun parseAmount(rawInput: String): Double? {
+        // El regex puede dejar un separador colgando ("4.50," o "1.234,");
+        // recortar evita que se mezcle con el exponente al normalizar.
+        val raw = rawInput.trimEnd('.', ',')
         val lastComma = raw.lastIndexOf(',')
         val lastDot = raw.lastIndexOf('.')
         val sep = maxOf(lastComma, lastDot)

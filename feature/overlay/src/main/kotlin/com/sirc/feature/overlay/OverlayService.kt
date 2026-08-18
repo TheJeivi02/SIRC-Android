@@ -27,6 +27,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
+import com.sirc.capture.log.SircLogger
 import com.sirc.core.ui.theme.SircTheme
 import com.sirc.domain.engine.ProfitEngine
 import com.sirc.domain.model.OverlayConfig
@@ -47,12 +48,19 @@ import javax.inject.Inject
  * cuando está oculta (para no bloquear los toques sobre la app de la
  * plataforma). Así se evita el parpadeo de agregar/quitar la vista en cada
  * oferta.
+ *
+ * Reporta su ciclo de vida real a [OverlayController.onServiceRunning] para
+ * que la UI no diga "en ejecución" si el sistema termina el FGS.
  */
 @AndroidEntryPoint
 class OverlayService : Service() {
     @Inject lateinit var dataSource: OverlayDataSource
 
     @Inject lateinit var engine: ProfitEngine
+
+    @Inject lateinit var logger: SircLogger
+
+    @Inject lateinit var controller: OverlayController
 
     private var windowManager: WindowManager? = null
     private var overlayView: ComposeView? = null
@@ -113,13 +121,21 @@ class OverlayService : Service() {
         startId: Int,
     ): Int {
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
+        logger.info(TAG, "onStartCommand: arrancando overlay")
         startForeground(NOTIFICATION_ID, buildNotification())
         if (!Settings.canDrawOverlays(this)) {
+            logger.error(TAG, "permiso de overlay no concedido; servicio detenido")
             stopSelf()
             return START_NOT_STICKY
         }
-        ensureOverlay()
+        if (!ensureOverlay()) {
+            logger.error(TAG, "no se pudo agregar la ventana del overlay; servicio detenido")
+            stopSelf()
+            return START_NOT_STICKY
+        }
         dataSource.start()
+        controller.onServiceRunning(true)
+        logger.info(TAG, "overlay activo")
         return START_STICKY
     }
 
@@ -129,8 +145,13 @@ class OverlayService : Service() {
     }
 
     override fun onDestroy() {
+        controller.onServiceRunning(false)
         overlayView?.let { view ->
-            runCatching { windowManager?.removeView(view) }
+            try {
+                windowManager?.removeView(view)
+            } catch (error: Exception) {
+                logger.debug(TAG, "removeView en onDestroy falló: ${error.message}")
+            }
         }
         overlayView = null
         windowParams = null
@@ -140,8 +161,8 @@ class OverlayService : Service() {
         super.onDestroy()
     }
 
-    private fun ensureOverlay() {
-        if (overlayView != null) return
+    private fun ensureOverlay(): Boolean {
+        if (overlayView != null) return true
 
         val wm = getSystemService(WINDOW_SERVICE) as WindowManager
         windowManager = wm
@@ -199,13 +220,20 @@ class OverlayService : Service() {
                 }
             }
         overlayView = view
-        runCatching { wm.addView(view, params) }
+        try {
+            wm.addView(view, params)
+        } catch (error: Exception) {
+            logger.error(TAG, "addView del overlay falló: ${error.message}")
+            overlayView = null
+            return false
+        }
 
         scope.launch {
             dataSource.uiState.collect { state ->
                 applyVisibility(state.visible)
             }
         }
+        return true
     }
 
     private fun applyVisibility(visible: Boolean) {
@@ -218,7 +246,11 @@ class OverlayService : Service() {
             } else {
                 BASE_FLAGS or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
             }
-        runCatching { windowManager?.updateViewLayout(view, params) }
+        try {
+            windowManager?.updateViewLayout(view, params)
+        } catch (error: Exception) {
+            logger.warn(TAG, "updateViewLayout (visibilidad) falló: ${error.message}")
+        }
     }
 
     /** Reajusta tamaño y posición tras rotación / cambio de resolución / split. */
@@ -231,7 +263,11 @@ class OverlayService : Service() {
         val maxX = (bounds.width() - params.width).coerceAtLeast(0)
         params.x = params.x.coerceIn(0, maxX)
         params.y = params.y.coerceIn(0, bounds.height() - params.height)
-        runCatching { wm.updateViewLayout(view, params) }
+        try {
+            wm.updateViewLayout(view, params)
+        } catch (error: Exception) {
+            logger.warn(TAG, "updateViewLayout (reclamp) falló: ${error.message}")
+        }
     }
 
     private fun moveOverlay(
@@ -244,7 +280,11 @@ class OverlayService : Service() {
         val bounds = screenBounds()
         params.x = (params.x + deltaX).coerceIn(0, (bounds.width() - params.width).coerceAtLeast(0))
         params.y = (params.y + deltaY).coerceIn(0, (bounds.height() - params.height).coerceAtLeast(0))
-        runCatching { wm.updateViewLayout(view, params) }
+        try {
+            wm.updateViewLayout(view, params)
+        } catch (error: Exception) {
+            logger.warn(TAG, "updateViewLayout (drag) falló: ${error.message}")
+        }
     }
 
     private fun buildWindowParams(config: OverlayConfig): WindowManager.LayoutParams {
@@ -312,6 +352,7 @@ class OverlayService : Service() {
     }
 
     companion object {
+        private const val TAG = "OverlayService"
         private const val CHANNEL_ID = "sirc_overlay"
         private const val NOTIFICATION_ID = 9001
         private const val OVERLAY_WIDTH_RATIO = 0.82f

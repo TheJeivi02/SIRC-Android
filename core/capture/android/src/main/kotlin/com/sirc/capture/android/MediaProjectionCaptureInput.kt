@@ -36,12 +36,16 @@ class MediaProjectionCaptureInput @Inject constructor(
     override fun requests(): Flow<CaptureRequest> = baseRequests.map { request -> enrichWithFrame(request) }
 
     private suspend fun enrichWithFrame(request: CaptureRequest): CaptureRequest {
-        if (!provider.isProjecting.value) return request
+        if (!provider.isProjecting.value) {
+            logger.info(TAG, "degradado: sin proyección activa, se usan los textos de accesibilidad")
+            return request
+        }
         val png = runCatching { provider.captureFrame()?.toPngBytes() }.getOrNull()
         if (png == null) {
             logger.warn(TAG, "sin frame disponible, se usan los textos de accesibilidad")
             return request
         }
+        logger.info(TAG, "enriquecido con frame real (${png.size} bytes PNG)")
         return enrichWithImage(request, png)
     }
 

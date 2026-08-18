@@ -2,10 +2,15 @@ package com.sirc.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sirc.domain.engine.ProfitEvaluationEngine
+import com.sirc.domain.model.AdditionalCost
 import com.sirc.domain.model.DecisionThresholds
 import com.sirc.domain.model.DriverConfig
 import com.sirc.domain.model.DriverCosts
+import com.sirc.domain.model.DriverProfile
+import com.sirc.domain.model.DriverVehicle
 import com.sirc.domain.model.OverlayConfig
+import com.sirc.domain.model.RidePlatform
 import com.sirc.domain.usecase.GetDriverConfigUseCase
 import com.sirc.domain.usecase.GetOverlayConfigUseCase
 import com.sirc.domain.usecase.SaveDriverConfigUseCase
@@ -30,10 +35,22 @@ class SettingsViewModel @Inject constructor(
         val config: DriverConfig = DriverConfig.default(),
         val overlayConfig: OverlayConfig = OverlayConfig(),
         val saved: Boolean = false,
-    )
+        val reloadTick: Int = 0,
+    ) {
+        /**
+         * Costo por km que usa el motor: derivado exclusivamente de combustible/
+         * consumo + mantenimiento + costos adicionales (única fuente de verdad).
+         * No se edita de forma manual; se actualiza al cambiar sus componentes.
+         */
+        val derivedCostPerKm: Double
+            get() = ProfitEvaluationEngine.driverCosts(config).costPerKm
+    }
 
     private val _state = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = _state.asStateFlow()
+
+    /** Última configuración persistida; referencia para "Descartar cambios". */
+    private var persistedConfig: DriverConfig = DriverConfig.default()
 
     init {
         viewModelScope.launch {
@@ -46,12 +63,48 @@ class SettingsViewModel @Inject constructor(
                     overlayConfig = overlay,
                     saved = false,
                 )
-            }.collect { _state.value = it }
+            }.collect { emitted ->
+                persistedConfig = emitted.config
+                val current = _state.value
+                if (current.config == emitted.config) {
+                    _state.value = current.copy(overlayConfig = emitted.overlayConfig)
+                } else {
+                    _state.value = emitted.copy(reloadTick = current.reloadTick + 1)
+                }
+            }
         }
+    }
+
+    fun updateProfile(profile: DriverProfile) {
+        _state.update { it.copy(config = it.config.copy(profile = profile)) }
+    }
+
+    fun updateVehicle(vehicle: DriverVehicle) {
+        _state.update { it.copy(config = it.config.copy(vehicle = vehicle)) }
     }
 
     fun updateCosts(costs: DriverCosts) {
         _state.update { it.copy(config = it.config.copy(costs = costs)) }
+    }
+
+    fun updateFuelPrice(value: Double) {
+        _state.update { it.copy(config = it.config.copy(fuelPrice = value)) }
+    }
+
+    fun updateMaintenanceCost(value: Double) {
+        _state.update { it.copy(config = it.config.copy(maintenanceCostPerKm = value)) }
+    }
+
+    fun updateAdditionalCosts(costs: List<AdditionalCost>) {
+        _state.update { it.copy(config = it.config.copy(additionalCosts = costs)) }
+    }
+
+    fun togglePlatform(platform: RidePlatform) {
+        _state.update {
+            val platforms = it.config.platforms.toMutableSet()
+            if (!platforms.add(platform)) platforms.remove(platform)
+            it.copy(config = it.config.copy(platforms = platforms))
+        }
     }
 
     fun updateThresholds(thresholds: DecisionThresholds) {
@@ -66,12 +119,34 @@ class SettingsViewModel @Inject constructor(
         _state.update { it.copy(overlayConfig = config) }
     }
 
+/** Descarta los cambios sin guardar y restaura la configuración persistida. */
+    fun discard() {
+        _state.update {
+            it.copy(
+                config = persistedConfig,
+                overlayConfig = it.overlayConfig,
+                saved = false,
+                reloadTick = it.reloadTick + 1,
+            )
+        }
+    }
+
     fun save() {
         viewModelScope.launch {
             val current = _state.value
-            saveDriverConfig.save(current.config)
+            val normalized = normalizeCostPerKm(current.config)
+            saveDriverConfig.save(normalized)
             saveOverlayConfig(current.overlayConfig)
-            _state.update { it.copy(saved = true) }
+            _state.update { it.copy(config = normalized, saved = true) }
         }
+    }
+
+    /**
+     * Mantiene la columna persistida de costo/km coherente con el valor derivado
+     * que usa el motor: nunca se persiste un costo/km manual distinto del derivado.
+     */
+    private fun normalizeCostPerKm(config: DriverConfig): DriverConfig {
+        val derived = ProfitEvaluationEngine.driverCosts(config).costPerKm
+        return config.copy(costs = config.costs.copy(costPerKm = derived))
     }
 }

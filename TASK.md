@@ -7,34 +7,158 @@
 ## Tarea actual
 
 **LOOP ENGINEERING — SPRINT 12 / E1a: VALIDACIÓN REAL DEL NÚCLEO (16-ago-2026).
-BLOQUEADO / PENDING por falta de dispositivos físicos. Sin cambios de código.**
+EN CURSO: 1 dispositivo; OCR REAL demostrado (Escenario A); 4 HALLAZGOS MANUALES
+(DVC-01…DVC-04) + K1 DIAGNOSTICADOS Y REGISTRADOS. CORRECCIONES COMPLETADAS:
+FIX-01 (overlay), FIX-02 (captura E2E), FIX-03 (config editable), FIX-04 (parser
+monto). PENDIENTE: FIX-05 (higiene artefactos) — esperando autorización.
+PLAN: `docs/superpowers/plans/2026-08-16-sprint-12-fixes.md`.**
 
-El Sprint 12 (E1a) busca evidencia física reproducible del núcleo SIRC
-(instalación, captura, OCR, detección/parsing multi-plataforma, evaluación,
-overlay, ciclo de vida, estabilidad, batería, privacidad) antes de implementar
-monetización (Supabase, autenticación, Trial, Play Billing, entitlement,
-Play Integrity — todo en E1b). Partiendo del baseline `75cbac1` (main,
-origin/main idéntico, working tree limpio).
+### PROGRESO DE CORRECCIONES (autorizado)
 
-**Estado: BLOQUEADO / PENDING — SIN EVIDENCIA.**
+- **[x] WP-12-FIX-03 — Config editable post-onboarding (DVC-01) COMPLETADO y VERIFICADO en DEVICE-01.**
+  Settings ahora edita TODO lo que el onboarding persiste (perfil, vehículo, combustible,
+  mantenimiento, otros costos, plataformas, umbrales, overlay) con persistencia real en Room y
+  efecto real en el motor. Diseño (Opción A, única fuente de verdad): **costPerKm es DERIVADO**
+  (`fuelPrice/consumptionKmPerUnit + maintenanceCostPerKm + Σ additionalCosts.costPerKm`); la UI
+  lo muestra como "Costo por km (calculado)" SOLO lectura y edita sus componentes; el motor ignora
+  `costs.costPerKm` manual; al guardar `normalizeCostPerKm()` persiste la columna con el derivado.
+  Cambios: `SettingsViewModel.kt` reescrito (UiState con `derivedCostPerKm` + `reloadTick` +
+  `persistedConfig`; `togglePlatform`; `discard()`; `save()` normalizado); `SettingsScreen.kt`
+  reescrito (secciones Perfil/Vehículo/Costos/Plataformas/Umbrales/Overlay + botones
+  Guardar/Descartar); `AccessibilityCaptureInput.kt` con **gate de plataformas** (solo procesa
+  ofertas de plataformas activas; set vacío = acepta todas, fallback anti-regresión; logs info de
+  rechazo). Tests nuevos: `SettingsViewModelTest` (6), `AccessibilityCaptureInputTest` (3),
+  `ProfitEvaluationEngineTest` (+3 derivación/manual ignorado/decisión). **2 bugs reales
+  encontrados en dispositivo y corregidos**: (1) campos `rememberSaveable` no se re-sembraban al
+  cargar la config persistida (el campo "Año" mostraba 2020 con BD=2021 → habría corrupto datos al
+  guardar) → fix con `reloadTick` como resetKey; (2) crash
+  `IllegalArgumentException: Parcel: unknown type for value CostDraft` → `costDrafts` pasa de
+  `rememberSaveable` a `remember(reloadTick)`. Validación física (Infinix X6850, Android 15):
+  derivado 0.5417 → editar combustible 0.5→1.5 → **0.625 en vivo**; añadir costo "Peaje"/0.3 →
+  **0.925 en vivo**; activar Cabify; ciudad Quito→Guayaquil; guardar → BD
+  `costPerKm=0.925` (normalizado al derivado), `fuelPrice=1.5`, `additionalCosts='Peaje^_0.3'`,
+  `platforms='CABIFY,INDRIVE,UBER'`, `city=Guayaquil`; tras force-stop/reopen TODO persiste
+  (0.925, Peaje 0.3, Guayaquil, 4 chips de plataformas). Suite AGENTS completa en verde.
+  Evidencia: `/sdcard/SIRC_TEST/fix03/`.
 
-- **Hardware**: `adb devices -l` → ningún dispositivo físico conectado; solo
-  existe AVD emulador `Pixel_7_API_35` (no sustituye lo físico).
-- **Auditoría pre-validación completada**: matriz por área (INST/CAP/OCR/PLT/
-  VEL/EST/CVD/BAT/OVL/DEC/CFG/ERR/PRV/SEC/EV) en `PENDING — SIN EVIDENCIA`.
-- **Evidencia local separada**: baseline en verde (`ktlintCheck`, `lintDebug`,
-  `assembleDebug`, unit tests) y `app-debug.apk` generado; NO constituye
-  evidencia física.
-- **Documento**: `docs/testing/SPRINT_12_DEVICE_VALIDATION.md` (§1–14: objetivo,
-  baseline, dispositivos, versiones, metodología, matriz, resultados,
-  métricas, fallos, severidad, evidencias, limitaciones, conclusión).
-- **No se inventaron métricas ni resultados** (OCR/permisos/<1 s/<3 s/etc.
-  quedan pendientes de medir).
+- **[x] WP-12-FIX-02 — Captura E2E (DVC-04) COMPLETADO y VERIFICADO en DEVICE-01.**
+  Flujo real demostrado en físico: Accessibility/MediaProjection → OCR → detección →
+  parser → evaluación → **overlay**, con latencias reales y evidencia en `/sdcard/SIRC_TEST/`.
+  Causa raíz de la ruta silenciosa: el servicio SÍ estaba bindeado/suscrito, pero
+  `android:packageNames` del config XML filtraba a nivel sistema los eventos del paquete
+  real de InDrive en Ecuador — **`sinet.startup.inDriver`** (hallazgo clave para soporte
+  InDrive Ecuador; el dispositivo NO tiene `com.ubercab.driver`, solo `com.ubercab`
+  pasajero); además el código no logueaba rechazos.
+  Cambios: config XML `packageNames` ampliado (incluye `sinet.startup.inDriver`);
+  `PlatformDescriptors.kt` → UBER e INDRIVE con sus `packageNames`; instrumentación con
+  `SircLogger` en `AccessibilityCaptureInput` (info/warn de rechazos, schedule),
+  `DebounceCaptureScheduler` (logger obligatorio, log al encolar/emitir),
+  `DefaultCapturePipeline` (info de request/detección/snapshot con ms),
+  `MediaProjectionCaptureInput` (info enriquece/degrada) y `PipelineOverlayDataSource`
+  (info "overlay mostrando: …" con métricas de eval/reglas/overlay).
+  Tests nuevos: `DebounceCaptureSchedulerTest` (+1 logging; los 3 existentes pasan
+  `TestLogger()` por la trampa Hilt de parámetro por defecto) y `PlatformDetectionEngineTest`
+  (+2: seed resuelve `sinet.startup.inDriver`→INDRIVE y `com.ubercab.driver`→UBER).
+  Evidencia en físico (18-ago): `detección: INDRIVE / REQUEST`, `snapshot INDRIVE guardado:
+  parse 5.7–13.9 ms · total 24.7–40.9 ms` (detección 16.2–28.0 ms), **9+3 snapshots reales**;
+  **`PipelineOverlay: overlay mostrando: INDRIVE · $2.9/$3.1 · REJECT (origen=ACCESSIBILITY
+  · eval 1.3–8.6 ms · reglas 0.0–0.7 ms · overlay 8.8–15.6 ms)`**; ventana overlay
+  `Requested 885x280 · isVisible=true · HAS_DRAWN`; Room `offer_history` con 74 ofertas
+  reales (id 72–74 = ofertas de hoy 16:37; id 61–71 = ACCEPT/WARNING de ayer 20:39–20:41).
+  MediaProjection: **1 frame real enriquecido (300759 bytes PNG)** en la corrida previa
+  (OCR ~2.5 s sobre frame completo; pantalla HOME sin oferta); tras denegación
+  (`PROJECT_MEDIA=ignore`) se degrada a textos (camino principal). Uber (pasajero):
+  `UBER / HOME`, "sin oferta parseable" (correcto). Verificación completa en verde
+  (ktlintCheck, lintDebug, assembleDebug, tests JVM + `:core:capture:android`).
+  Evidencia: `/sdcard/SIRC_TEST/` (e2e_pipeline.log, e2e_final.log, offer_history.txt,
+  debug_panel_offer*.png, README.txt). Hallazgos registrados para el siguiente WP:
+  panel Debug/estadísticas con sesión en memoria (se pierde al reiniciar SIRC);
+  uiautomator "null root node" con SIRC tras ciclo de overlay; OCR ~2.5 s en frames
+  MediaProjection completos.
 
-**Siguiente: (bloqueado)** necesita que el usuario conecte ≥1 dispositivo
-físico (ideal 2–3, Android 10–15) para ejecutar la matriz de
-`docs/testing/SPRINT_12_DEVICE_VALIDATION.md`. No cerrar el Sprint como
-completado; no abrir Sprint 13 ni otro LOOP sin autorización explícita.
+- **[x] WP-12-FIX-01 — Overlay físico (DVC-03) COMPLETADO y VERIFICADO en DEVICE-01.**
+  Causa raíz confirmada en campo: la ventana SÍ se añadía, pero era transparente/vacía
+  (`visibleFor(DISABLED,null)=false` → `OverlayContent.kt:59` no compone → `FLAG_NOT_TOUCHABLE`);
+  `PipelineOverlayDataSource.start()` era no-op (el pipeline nunca salía de DISABLED sin una
+  oferta real visible); `runCatching` mudos en `addView`/`updateViewLayout` y `_isRunning` optimista
+  (la UI podía decir "Activo" con el servicio muerto, p. ej. tras ser matado por XOS).
+  Cambios:
+  - `PipelineOverlayDataSource.start()` → `status=WAITING` + `visible=true` (indicador real
+    "Esperando oferta…", sin datos simulados; la evaluación real sigue mostrándose al llegar).
+  - `OverlayService` inyecta `SircLogger` + `OverlayController`; `ensureOverlay(): Boolean` con
+    `logger.error` + `stopSelf()` + `START_NOT_STICKY` si `addView` falla (estado de error visible,
+    la UI refleja "no en ejecución"); log diagnóstico en `onStartCommand`; `onDestroy` reporta
+    `onServiceRunning(false)`. Sin `runCatching` mudos (los `updateViewLayout` pasan a log warn).
+  - `OverlayController` mantiene feedback inmediato en `start()`/`stop()` y añade
+    `onServiceRunning()` para corregir `isRunning` con el estado real del servicio (S-S23):
+    si el sistema termina el FGS, la UI deja de decir "en ejecución".
+  - `OverlayContent` sin `fillMaxSize()` → la ventana es un banner (WRAP_CONTENT) y NO bloquea
+    los toques sobre la app (antes, visible+touchable ocupaba toda la pantalla y tragaba los taps).
+  - Extracción testable: `OverlayServiceLauncher`/`AndroidOverlayServiceLauncher` (+ binding en
+    `OverlayModule`) para que `OverlayController` sea 100 % testeable sin Android.
+  Tests: `OverlayControllerTest.kt` (nuevo) + `PipelineOverlayDataSourceTest.kt` ampliado
+  (start→WAITING/visible, flag OVERLAY off, start+stop). Verificación completa en verde.
+  Evidencia device (Infinix X6850): `dumpsys activity services` muestra `OverlayService` corriendo;
+  `dumpsys window` muestra la ventana (`ty=APPLICATION_OVERLAY`, `Requested 885x223`, `isVisible=true`,
+  `Surface shown`, `HAS_DRAWN`); UI "Overlay en ejecución" pasa a "Activo"/"Inactivo" reales;
+  "Detener overlay" funciona (sin bloqueo de toques); logcat sin errores. La ventana es ahora un
+  banner pequeño que no interfiere con la app de la plataforma.
+
+- **[x] WP-12-FIX-04 — Parser de monto (K1) COMPLETADO y VERIFICADO en verde.**
+  Antes 479.0 / 5.0 / 90.0; ahora 4.5 / 4.5 / 25.53 (K1 3/3, dataset real de
+  DEVICE-01). Cambios: `OfferTextParser.kt` (exige marcador de moneda en
+  `AMOUNT_RUN`, rechaza ceros a la izquierda tipo `$090`, recorta separadores
+  colgantes en `parseAmount`, dedupe conserva el contexto más rico),
+  `PlatformExtractors.kt` (score usa `hasCurrencyMarker`; eliminado el fallback
+  `maxByOrNull`), `PlatformDescriptors.kt` (keyword "aceptar" en INDRIVE).
+  Regresión: `K1AmountRegressionTest.kt` (nuevo, fixtures reales del dump).
+  Verificación: ktlintCheck + lintDebug + assembleDebug + tests JVM en verde
+  (el único fallo puntual `PipelineOverlayDataSourceTest` re-ejecutado en
+  aislamiento → PASS, flaky de timing no relacionado).
+
+### Lo que FUNCIONA en DEVICE-01 (evidencia física)
+
+- **OCR real** en el teléfono: lee bien montos/duración/distancia ($4,50, USD4.5, $25.53…).
+- **Detección**: PACKAGE_MATCH 5/5 con `packageName` real; sin él → AMBIGUOUS (PLT‑5/K2).
+- **Pantallas no-oferta**: uber_1 y uber_3 → NULL (no fuerza). Correcto.
+- **Instalación** (`adb install -r`) + apertura + **accesibilidad habilitada y bindeada** (logcat).
+- **Latencia pipeline real**: 175–317 ms (<1 s objetivo UX; overlay/UI sin medir).
+
+### Lo que NO funciona (registrado, NO corregido)
+
+- **~~K1 — Parser monto FAIL 0/3~~** ✅ **CORREGIDO** en FIX-04: 479.0 / 5.0 / 90.0
+  → 4.5 / 4.5 / 25.53 (ver "PROGRESO DE CORRECCIONES").
+- **~~DVC-01 (FAIL, Alta)~~** ✅ **CORREGIDO** en FIX-03 — config post-onboarding editable:
+  Settings edita TODO lo persistido (perfil, vehículo, combustible, mantenimiento, otros costos,
+  plataformas, umbrales, overlay) con persistencia real en Room y efecto real en el motor
+  (costPerKm derivado, gate de plataformas en captura). Validado en físico (ver "PROGRESO DE
+  CORRECCIONES").
+- **DVC-02 (FAIL/INSUFFICIENT_EVIDENCE, Alta)** — captura de pantalla: `createScreenCaptureIntent()` sin config (single-app vs full lo decide el sistema); SIRC no persiste selección; `appops PROJECT_MEDIA = ignore` (rejectTime) y `dumpsys media_projection` vacío en el físico.
+- **~~DVC-03 (FAIL, P0)~~** ✅ **CORREGIDO** en FIX-01 — overlay visible en DEVICE-01:
+  la ventana se añadía pero era transparente/vacía (pipeline DISABLED → `visibleFor=false` →
+  `OverlayContent` vacío); `start()` no-op; `runCatching` mudos; `_isRunning` optimista. Ahora el
+  overlay muestra "Esperando oferta…" al activarlo, `isRunning` es real, los fallos de ventana se
+  loguean y el banner no bloquea toques (ver "PROGRESO DE CORRECCIONES").
+- **~~DVC-04 (INSUFFICIENT_EVIDENCE, P0)~~** ✅ **CORREGIDO** en FIX-02 — flujo normal
+  (accesibilidad/MediaProjection → OCR → overlay) DEMOSTRADO en físico con ofertas reales
+  de InDrive Ecuador: la causa de la ruta silenciosa era `android:packageNames` filtrando
+  los eventos del paquete real (`sinet.startup.inDriver`); ahora con log instrumentado se
+  ve `REQUEST → snapshot → overlay mostrando` (ver "PROGRESO DE CORRECCIONES").
+
+### Evidencia
+
+- `docs/testing/evidence/SIRC_OCR_TEST_logcat_dump.txt` (OCR, 136 líneas).
+- `docs/testing/evidence/DVC_diagnostics_logcat_dump.txt` (diagnóstico DVC-01…04: accesibilidad, ventanas, servicios, appops, media_projection).
+- Documento: `docs/testing/SPRINT_12_DEVICE_VALIDATION.md` §3, §6.2–6.4, §7–14.
+
+### Próximos pasos (NO abiertos — esperar autorización)
+
+1. **AUTORIZAR el siguiente WP del plan**: **WP-12-FIX-05** (higiene de artefactos).
+   Orden restante: FIX-05 (higiene). (FIX-01, FIX-02, FIX-03 y FIX-04 hechos.)
+   FIX-03 dejó hallazgos para el siguiente WP: `adb input text` flaky en este dispositivo
+   (caracteres fantasma al teclear); uiautomator no refleja `selected` de FilterChip de Compose.
+2. Decidir si se mantiene/elimina el mecanismo debug (§6.3).
+3. No corregir DVC-02 todavía. No cerrar el Sprint. No abrir Sprint 13 ni otro LOOP sin autorización explícita.
 
 ## Tarea anterior
 

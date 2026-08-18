@@ -1,0 +1,82 @@
+﻿=== DVC DIAGNOSTICS DEVICE-01 (16-ago-2026, Infinix X6850 / Android 15 API35) ===
+
+--- adb devices ---
+List of devices attached
+115272543L006207       device product:X6850-OP model:Infinix_X6850 device:Infinix-X6850 transport_id:2
+
+
+--- settings get secure enabled_accessibility_services / accessibility_enabled ---
+com.sirc.app/com.sirc.feature.overlay.CaptureAccessibilityService:0
+1
+
+--- dumpsys window windows (búsqueda overlay/sirc) ---
+  Window #10 Window{f55d230 u0 com.sirc.app/com.sirc.app.MainActivity}:
+    mOwnerUid=10232 showForAllUsers=false package=com.sirc.app appop=NONE
+    mBaseLayer=21000 mSubLayer=0    mToken=ActivityRecord{9c02bc3 u0 com.sirc.app/.MainActivity t2917}
+    mActivityRecord=ActivityRecord{9c02bc3 u0 com.sirc.app/.MainActivity t2917}
+    WindowStateAnimator{ae06675 com.sirc.app/com.sirc.app.MainActivity}:
+      mSurface=Surface(name=com.sirc.app/com.sirc.app.MainActivity)/@0x569ba0
+  imeLayeringTarget in display# 0 Window{f55d230 u0 com.sirc.app/com.sirc.app.MainActivity}
+  imeInputTarget in display# 0 Window{f55d230 u0 com.sirc.app/com.sirc.app.MainActivity}
+  imeControlTarget in display# 0 Window{f55d230 u0 com.sirc.app/com.sirc.app.MainActivity}
+     topApp=ActivityRecord{9c02bc3 u0 com.sirc.app/.MainActivity t2917}
+     snapshot=TaskSnapshot{ mId=1786939973824 mCaptureTime=72754309562459 mTopActivityComponent=com.sirc.app/.MainActivity mSnapshot=android.hardware.HardwareBuffer@441760a (1080x2436) mColorSpace=sRGB IEC61966-2.1 (id=0, model=RGB) mOrientation=1 mRotation=0 mTaskSize=Point(1080, 2436) mContentInsets=[0,99][0,44] mLetterboxInsets=[0,0][0,0] mIsLowResolution=false mIsRealSnapshot=true mWindowingMode=1 mAppearance=0 mIsTranslucent=false mHasImeSurface=false mInternalReferences=2
+
+--- dumpsys window: ventanas actuales (Window #) ---
+      Window #0: WindowStateAnimator{6c9ea15 com.transsion.livewallpaper.view.TranWallpaperServiceSecondPictorial}
+      Window #1: WindowStateAnimator{235c3f9 com.transsion.filemanagerx/com.transsion.filemanagerx.ui.main.MainActivity}
+      Window #2: WindowStateAnimator{3d245f6 com.transsion.XOSLauncher/com.android.launcher3.uioverrides.QuickstepLauncher}
+      Window #3: WindowStateAnimator{ae06675 com.sirc.app/com.sirc.app.MainActivity}
+      Window #4: WindowStateAnimator{9e87afc InputMethod}
+      Window #5: WindowStateAnimator{f2e46cd ShellDropTarget}
+      Window #6: WindowStateAnimator{fd4cb82 StatusBar}
+      Window #7: WindowStateAnimator{c287293 NotificationShade}
+      Window #8: WindowStateAnimator{d3c2d0 NavigationBar0}
+      Window #9: WindowStateAnimator{c6582c9 TrEdgeBackGestureHandler0}
+      Window #10: WindowStateAnimator{5881dce SecondaryHomeHandle0}
+      Window #11: WindowStateAnimator{b255cbd SmartPanel_handleView}
+      Window #12: WindowStateAnimator{5a93946 DynamicBar}
+      Window #13: WindowStateAnimator{7648121 }
+  Window #0 Window{fe45ef9 u0 com.transsion.microintelligence}:
+  Window #1 Window{8f9b43f u0 DynamicBar}:
+  Window #2 Window{9d10ac0 u0 SmartPanel_handleView}:
+  Window #3 Window{5401251 u0 SecondaryHomeHandle0}:
+  Window #4 Window{e9de9a4 u0 TrEdgeBackGestureHandler0}:
+  Window #5 Window{6f992f2 u0 NavigationBar0}:
+  Window #6 Window{39c97b7 u0 NotificationShade}:
+  Window #7 Window{49b1329 u0 StatusBar}:
+  Window #8 Window{f09c0b8 u0 ShellDropTarget}:
+  Window #9 Window{4c8af48 u0 InputMethod}:
+  Window #10 Window{f55d230 u0 com.sirc.app/com.sirc.app.MainActivity}:
+  Window #11 Window{acf7917 u0 com.transsion.XOSLauncher/com.android.launcher3.uioverrides.QuickstepLauncher}:
+  Window #12 Window{10d5e u0 com.transsion.filemanagerx/com.transsion.filemanagerx.ui.main.MainActivity}:
+  Window #13 Window{8f0da5a u0 com.transsion.livewallpaper.view.TranWallpaperServiceSecondPictorial}:
+
+--- dumpsys activity services com.sirc.app (ServiceRecord) ---
+  * ServiceRecord{27d1d02 u0 com.sirc.app/com.sirc.feature.overlay.CaptureAccessibilityService c:android}
+
+--- appops SYSTEM_ALERT_WINDOW / PROJECT_MEDIA / POST_NOTIFICATION ---
+SYSTEM_ALERT_WINDOW: allow; time=+17m21s137ms ago; duration=+1m43s416ms
+PROJECT_MEDIA: ignore; rejectTime=+12m40s224ms ago
+No operations.
+Default mode: allow
+
+--- dumpsys media_projection ---
+MEDIA PROJECTION MANAGER (dumpsys media_projection)
+Media Projection: 
+null
+
+--- dumpsys package com.sirc.app: permisos relevantes ---
+      android.permission.POST_NOTIFICATIONS
+      android.permission.SYSTEM_ALERT_WINDOW
+      android.permission.FOREGROUND_SERVICE
+      android.permission.FOREGROUND_SERVICE_SPECIAL_USE
+      android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION
+      android.permission.FOREGROUND_SERVICE: granted=true
+      android.permission.FOREGROUND_SERVICE_SPECIAL_USE: granted=true
+      android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION: granted=true
+        android.permission.POST_NOTIFICATIONS: granted=true, flags=[ USER_SET|USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+
+--- logcat: tags SIRC/Overlay/Pipeline/MediaProjection (all buffers, últimos) ---
+
+--- logcat: Hiber/freeze de com.sirc.app (OEM XOS) ---

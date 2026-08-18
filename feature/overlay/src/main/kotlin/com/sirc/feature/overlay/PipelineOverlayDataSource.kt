@@ -90,7 +90,20 @@ class PipelineOverlayDataSource @Inject constructor(
         }
     }
 
-    override fun start() = Unit
+    override fun start() {
+        val status =
+            if (featureFlags.isEnabled(FeatureFlag.OVERLAY)) {
+                OverlayState.WAITING
+            } else {
+                OverlayState.DISABLED
+            }
+        _uiState.update {
+            it.copy(
+                status = status,
+                visible = visibleFor(status, it.evaluation),
+            )
+        }
+    }
 
     override fun stop() {
         hideJob?.cancel()
@@ -150,6 +163,13 @@ class PipelineOverlayDataSource @Inject constructor(
                 logger.debug(
                     METRICS_TAG,
                     "reglas: ${format(rulesMillis)} ms · overlay: ${format(overlayMillis)} ms",
+                )
+                logger.info(
+                    TAG,
+                    "overlay mostrando: ${snapshot.platform} · $$${snapshot.estimatedTotal} " +
+                        "· ${result.recommendation.recommendation} " +
+                        "(origen=${snapshot.origin} · eval ${format(evaluationMillis)} ms · " +
+                        "reglas ${format(rulesMillis)} ms · overlay ${format(overlayMillis)} ms)",
                 )
             } catch (error: Throwable) {
                 sessionManager.recordError()
