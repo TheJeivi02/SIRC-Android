@@ -5,6 +5,12 @@
 > capturas (Uber ×3, InDriver ×2) mediante un receptor **debug-only** que
 > injrecta imágenes reales al pipeline de producción (§6.2). El resto de la
 > matriz sigue **PENDING / SIN EVIDENCIA**; no se inventan métricas.
+>
+> **ACTUALIZADO el 18-ago-2026 (estado actual)**: los hallazgos DVC-01…04 y
+> K1 fueron CORREGIDOS en WP-12-FIX-01…05 y verificados en DEVICE-01 (E2E
+> real con InDrive Ecuador). Las secciones §1–§14 documentan el estado
+> histórico de 16-ago (pre-correcciones) y se conservan íntegras como
+> evidencia del diagnóstico. Ver §15 para el estado real consolidado.
 
 ## 1. Objetivo
 
@@ -539,3 +545,124 @@ overlay).
 servicio, excepción de `addView`, gestión XOS del FGS) y de DVC‑04 (¿llegan
 eventos de accesibilidad? ¿se descartan?) antes de corregir. No se abre Sprint
 13 ni otro LOOP sin autorización explícita.
+
+---
+
+## 15. Actualización post-correcciones (18-ago-2026) — verificación FIX-01…05
+
+> **Estado actual.** Las secciones §1–§14 documentan el 16-ago-2026
+> (pre-correcciones) y se conservan íntegras como evidencia del diagnóstico.
+> Detalle operativo de las correcciones en `TASK.md`, `.ai/CONTEXT.md` y el plan
+> `docs/superpowers/plans/2026-08-16-sprint-12-fixes.md`.
+
+### 15.1 Correcciones aplicadas y verificadas (DEVICE-01, Infinix X6850 / Android 15 / API 35)
+
+| FIX | Hallazgo | Corrección | Verificación |
+|---|---|---|---|
+| FIX-01 | DVC-03 — overlay no aparece | Banner real: `PipelineOverlayDataSource.start()` → `WAITING` + visible ("Esperando oferta…"); `OverlayService` con error visible / `START_NOT_STICKY` si `addView` falla; `isRunning` real vía `onServiceRunning`; `OverlayContent` sin `fillMaxSize` (no bloquea toques) | OverlayService en `dumpsys activity services`; ventana `ty=APPLICATION_OVERLAY`; UI "Activo/Inactivo" real; overlay mostró la oferta real en vivo (`overlay mostrando`, 18-ago 16:37) |
+| FIX-02 | DVC-04 — flujo normal sin demostrar | Causa raíz: `android:packageNames` del config XML filtraba el paquete real de InDrive Ecuador (**`sinet.startup.inDriver`**). Ampliado config XML + `PlatformDescriptors.packageNames` + instrumentación `SircLogger` en la ruta | E2E real: `AccessibilityInput request programado: package=sinet.startup.inDriver` → `detección: INDRIVE / REQUEST` → `snapshot INDRIVE guardado` → `overlay mostrando: INDRIVE · $2.9/$3.1 · REJECT` (logcat 18-ago 16:37) |
+| FIX-03 | DVC-01 — config post-onboarding no editable | Settings edita perfil/vehículo/combustible/mantenimiento/otros costos/plataformas/umbrales/overlay; **costPerKm DERIVADO** (única fuente de verdad) + gate de plataformas en captura; 2 bugs runtime corregidos (`reloadTick`; crash `Parcel: CostDraft`) | En físico: derivado 0.5417 → 0.625 (fuel 1.5) → 0.925 (+Peaje 0.3); BD final `costPerKm=0.925 fuelPrice=1.5 city=Guayaquil additionalCosts=Peaje^_0.3 platforms=CABIFY,INDRIVE,UBER`; persiste tras force-stop/reopen |
+| FIX-04 | K1 — parser monto FAIL 0/3 | `OfferTextParser` exige marcador de moneda, rechaza ceros a la izquierda (`$090`), recorta separadores; extractor sin fallback `maxByOrNull`; keyword "aceptar" en INDRIVE | 479.0 / 5.0 / 90.0 → **4.5 / 4.5 / 25.53** (3/3) en `K1AmountRegressionTest` (fixtures reales del dump); dist/dur sin regresión; suite `:core:platform` verde |
+| FIX-05 | Higiene de artefactos | Convención `/sdcard/SIRC_TEST/{images,logs,evidence,exports,tmp}/` | 57 archivos reubicados sin borrar (57 antes = 57 después); raíz `/sdcard` limpia de `sirc_*`; 0 coincidencias `sirc` en carpetas personales |
+
+### 15.2 Matriz Sprint 12 — estado real consolidado (18-ago-2026)
+
+Leyenda: **DEMO** = demostrado en físico; **PARC** = demostrado parcialmente;
+**PEND** = pendiente por hardware/cuenta/condiciones; **NV** = no validado.
+
+| ID | Prueba | Estado | Evidencia |
+|---|---|---|---|
+| INST-1 | Instalación limpia | DEMO | `adb install -r`, abre |
+| INST-2 | Actualización previa | PEND | sin versión anterior con datos |
+| INST-3 | Onboarding + config | DEMO | onboarding completo; config editable verificada (FIX-03) |
+| INST-4 | Cierre y reapertura | PARC | force-stop/reopen → config persiste (FIX-03) |
+| CAP-1 | Accesibilidad | DEMO | request real origin=`ACCESSIBILITY` (e2e_pipeline/final.log) |
+| CAP-2 | CaptureInput→dedup | PARC | requests coalescidas por debounce (IDs únicos) |
+| CAP-3 | Debounce 400 ms | PARC | "request programado… emitido tras debounce"; sin medición aislada del intervalo |
+| CAP-4 | MediaProjection | PARC | 1 frame real enriquecido (300759 B PNG, 17-ago); degrada a textos al denegar; **DVC-02 pendiente** |
+| CAP-5 | Recuperación errores | PARC | degradación a textos sin crash tras denegación |
+| OCR-1 | Dataset real por plataforma | PARC | 5 capturas reales + ofertas en vivo; muestra < mínima (§6.1) |
+| OCR-2 | Monto/dist/duración | PARC | monto K1 corregido (JVM con fixtures reales); dist 2/3, dur 3/3 (histórico) |
+| OCR-3 | test-images NO única fuente | DEMO | imágenes reales de DEVICE-01 + ofertas en vivo |
+| PLT-1 | Uber | PEND | device sin `com.ubercab.driver` (solo pasajero); sin cuenta conductor |
+| PLT-2 | DiDi | PEND | sin cuenta |
+| PLT-3 | Cabify | PEND | sin cuenta |
+| PLT-4 | InDrive | DEMO | E2E completo en vivo (captura→det→parse→eval→overlay) |
+| PLT-5 | Keywords | PARC | PACKAGE_MATCH 5/5 con paquete; AMBIGUOUS sin paquete (conocido no bloqueante) |
+| VEL-1 | Latencias por etapa | PARC | pipeline 175–317 ms (5 imgs, 16-ago); det 16–28 ms; parse 5.7–13.9 ms; eval 1.3–8.6 ms; overlay 8.8–15.6 ms; OCR full-frame MP ~2.5 s (1 muestra) |
+| VEL-2 | Decisión <1 s | PARC | pipeline accesible <1 s; **sin cronómetro en ruta** |
+| VEL-3 | E2E <3 s | PARC | trayectoria accesible ≪3 s; OCR full-frame ~2.5 s (dentro de 3 s, 1 muestra); **sin cronómetro en ruta** |
+| EST-1 | Sesión 30 min | PEND | — |
+| EST-2 | Sesión 8 h | PEND | — |
+| CVD-1 | bg/fg | PEND | — |
+| CVD-2 | rotación/bloqueo/split | PEND | — |
+| CVD-3 | proceso muerto→reabrir | PEND | obs: force-stop deshabilita el servicio de accesibilidad (README.txt) |
+| CVD-4 | reinicio/permisos/reinstalar | PEND | — |
+| BAT-1 | Batería | PEND | solo snapshot meminfo |
+| BAT-2 | Memoria panel | PEND | snapshot meminfo (MemTotal 7.8 GB / MemAvailable 1.6 GB) |
+| OVL-1 | Aparece/desaparece | PARC | aparece con oferta real (log + ventana); TTL/arrastre sin validar; artefacto de evidencia incompleto (§15.4) |
+| OVL-2 | Semáforo/métricas | PARC | mostró `INDRIVE · $2.9/$3.1 · REJECT`; $/km, $/hora, confianza sin evidencia en vivo |
+| OVL-3 | FLAG_NOT_TOUCHABLE | PARC | banner no bloquea toques (verificado manual, FIX-01) |
+| OVL-4 | oculto/rotación/bloqueo | PEND | — |
+| DEC-1 | rentable→ACCEPT | DEMO | offer_history id 61–63, 65–68 = PROFITABLE/ACCEPT (reales) |
+| DEC-2 | no rentable→REJECT | DEMO | offer_history id 4–60, 72–74 = NOT_PROFITABLE/REJECT (74 reales) |
+| DEC-3 | ambigua→WARNING | PARC | id 64, 69–71 = MARGINAL/WARNING |
+| DEC-4 | coherencia métricas/costos | PEND | sin validación cruzada UI |
+| CFG-1 | Config→cálculo | DEMO | costPerKm derivado + gate de plataformas verificados (FIX-03) |
+| ERR-1 | OCR fallido/incompleto | PARC | "kn"→dist 0.0 sin crash; degradación |
+| ERR-2 | plataforma desconocida/permisos | PARC | degradación a textos al denegar `PROJECT_MEDIA` |
+| PRV-1 | 100 % local | PARC | estático: sin backend en el pipeline; dinámico (tráfico) PEND |
+| SEC-1 | Sin secretos | PARC | estático: `git ls-files` sin claves; dinámico PEND |
+| EV-1 | Evidencia por prueba | PARC | consolidada en `/sdcard/SIRC_TEST/` + repo; no todas con formato EV-1 completo |
+
+### 15.3 Evidencia física consolidada (DEVICE-01)
+
+| Artefacto | Contenido |
+|---|---|
+| `/sdcard/SIRC_TEST/logs/e2e_pipeline.log` | 17-ago 01:10–01:12: requests de accesibilidad (`sinet.startup.inDriver`), detección 16–28 ms, snapshots 24.7–40.9 ms, 1 request `MEDIA_PROJECTION` |
+| `/sdcard/SIRC_TEST/logs/e2e_final.log` | 18-ago 16:37: `overlay mostrando: INDRIVE · $2.9/$3.1 · REJECT (origen=ACCESSIBILITY · eval 8.6/1.3 ms · reglas 0.7/0.0 ms · overlay 15.6/8.8 ms)` |
+| `/sdcard/SIRC_TEST/evidence/offer_history.txt` | Room offer_history: 74 ofertas reales INDRIVE (id 4–74) con ACCEPT/WARNING/REJECT |
+| `/sdcard/SIRC_TEST/evidence/README.txt` | Resumen FIX-02 + hallazgos de entorno |
+| `/sdcard/SIRC_TEST/evidence/fix03/fix03_evidence.txt` | Post force-stop: UI "Costo por km (calculado) = 0.925", fuel 1.5, Peaje 0.3, chips de plataformas; BD final `costPerKm=0.925 … platforms=CABIFY,INDRIVE,UBER` |
+| `docs/testing/evidence/sprint12/` | DVC dump, OCR dump, crashcheck, meminfo, overlay window (parcial, §15.4) |
+| `core/platform/src/test/.../K1AmountRegressionTest.kt` | Regresión K1: 4.5 / 4.5 / 25.53 con fixtures reales del dump |
+
+### 15.4 Hallazgos abiertos (registrados, NO corregidos)
+
+- **DVC-02 (P1/P2)**: fuente de captura single-app/full-screen no controlable ni
+  persistida; `PROJECT_MEDIA=ignore` en el físico. El enriquecimiento de frame
+  funciona (1×) pero no es reproducible por diseño. Decisión de producto
+  pendiente (usuario).
+- **Mecanismo debug (§6.3)**: mantener vs eliminar `DebugImageOcrReceiver` —
+  decisión pendiente (usuario).
+- **Calidad de evidencia FIX-01 (P2)**: `docs/testing/evidence/sprint12/DEVICE-01_overlay_window.txt`
+  no contiene el dump de la ventana banner (solo un fragmento de NotificationShade);
+  el estado del banner se documentó en TASK.md/README y se confirmó en logcat
+  (`overlay mostrando`), pero el dump exacto (`ty=APPLICATION_OVERLAY`,
+  `Requested 885x…`, `isVisible=true`, `HAS_DRAWN`) no quedó capturado.
+- **Conocidos no bloqueantes**: panel Debug/sesión en memoria (se pierde al
+  reiniciar SIRC); uiautomator "null root node" tras ciclo de overlay; OCR
+  full-frame MP ~2.5 s; force-stop deshabilita el servicio de accesibilidad;
+  overlay solo iniciable por UI (`am startforegroundservice` falla: no
+  exported); "Exportar diagnóstico" abre un chooser (no crea archivo); jank
+  inicial en 16-ago (Skipped 377–430 frames, Davey! 6415 ms); `$$` duplicado en
+  el log de overlay (cosmético).
+- **PENDIENTES por condiciones**: cuentas reales Uber Driver / DiDi / Cabify;
+  muestra ≥ 20 por plataforma; jornada en ruta; batería; ciclo de vida;
+  auditoría de tráfico dinámica; EV-1 completo.
+
+### 15.5 Conclusión — estado real de E1a
+
+**Sprint 12 / E1a = PASS WITH PENDING** (18-ago-2026):
+
+- **Núcleo validado en físico**: captura por accesibilidad → detección →
+  parser → evaluación → overlay **DEMOSTRADO** con ofertas reales de InDrive
+  Ecuador en DEVICE-01. Los P0 (DVC-03 overlay, DVC-04 flujo normal) y Alta
+  (DVC-01 config, K1 parser) quedaron **CORREGIDOS y verificados**.
+- **PENDIENTE (condicionado a hardware/cuenta/condiciones, NO a defectos de
+  código)**: validación real de Uber Driver/DiDi/Cabify (sin cuentas), muestra
+  ≥ mínima (≥20 por plataforma), jornada en ruta (<1 s cronometrado, estabilidad
+  8 h, batería), ciclo de vida, DVC-02 (decisión de producto), PRV-1/SEC-1
+  dinámicos, EV-1 completo.
+- **No se abre Sprint 13 ni se implementa monetización** (E1b, Supabase,
+  Billing, Play Integrity, trial, AHU, anti-fatiga) sin autorización explícita.

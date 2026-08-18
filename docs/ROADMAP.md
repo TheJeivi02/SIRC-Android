@@ -396,8 +396,15 @@ Respondiendo al gate:
   jornada ≥8 h sin crash, cada plataforma soportada en ≥1 dispositivo real,
   revocación de permisos (MediaProjection) y vuelta al servicio sin crash.
 
-- Estado: **planificado — sin implementar** (regla R16: no implementar sin
-  instrucción explícita).
+- Estado: **ejecutado parcialmente (18-ago-2026): E1a = PASS WITH PENDING**.
+  Núcleo validado en 1 dispositivo físico (DEVICE-01, Infinix X6850 / Android
+  15): E2E real de InDrive Ecuador (captura→OCR→detección→parser→evaluación→
+  overlay). P0 (DVC-03 overlay, DVC-04 flujo normal) y Alta (DVC-01 config,
+  K1 parser) CORREGIDOS y verificados en WP-12-FIX-01…05. Pendientes
+  (condicionados a cuentas reales/ruta/otros dispositivos, no a defectos):
+  Uber Driver/DiDi/Cabify en vivo, muestra ≥20 por plataforma, <1 s en ruta,
+  estabilidad 8 h, batería, ciclo de vida, DVC-02, PRV/SEC dinámicos. Ver
+  `docs/testing/SPRINT_12_DEVICE_VALIDATION.md` §15. Sin monetización (E1b).
 
 ## Sprint 3 — Accessibility
 

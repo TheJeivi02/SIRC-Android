@@ -185,6 +185,38 @@ Luego el cambio mínimo 1+2 (log + estado real).
 
 Nada de este WP hasta autorización.
 
+### N. Resultado (18-ago-2026) — COMPLETADO ✅
+
+Causa raíz confirmada en campo: la ventana SÍ se añadía, pero era
+transparente/vacía (`visibleFor(DISABLED,null)=false` → `OverlayContent.kt:59`
+no compone nada); `PipelineOverlayDataSource.start()` era no-op (el pipeline
+nunca salía de `DISABLED` sin una oferta real visible); `runCatching` mudos en
+`addView`/`updateViewLayout` y `_isRunning` optimista (la UI podía decir
+"Activo" con el servicio muerto, p. ej. tras ser matado por XOS).
+
+Fix aplicado: `PipelineOverlayDataSource.start()` → `status=WAITING` +
+`visible=true` ("Esperando oferta…", sin datos simulados); `OverlayService`
+inyecta `SircLogger` + `OverlayController` con `ensureOverlay(): Boolean`
+(`logger.error` + `stopSelf()` + `START_NOT_STICKY` si `addView` falla);
+`onDestroy` reporta `onServiceRunning(false)`; `OverlayController.onServiceRunning()`
+corrige `isRunning` con el estado real; `OverlayContent` sin `fillMaxSize()`
+(banner `WRAP_CONTENT`, no bloquea toques); extracción testable
+`OverlayServiceLauncher`/`AndroidOverlayServiceLauncher` (+binding en
+`OverlayModule`).
+
+Evidencia en DEVICE-01: `dumpsys activity services` muestra `OverlayService`
+corriendo; ventana `ty=APPLICATION_OVERLAY`; UI "Activo"/"Inactivo" reales;
+"Detener overlay" funciona sin bloqueo de toques; logcat sin errores. La
+validación del overlay mostrando una oferta real queda en FIX-02
+(`overlay mostrando: INDRIVE · $2.9/$3.1 · REJECT`, 18-ago 16:37).
+
+Criterios de aceptación: ✅ banner visible al activar · ✅ `isRunning` real ·
+✅ errores de ventana logueados · ✅ no bloquea toques · ⚠️ `START_STICKY` tras
+rearranque pendiente de prueba a fondo (documentado).
+
+Tests: `OverlayControllerTest.kt` (nuevo, 131 líneas) + `PipelineOverlayDataSourceTest`
+ampliado + `AccessibilityCaptureInputTest` (nuevo). Suite AGENTS en verde.
+
 ---
 
 ## WP‑12‑FIX‑02 — Captura E2E (DVC‑04)
@@ -579,6 +611,26 @@ mínimo en parser/extractor. Verificable al 100 % sin dispositivo.
 
 Nada de este WP hasta autorización.
 
+### N. Resultado (18-ago-2026) — COMPLETADO ✅
+
+Antes 479.0 / 5.0 / 90.0 → **ahora 4.5 / 4.5 / 25.53** (K1 3/3 con fixtures
+reales del dump de DEVICE-01). Cambios: `OfferTextParser.kt` (exige marcador de
+moneda en `AMOUNT_RUN`, rechaza ceros a la izquierda tipo `$090`, recorta
+separadores colgantes en `parseAmount`, dedupe conserva el contexto más rico),
+`PlatformExtractors.kt` (score usa `hasCurrencyMarker`; eliminado el fallback
+`maxByOrNull`), `PlatformDescriptors.kt` (keyword "aceptar" en INDRIVE).
+
+Verificación: `K1AmountRegressionTest.kt` (nuevo, fixtures reales del dump)
++ suite `:core:platform` en verde. ktlintCheck + lintDebug + assembleDebug +
+tests JVM en verde (el único fallo puntual `PipelineOverlayDataSourceTest`
+re-ejecutado en aislamiento → PASS, flaky de timing no relacionado). La
+re-ejecución en dispositivo del `DebugImageOcrReceiver` queda PENDIENTE (opcional;
+ver §6.3 del doc de validación sobre el mecanismo debug).
+
+Criterios de aceptación: ✅ monto correcto en las 3 ofertas (4.5/4.5/25.53) ·
+✅ dist/dur sin regresión · ✅ suite `:core:platform` completa en verde ·
+⚠️ reproducción en DEVICE-01 vía receiver pendiente (opcional).
+
 ---
 
 ## WP‑12‑FIX‑05 — Test Artifact Hygiene
@@ -715,5 +767,23 @@ Dependencias clave con evidencia:
 ## 2. Criterios de salida del Sprint 12/E1a (a re-evaluar tras fixes)
 
 - CAP‑1…5, OVL‑1…4, PLT‑1…4 E2E, VEL‑1/2/3, DEC‑1…4, CVD‑1…4, BAT‑1/2, EV‑1
-  con muestra ≥ mínima (§6.1). Pruebas in-field con cuenta real de Uber/InDriver
+  con muestra ≥ mínima (§6.1). Pruebas in-field con cuenta real de Uber/InDrive
   (pendiente usuario). No cerrar Sprint sin autorización explícita.
+
+## 3. Cierre Sprint 12/E1a (auditoría, 18-ago-2026)
+
+Resultado de la auditoría de cierre (solo documentación; sin cambios de código):
+
+- **Estado real: E1a = PASS WITH PENDING.** Núcleo (captura accesibilidad →
+  detección → parser → evaluación → overlay) DEMOSTRADO en físico con ofertas
+  reales de InDrive Ecuador (DEVICE-01). P0 (DVC-03, DVC-04) y Alta (DVC-01,
+  K1) corregidos y verificados. Los criterios de salida §2 NO se cumplen
+  completos: pendientes condicionados a cuentas reales (Uber Driver/DiDi/
+  Cabify), muestra ≥20 por plataforma, jornada en ruta, batería, ciclo de
+  vida y DVC-02.
+- **Matriz consolidada** por criterio con evidencia: `docs/testing/SPRINT_12_DEVICE_VALIDATION.md` §15.
+- **Hallazgos abiertos (no corregidos)**: DVC-02 (decisión de producto),
+  mecanismo debug (§6.3), calidad de evidencia FIX-01 (P2), conocidos no
+  bloqueantes (§15.4).
+- **No se abre Sprint 13 ni se implementa monetización** (E1b, Supabase,
+  Billing, Play Integrity, trial, AHU, anti-fatiga) sin autorización explícita.

@@ -6,13 +6,33 @@
 
 ## Tarea actual
 
-**LOOP ENGINEERING — SPRINT 12 / E1a: VALIDACIÓN REAL DEL NÚCLEO (16-ago-2026).
-EN CURSO: 1 dispositivo; OCR REAL demostrado (Escenario A); 4 HALLAZGOS MANUALES
-(DVC-01…DVC-04) + K1 DIAGNOSTICADOS Y REGISTRADOS. CORRECCIONES COMPLETADAS:
-FIX-01 (overlay), FIX-02 (captura E2E), FIX-03 (config editable), FIX-04 (parser
-monto), FIX-05 (higiene de artefactos). PENDIENTE: cierre del Sprint 12 / decisión
-DVC-02 / pruebas in-field — esperando autorización.
-PLAN: `docs/superpowers/plans/2026-08-16-sprint-12-fixes.md`.**
+**LOOP ENGINEERING — CIERRE FORMAL DEL SPRINT 12 / E1a (18-ago-2026).
+AUDITORÍA + CONSOLIDACIÓN + DOCUMENTACIÓN (sin código). E1a = PASS WITH
+PENDING: núcleo validado en físico (InDrive Ecuador E2E real); P0/Alta
+(DVC-01/03/04, K1) corregidos y verificados; pendientes condicionados a
+cuentas reales/ruta/batería/ciclo de vida/DVC-02. No se abre Sprint 13 ni
+monetización (E1b). Matriz consolidada en
+`docs/testing/SPRINT_12_DEVICE_VALIDATION.md` §15.**
+
+### CIERRE DEL SPRINT 12 / E1a (autorizado)
+
+- [x] **Auditoría de cierre ejecutada (18-ago-2026)** — revisión del estado
+  real del repo (git limpio, HEAD == origin/main == 7bea473), cruce de
+  fuentes (SPRINT_12_DEVICE_VALIDATION, plan FIX-01…05, TASK, CONTEXT,
+  ROADMAP, DECISIONS, BETA_READINESS) y verificación de la evidencia física
+  en DEVICE-01 (`/sdcard/SIRC_TEST/`): `e2e_pipeline.log`, `e2e_final.log`
+  (log "overlay mostrando: INDRIVE · $2.9/$3.1 · REJECT", 18-ago 16:37),
+  `offer_history.txt` (74 ofertas reales), `fix03_evidence.txt` (config
+  derivada persistida). Evidencia FIX-01 en repo parcial
+  (`DEVICE-01_overlay_window.txt` sin dump del banner) → registrado (P2).
+- [x] **Estado real de E1a decidido: PASS WITH PENDING** (evidencia, no
+  deseado). Criterios de salida completos NO cumplidos (multi-plataforma,
+  muestra ≥20, jornada en ruta, batería, ciclo de vida, DVC-02).
+- [x] **Docs de cierre actualizadas**: `SPRINT_12_DEVICE_VALIDATION.md` §15
+  (matriz consolidada + evidencia + hallazgos abiertos), plan (resultados
+  FIX-01/FIX-04 + §3 cierre), ROADMAP (estado Sprint 12), `.ai/CONTEXT.md`,
+  `.ai/DECISIONS.md` (D17.1).
+- [x] Reporte final A-Z entregado. DETENERSE: esperando autorización.
 
 ### PROGRESO DE CORRECCIONES (autorizado)
 
@@ -169,11 +189,14 @@ PLAN: `docs/superpowers/plans/2026-08-16-sprint-12-fixes.md`.**
 
 ### Próximos pasos (NO abiertos — esperar autorización)
 
-1. **Cerrar el Sprint 12 / E1a** (o continuar según decisión del usuario):
-   decidir DVC-02 (captura de pantalla MediaProjection), el mecanismo debug (§6.3)
-   y las pruebas in-field con cuenta real de Uber/InDrive (pendiente usuario).
-2. Todos los WP-12-FIX (01–05) están completados. No abrir Sprint 13 ni otro
-   LOOP sin autorización explícita.
+1. **Sprint 12 / E1a CERRADO (PASS WITH PENDING, 18-ago-2026)**. Para
+   completar E1a (validación total) se requieren condiciones del usuario:
+   cuenta real de Uber Driver/DiDi/Cabify (validación en vivo), jornada en
+   ruta (<1 s cronometrado, estabilidad 8 h, batería), más dispositivos
+   (mínimo 2), muestra ≥20 por plataforma. Pendiente de decisión: DVC-02
+   (fuente de captura), mecanismo debug (§6.3), calidad de evidencia FIX-01.
+2. No abrir Sprint 13 ni monetización (E1b, Supabase, Billing, Play
+   Integrity, trial, AHU, anti-fatiga) sin autorización explícita.
 
 ## Tarea anterior
 

@@ -283,6 +283,18 @@ Service **nunca** interactúa con otras apps.
 
 ## Estado del proyecto
 
+- **SPRINT 12 / E1a CERRADO como PASS WITH PENDING (18-ago-2026, auditoría
+  de cierre; sin cambios de código)**: núcleo validado en físico (DEVICE-01,
+  Infinix X6850/Android 15) con E2E real de InDrive Ecuador (captura
+  accesibilidad → detección → parser → evaluación → overlay). P0 (DVC-03
+  overlay, DVC-04 flujo normal) y Alta (DVC-01 config, K1 parser) CORREGIDOS
+  y verificados (WP-12-FIX-01…05). Pendientes condicionados a cuentas reales/
+  ruta/otros dispositivos (no a defectos): Uber Driver/DiDi/Cabify en vivo,
+  muestra ≥20 por plataforma, <1 s en ruta, estabilidad 8 h, batería, ciclo
+  de vida, DVC-02, PRV/SEC dinámicos. Hallazgos abiertos registrados
+  (DVC-02, mecanismo debug, evidencia FIX-01 parcial, conocidos no
+  bloqueantes) — ver `docs/testing/SPRINT_12_DEVICE_VALIDATION.md` §15 y
+  decisión D17.1. NO se abre Sprint 13 ni monetización (E1b).
 - **SPRINT 12 WP-12-FIX-05 completado (higiene de artefactos, 18-ago-2026)**:
   sin cambios de código de producción (solo device storage + docs). Convención
   vigente: todo artefacto de prueba en `/sdcard/SIRC_TEST/{images,logs,evidence,

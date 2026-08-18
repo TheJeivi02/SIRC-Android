@@ -614,6 +614,33 @@ controla abuso, obtiene feedback y da continuidad entre dispositivos. La cuenta
 **Consecuencias:** regla 9l; `SUBSCRIPTION_MODEL.md` §1.2; `BACKEND_ARCHITECTURE.md`
 §3 (cuenta).
 
+### D17.1 — Cierre Sprint 12 / E1a: PASS WITH PENDING (basado en evidencia)
+
+**Contexto:** sprint de validación real del núcleo (E1a). Tras las correcciones
+WP-12-FIX-01…05 (18-ago-2026), auditoría de cierre con evidencia física en
+DEVICE-01 (Infinix X6850, Android 15): E2E real de InDrive Ecuador demostrado
+(captura accesibilidad → detección → parser → evaluación → overlay); P0
+(DVC-03 overlay, DVC-04 flujo normal) y Alta (DVC-01 config post-onboarding,
+K1 parser de monto) corregidos y verificados.
+
+**Decisión:** **E1a = PASS WITH PENDING** — no se declara cierre total (los
+criterios de salida del sprint no se cumplen completos) ni FAIL ni BLOCKED:
+los pendientes están condicionados a recursos del usuario (cuentas reales de
+Uber Driver/DiDi/Cabify, jornada en ruta, ≥2 dispositivos, muestra ≥20 por
+plataforma) y a una decisión de producto (DVC-02: fuente de captura
+single-app/full-screen), NO a defectos de código conocidos en el camino
+principal. Se registran hallazgos abiertos: DVC-02, mecanismo debug
+(`DebugImageOcrReceiver`, §6.3), evidencia FIX-01 parcial
+(`DEVICE-01_overlay_window.txt` sin dump del banner, P2) y conocidos no
+bloqueantes (panel Debug en memoria, "null root node" de uiautomator, OCR
+full-frame MP ~2.5 s, force-stop deshabilita accesibilidad, jank inicial).
+
+**Consecuencias:** actualizados `SPRINT_12_DEVICE_VALIDATION.md` §15, plan
+(resultados FIX-01/FIX-04 + §3 cierre), ROADMAP (estado Sprint 12), TASK.md,
+`.ai/CONTEXT.md`. **NO se abre Sprint 13 ni se implementa monetización (E1b:
+Supabase, Billing, Play Integrity, trial, AHU, anti-fatiga)** sin autorización
+explícita (regla R16).
+
 ## SPRINT 11 — Eliminación de FakeParser (WP-E1-01)
 
 ### D11.6 — Eliminación de `FakeParser` de la ruta de producción
