@@ -326,7 +326,14 @@ Service **nunca** interactúa con otras apps.
   uber_2 → WARNING. Render verificado por OCR Windows: GANANCIA $3.41 en
   verde, POR HORA $1.6/h en naranja, REVISAR, overlay oculto tras TTL.
   Evidencia: `docs/testing/evidence/CALC04_*.txt`,
-  `/sdcard/SIRC_TEST/images/calc04_*`.
+  `/sdcard/SIRC_TEST/images/calc04_*`. **Complemento 19-ago (02:47)**: la
+  accesibilidad estaba DESACTIVADA en DEVICE-01 (causa de la ruta real muda y
+  del "null root node" de uiautomator); habilitada via adb y verificada. Con
+  ella, E2E real por accesibilidad: ofertas reales de InDrive capturadas
+  (origin=ACCESSIBILITY, ids 286-291: $4.4/$4.7/$5.0 en 19 min), POR HORA
+  verde en $11.05/h (≥10) y naranja en 9.2/h, decisión REVISAR sin distancia
+  (sin ACCEPT), latencias pipeline 17-48 ms. Evidencia:
+  `docs/testing/evidence/CALC04_E2E_real_capture.txt`.
 - **SPRINT 12 WP-12-CALC-03 completado y VALIDADO en DEVICE-01
   (modelo económico real vs objetivo, 18-ago-2026, decisión D17.3)**: los
   costos legacy `costPerMinute=0.30` y `costPerTrip=1.50` (sin UI tras

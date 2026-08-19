@@ -51,9 +51,28 @@ ACCEPT solo con distancia Y duración Y ambas metas en verde). Decisión D17.4.*
 - [x] **Evidencia en repo**: `docs/testing/evidence/CALC04_offer_history.txt`,
       `CALC04_overlay_render.txt`. En dispositivo:
       `/sdcard/SIRC_TEST/images/calc04_*.png`.
+- [x] **Hallazgo y corrección de entorno**: la ACCESIBILIDAD estaba
+      DESACTIVADA en DEVICE-01 (`accessibility_enabled=0`) → la ruta real de
+      captura estaba muda y uiautomator daba "null root node". Habilitada via
+      adb (`settings put secure enabled_accessibility_services
+      com.sirc.app/...CaptureAccessibilityService` + `accessibility_enabled=1`)
+      y verificada (Bound services: Captura de ofertas SIRC,
+      TYPE_WINDOW_STATE_CHANGED/CONTENT_CHANGED).
+- [x] **Validación E2E REAL por accesibilidad (02:47-02:49)**: con InDrive
+      abierto se capturaron OFERTAS REALES en pantalla
+      (`origin=ACCESSIBILITY`): detección INDRIVE/REQUEST → snapshot →
+      `PipelineOverlay: overlay mostrando: INDRIVE · $4.4/$4.7/$5.0 · WARNING`
+      (eval 1.5-5.3 ms, overlay 3.9-24.6 ms, pipeline total 17-48 ms). DB ids
+      286-291: $5.0/19 min → profitPerHour 11.05/h (MET, POR HORA verde);
+      $4.4/19 min → 9.2/h (NEAR, naranja). Sin distancia no hay ACCEPT
+      (REVISAR), GANANCIA/POR KM/COSTO EST. ocultas sin km (por diseño,
+      probado). Render verificado en `calc04_e2e_real.png` (POR HORA $11.05/h
+      VERDE, banner REVISAR, 0 rojo). Evidencia:
+      `docs/testing/evidence/CALC04_E2E_real_capture.txt`.
 
-**Siguiente (plan FASE 9, autorizado):** commit + push de CALC-04 y REPORTE
-FINAL con DETENERSE. NO abrir WP-12-UI-02, ni Sprint 13, ni monetización.
+**Siguiente (complemento validado):** commit + push de la evidencia E2E real
+(accesibilidad habilitada + captura real de ofertas InDrive) y cierre.
+NO abrir WP-12-UI-02, ni Sprint 13, ni monetización.
 
 ## Tarea anterior
 

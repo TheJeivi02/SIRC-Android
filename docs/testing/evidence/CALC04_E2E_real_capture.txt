@@ -1,0 +1,54 @@
+EVIDENCIA WP-12-CALC-04 — CAPTURA E2E REAL POR ACCESIBILIDAD (DEVICE-01)
+Fecha: 19-ago-2026 02:47-02:49 · APK 0.1.0 debug instalado
+Raiz del hallazgo: la accesibilidad estaba DESACTIVADA (accessibility_enabled=0) ->
+ruta real de captura muda y uiautomator con "null root node". HABILITADA via
+adb: settings put secure enabled_accessibility_services
+com.sirc.app/com.sirc.feature.overlay.CaptureAccessibilityService + accessibility_enabled=1.
+Verificado: dumpsys accessibility -> Bound services:{Captura de ofertas SIRC
+eventTypes=[TYPE_WINDOW_STATE_CHANGED, TYPE_WINDOW_CONTENT_CHANGED]}.
+
+SESION REAL: se abre InDrive (sinet.startup.inDriver) y se capturan OFERTAS
+REALES en pantalla con origen=ACCESSIBILITY, fin a fin:
+
+08-19 02:47:13 AccessibilityInput: request programado: package=sinet.startup.inDriver textos=8
+08-19 02:47:13 DebounceCaptureScheduler: request emitido tras debounce: id=... package=sinet.startup.inDriver
+08-19 02:47:13 MediaProjectionCaptureInput: degradado: sin proyección activa, se usan los textos de accesibilidad
+08-19 02:47:13 CapturePipeline: request recibido: origin=ACCESSIBILITY package=sinet.startup.inDriver
+08-19 02:47:13 CapturePipeline: detección: INDRIVE / REQUEST en 23.2 ms
+08-19 02:47:13 CapturePipeline: snapshot INDRIVE guardado: parse 3.3 ms · total 27.9 ms
+08-19 02:47:13 PipelineOverlay: overlay mostrando: INDRIVE · $4.4 · WARNING (origen=ACCESSIBILITY · eval 2.8 ms · reglas 0.2 ms · overlay 24.6 ms)
+
+... y sucesivas ofertas reales evaluadas en vivo:
+08-19 02:48:57 PipelineOverlay: overlay mostrando: INDRIVE · $5.0 · WARNING (eval 5.3 ms · overlay 20.6 ms)
+08-19 02:49:00 PipelineOverlay: overlay mostrando: INDRIVE · $4.7 · WARNING (eval 4.0 ms · overlay 11.6 ms)
+08-19 02:49:05 PipelineOverlay: overlay mostrando: INDRIVE · $4.4 · WARNING (eval 1.5 ms · overlay 3.9 ms)
+(latencia pipeline total 17-48 ms; evaluacion 1.5-5.3 ms; overlay 3.9-24.6 ms)
+
+OFFER_HISTORY REAL (dump DB 02:50; ids 286-291 nuevos)
+id   platform  total  distKm  durMin  profit  decision   summary
+---  --------  -----  ------  ------  ------  ---------  --------------------------------
+291  INDRIVE   5.0    0.0     19.0    3.5     MARGINAL   Cumple el objetivo por hora
+290  INDRIVE   5.0    0.0     19.0    3.5     MARGINAL   Cumple el objetivo por hora
+289  INDRIVE   4.7    0.0     19.0    3.2     MARGINAL   Cumple el objetivo por hora
+288  INDRIVE   4.7    0.0     19.0    3.2     MARGINAL   Cumple el objetivo por hora
+287  INDRIVE   4.4    0.0     19.0    2.9     MARGINAL   Ganancia/hora menor al objetivo
+286  INDRIVE   4.4    0.0     19.0    2.9     MARGINAL   Ganancia/hora menor al objetivo
+
+LECTURA CALC-04 (comportamiento correcto):
+- Oferta real con monto+duracion sin distancia -> evaluada (CALC-04).
+- profitPerHour calculado con solo duracion: $5.0/19 min = 11.05/h >= 10.0 (MET)
+  -> celda POR HORA VERDE; $4.4/19 min = 9.2/h < 10 (NEAR) -> naranja.
+- Sin distancia no hay ACCEPT (MARGINAL/WARNING) -> banner REVISAR. Correcto.
+- GANANCIA/POR KM/COSTO EST. ocultas sin distancia (dependen de km; POR DISEÑO,
+  test "sin distancia se ocultan las metricas que dependen de ella pero no por hora").
+
+RENDER DEL OVERLAY (screenshot calc04_e2e_real.png 02:50, extraccion OCR Windows
++ scan de pixeles sobre recorte de la ventana APPLICATION_OVERLAY (97,97)(885xwrap)):
+  InDrive | REVISAR | $5 | POR HORA $11.05/h   <- POR HORA EN VERDE #1DB954
+  Verde bbox=(24,444)-(168,474); naranja SOLO en banner (22,200)-(862,276); 0 rojo.
+  El render con $4.7/$4.4 (POR HORA naranja 9.2-10.1/h) se observo en pantalla
+  en vivo; captura estatica corresponde al ultimo estado ($5.0).
+
+ARCHIVOS EN DISPOSITIVO: /sdcard/SIRC_TEST/images/calc04_e2e_real.png;
+copias de trabajo: %TEMP%\opencode\{calc04_e2e_real.png, e2e_crop.png, e2e_bottom.png,
+calc04_e2e_logcat.txt, sirc_live.db}.
