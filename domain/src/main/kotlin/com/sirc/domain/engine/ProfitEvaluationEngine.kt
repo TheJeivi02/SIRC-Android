@@ -50,7 +50,9 @@ class ProfitEvaluationEngine @Inject constructor(
 
         /**
          * Deriva los [DriverCosts] a partir de la [DriverConfig]: el costo por
-         * kilómetro se compone de combustible + mantenimiento + adicionales.
+         * kilómetro se compone de combustible + mantenimiento + adicionales y
+         * el costo fijo por viaje pasa de la configuración. No existe costo
+         * por minuto en el modelo económico aprobado.
          */
         fun driverCosts(config: DriverConfig): DriverCosts {
             val costPerKm =
@@ -59,7 +61,6 @@ class ProfitEvaluationEngine @Inject constructor(
                     config.additionalCosts.sumOf { it.costPerKm }
             return DriverCosts(
                 costPerKm = costPerKm,
-                costPerMinute = config.costs.costPerMinute,
                 costPerTrip = config.costs.costPerTrip,
             )
         }

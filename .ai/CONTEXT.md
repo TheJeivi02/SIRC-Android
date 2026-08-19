@@ -130,6 +130,15 @@ es rentable (objetivo UX; `<3 s` es el límite técnico/E2E histórico).
 > `OfferPerformanceTracker` (promedio de las últimas 20). El panel de depuración
 > muestra **Última oferta** y **Rendimiento**.
 >
+> Nota SPRINT 12 (WP-12-CALC-03, D17.3): el motor separa **ganancia real** de
+> **objetivo**. El costo real es `costPerTrip + distance×costPerKm` (sin
+> `costPerMinute`, eliminado; `costPerTrip` = "Costo fijo por viaje" editable,
+> default 0; `costPerKm` sigue derivado). `profitPerKm`/`profitPerHour` son
+> null si falta distancia/duración (nunca se inventan); decisión por jerarquía:
+> ganancia < 0 → REJECT; dato faltante → MARGINAL/WARNING; ambas métricas ≥
+> umbral → ACCEPT; break-even → MARGINAL. El overlay oculta celdas sin datos y
+> usa el tono del estado de decisión.
+>
 > Nota SPRINT 8: el parser es un **motor de análisis** de pantallas reales de
 > Uber. `OfferParserOrchestrator` (`:core:platform`) primero **detecta la
 > pantalla** (`OfferDetectionEngine` → `ScreenType`; solo `REQUEST` produce
@@ -291,6 +300,24 @@ Service **nunca** interactúa con otras apps.
 
 ## Estado del proyecto
 
+- **SPRINT 12 WP-12-CALC-03 completado y VALIDADO en DEVICE-01
+  (modelo económico real vs objetivo, 18-ago-2026, decisión D17.3)**: los
+  costos legacy `costPerMinute=0.30` y `costPerTrip=1.50` (sin UI tras
+  FIX-03) dominaban el costo real y etiquetaban como pérdida ofertas que
+  ganaban (caso real InDrive $5.90/27 min → NOT_PROFITABLE −$3.70). Con Q1–Q8
+  autorizados: `costPerMinute` ELIMINADO del costo real; `costPerTrip` =
+  "Costo fijo por viaje" editable (default 0); `costPerKm` sigue DERIVADO
+  (FIX-03); objetivo ≠ costo (nunca se resta). `totalCost = costPerTrip +
+  distance×costPerKm` (solo con distancia > 0); `profitPerKm`/`profitPerHour`
+  null si falta distancia/duración (sin cifras falsas). Jerarquía: ganancia
+  real < 0 → REJECT; falta distancia/duración → MARGINAL/WARNING; ambas ≥
+  umbral → ACCEPT; break-even → MARGINAL. Dominio 56 tests verdes; DB v3→v4
+  (`MIGRATION_3_4` recrea `driver_config` sin `costPerMinute` conservando
+  `costPerTrip` y perfil; 8/8 connected tests en físico); Settings con "Costo
+  fijo por viaje" editable y sección "Objetivos de ganancia"; overlay oculta
+  celdas sin datos y tono por decisión. El caso real $5.90/27 min ya NO da
+  pérdida artificial. Evidencia: `/sdcard/SIRC_TEST/evidence/calc03_*` +
+  `{logs,images}/calc03_*`.
 - **SPRINT 12 / E1a CERRADO como PASS WITH PENDING (18-ago-2026, auditoría
   de cierre; sin cambios de código)**: núcleo validado en físico (DEVICE-01,
   Infinix X6850/Android 15) con E2E real de InDrive Ecuador (captura

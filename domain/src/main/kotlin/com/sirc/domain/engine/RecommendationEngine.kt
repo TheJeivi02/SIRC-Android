@@ -24,7 +24,7 @@ class RecommendationEngine @Inject constructor() {
         val margin = evaluation.metrics.marginPercent
         return OfferRecommendation(
             recommendation = Recommendation.ACCEPT,
-            mainReason = "El viaje supera los umbrales de rentabilidad",
+            mainReason = "El viaje cumple tu objetivo de rentabilidad",
             metricsUsed = listOf("Ganancia/km", "Ganancia/hora", "Margen"),
             confidencePercent = confidence(margin),
         )
@@ -34,7 +34,7 @@ class RecommendationEngine @Inject constructor() {
         val margin = evaluation.metrics.marginPercent
         return OfferRecommendation(
             recommendation = Recommendation.REJECT,
-            mainReason = "El viaje no cubre los costos estimados",
+            mainReason = "El viaje no cubre los costos (pierdes dinero)",
             metricsUsed = listOf("Beneficio neto", "Margen"),
             confidencePercent = confidence(margin),
         )

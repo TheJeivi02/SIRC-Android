@@ -19,16 +19,16 @@ class RecommendationEngineTest {
 
         assertEquals(Recommendation.ACCEPT, recommendation.recommendation)
         assertTrue(recommendation.confidencePercent in 50..98)
-        assertEquals("El viaje supera los umbrales de rentabilidad", recommendation.mainReason)
+        assertEquals("El viaje cumple tu objetivo de rentabilidad", recommendation.mainReason)
         assertTrue(recommendation.metricsUsed.isNotEmpty())
     }
 
     @Test
-    fun `decisión no rentable produce REJECT`() {
+    fun `decisión no rentable produce REJECT con mensaje de perdida`() {
         val recommendation = engine.recommend(evaluation(Decision.NOT_PROFITABLE, margin = -80.0))
 
         assertEquals(Recommendation.REJECT, recommendation.recommendation)
-        assertEquals("El viaje no cubre los costos estimados", recommendation.mainReason)
+        assertEquals("El viaje no cubre los costos (pierdes dinero)", recommendation.mainReason)
     }
 
     @Test
@@ -38,6 +38,21 @@ class RecommendationEngineTest {
         assertEquals(Recommendation.WARNING, recommendation.recommendation)
         assertEquals(50, recommendation.confidencePercent)
         assertTrue(recommendation.mainReason.isNotBlank())
+    }
+
+    @Test
+    fun `warning sobre distancia faltante usa la razon del motor`() {
+        val recommendation =
+            engine.recommend(
+                evaluation(
+                    Decision.MARGINAL,
+                    margin = 10.0,
+                    reasons = listOf("Gana, pero no confirmable sin distancia"),
+                ),
+            )
+
+        assertEquals(Recommendation.WARNING, recommendation.recommendation)
+        assertEquals("Gana, pero no confirmable sin distancia", recommendation.mainReason)
     }
 
     @Test
@@ -58,6 +73,7 @@ class RecommendationEngineTest {
     private fun evaluation(
         decision: Decision,
         margin: Double,
+        reasons: List<String> = emptyList(),
     ): ProfitEvaluation {
         val offer =
             TripOffer(
@@ -78,8 +94,10 @@ class RecommendationEngineTest {
                 profitPerHour = 100.0,
                 marginPercent = margin,
             )
-        val reasons =
-            if (decision == Decision.MARGINAL) {
+        val effectiveReasons =
+            if (reasons.isNotEmpty()) {
+                reasons
+            } else if (decision == Decision.MARGINAL) {
                 listOf("Ganancia/hora menor al mínimo configurado")
             } else {
                 emptyList()
@@ -88,7 +106,7 @@ class RecommendationEngineTest {
             offer = offer,
             metrics = metrics,
             decision = decision,
-            reasons = reasons,
+            reasons = effectiveReasons,
         )
     }
 }

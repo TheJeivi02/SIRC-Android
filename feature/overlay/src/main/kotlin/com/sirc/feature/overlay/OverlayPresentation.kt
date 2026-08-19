@@ -98,10 +98,12 @@ fun mapToOverlayPresentation(
             summary = buildSummary(metrics, config.showTripSummary, engine),
         )
 
-    val tone = toneFor(metrics.estimatedProfit, metrics.totalCost)
+    val tone = toneFor(decision)
+    val profitPerHour = metrics.profitPerHour
+    val profitPerKm = metrics.profitPerKm
     val cells =
         listOfNotNull(
-            if (config.showProfit) {
+            if (config.showProfit && metrics.hasDistance) {
                 MetricCellPresentation(
                     "GANANCIA",
                     engine.formatCurrency(metrics.estimatedProfit, currency),
@@ -110,25 +112,25 @@ fun mapToOverlayPresentation(
             } else {
                 null
             },
-            if (config.showProfitPerHour) {
+            if (config.showProfitPerHour && profitPerHour != null) {
                 MetricCellPresentation(
                     "POR HORA",
-                    "${engine.formatCurrency(metrics.profitPerHour, currency)}/h",
+                    "${engine.formatCurrency(profitPerHour, currency)}/h",
                     tone,
                 )
             } else {
                 null
             },
-            if (config.showProfitPerKm) {
+            if (config.showProfitPerKm && profitPerKm != null) {
                 MetricCellPresentation(
                     "POR KM",
-                    "${engine.formatCurrency(metrics.profitPerKm, currency)}/km",
+                    "${engine.formatCurrency(profitPerKm, currency)}/km",
                     tone,
                 )
             } else {
                 null
             },
-            if (config.showTripSummary) {
+            if (config.showTripSummary && metrics.hasDistance) {
                 MetricCellPresentation(
                     "COSTO EST.",
                     engine.formatCurrency(metrics.totalCost, currency),
@@ -173,12 +175,13 @@ private fun buildSecondaryLine(state: OverlayUiState): String? {
     }
 }
 
-private fun toneFor(
-    profit: Double,
-    totalCost: Double,
-): MetricTone =
-    when {
-        profit <= 0 -> MetricTone.NEGATIVE
-        profit >= totalCost * 0.5 -> MetricTone.POSITIVE
+/**
+ * Tono semáforo de las métricas según el estado de la decisión: ACCEPT verde,
+ * WARNING neutro, REJECT rojo. No usa el objetivo ni heurísticas de margen.
+ */
+private fun toneFor(decision: DecisionPresentation?): MetricTone =
+    when (decision?.state) {
+        ProfitState.PROFITABLE -> MetricTone.POSITIVE
+        ProfitState.NOT_PROFITABLE -> MetricTone.NEGATIVE
         else -> MetricTone.NEUTRAL
     }

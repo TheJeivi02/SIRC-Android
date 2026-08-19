@@ -20,6 +20,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    sourceSets {
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    }
+
     kotlinOptions {
         jvmTarget = "17"
     }
@@ -47,6 +51,7 @@ dependencies {
 
     androidTestImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.junit)
+    androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.room.testing)
     androidTestImplementation(libs.androidx.arch.core.testing)
 }

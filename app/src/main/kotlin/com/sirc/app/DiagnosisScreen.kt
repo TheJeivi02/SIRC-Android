@@ -134,11 +134,11 @@ fun DiagnosisScreen(
                 )
                 LabeledValue(
                     label = "Por hora",
-                    value = "${formatMoney(evaluation.metrics.profitPerHour)}/h",
+                    value = evaluation.metrics.profitPerHour?.let { "${formatMoney(it)}/h" } ?: "—",
                 )
                 LabeledValue(
                     label = "Por km",
-                    value = "${formatMoney(evaluation.metrics.profitPerKm)}/km",
+                    value = evaluation.metrics.profitPerKm?.let { "${formatMoney(it)}/km" } ?: "—",
                 )
             }
         }

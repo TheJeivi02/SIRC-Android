@@ -6,33 +6,89 @@
 
 ## Tarea actual
 
-**WP-12-UI-01 — OVERLAY FUNCIONAL: JERARQUÍA DE 4 NIVELES (18-ago-2026).
-COMPLETADO y VERIFICADO en DEVICE-01 con ofertas reales de InDrive Ecuador.
-Sin tocar motores/pipeline/thresholds. Reporte final A-P entregado.
-DETENERSE: esperando autorización (no abrir otro WP).**
+**WP-12-CALC-03 — IMPLEMENTACIÓN DEL MODELO ECONÓMICO APROBADO (18-ago-2026).
+ESTADO: IMPLEMENTADO + VALIDADO EN DEVICE-01 (falta commit/push + reporte
+final A–Q). Decisiones Q1–Q8 autorizadas. Motor nuevo: `costPerMinute`
+ELIMINADO del costo real; `costPerTrip` = "Costo fijo por viaje" editable
+(default 0); `costPerKm` sigue DERIVADO; objetivo ≠ costo (nunca se resta);
+sin distancia/duración → sin cifras falsas; jerarquía ACCEPT/WARNING/REJECT
+(REJECT solo si ganancia real < 0; ACCEPT exige distancia+duración y ambos
+objetivos; break-even = MARGINAL). Dominio 56 tests verdes; migración DB
+v3→v4 verificada en físico (8/8 connected tests; `costPerMinute` eliminado,
+`costPerTrip=1.5` conservado, perfil intacto); Settings validado en
+dispositivo (Costo por km calculado readonly + Costo fijo por viaje +
+sección "Objetivos de ganancia"); caso real $5.90/27 min del historial del
+dispositivo (id 134) ya NO da pérdida artificial (−3.7 → gana/no confirmable,
+probado por tests del motor real). Resta: commit + push + REPORTE A–Q.
+DETENERSE tras entregar el reporte (no abrir WP-12-UI-02 ni Sprint 13).**
 
-- [x] **Causa raíz diagnosticada**: overlay evaluado era una columna uniforme
-  de elementos de igual peso visual (insignia + 5 celdas + resumen + motivo +
-  confianza) → la decisión no dominaba; percibido como "superpuesto/desorden".
-- [x] **Solución (aprobada)**: mapper puro `OverlayPresentation`
-  (`mapToOverlayPresentation(OverlayUiState, ProfitEngine)`) → modelo de 4
-  niveles: 1) decisión dominante (banner semáforo + ACEPTAR/RECHAZAR/REVISAR),
-  2) oferta (monto + resumen distancia·duración), 3) métricas en filas de 2
-  columnas (`weight(1f)` + ellipsis), 4) secundaria 1 línea (motivo ·
-  confianza). `OverlayContent` reescrito para renderizar el modelo; respeta
-  indicadores de `OverlayConfig`; sin `fillMaxSize()`; conserva animaciones,
-  drag y `FLAG_NOT_TOUCHABLE` (oculto). `MetricCell` trunca valores largos.
-- [x] **TDD JVM**: `OverlayPresentationMapperTest` (22 tests) RED→GREEN.
-- [x] **Suite en verde**: ktlintCheck, lintDebug, assembleDebug, tests JVM.
-- [x] **Validación física DEVICE-01** (Infinix X6850, Android 15): ofertas
-  reales InDrive — REJECT ($1.9 y $9.4) y WARNING ($9.65) con geometría
-  verificada sin solapamientos (`uiautomator dump --windows` + screencap);
-  WAITING sin solapamiento; ACCEPT solo por tests JVM (el mercado observado no
-  produjo ofertas ACCEPT). Flags activo/oculto correctos. Sin FATAL/errores.
-- [x] **Docs actualizadas**: TASK.md, `.ai/CONTEXT.md`, `.ai/DECISIONS.md`
-  (D17.2), ROADMAP (Sprint 12), plan (WP-12-UI-01 §A-E). Evidencia en
-  `/sdcard/SIRC_TEST/images/ui01_overlay_{waiting,reject,warning}.png` +
-  dumps `ui01_*.xml` en `/sdcard/SIRC_TEST/tmp/`.
+### WP-12-CALC-03 (implementación TDD autorizada, completada y validada)
+
+- [x] **Autorización recibida** (Q1–Q8): eliminar `costPerMinute`; `costPerTrip`
+  editable default 0; distancia desconocida → nunca ACCEPT; `costPerKm` único
+  derivado; separar ganancia real de objetivo; REJECT = pérdida real, WARNING =
+  gana bajo objetivo/falta dato, ACCEPT = cumple objetivo con datos; nunca
+  inventar datos; migrar configs sin romper perfiles.
+- [x] **Dominio (TDD RED→GREEN, 56 tests)**: `DriverCosts` sin `costPerMinute`;
+  `ProfitMetrics` con `profitPerKm`/`profitPerHour` nullable + hasDistance/
+  hasDuration; `ProfitEngine` nueva fórmula (`totalCost = costPerTrip +
+  distance*costPerKm`) y jerarquía; `RecommendationEngine` mensajes nuevos;
+  caso obligatorio $5.90/27 min → MARGINAL sin pérdida ni métricas falsas.
+- [x] **Persistencia v4**: `DriverConfigEntity` sin `costPerMinute`, mappers,
+  `MIGRATION_3_4` (recreación de tabla compatible SQLite <3.35), version=4,
+  schema `4.json`, test androidTest v3→v4 + registro en `DatabaseModule`.
+- [x] **Settings**: campo editable "Costo fijo por viaje", "Costo por km
+  (calculado)" solo lectura, sección "Umbrales" → "Objetivos de ganancia"
+  (etiquetas objetivo/hora y objetivo/km); tests de ViewModel que bloquean
+  edición/persistencia e independencia del derivado.
+- [x] **Overlay**: `OverlayPresentation` con semántica nueva (tono por decisión;
+  GANANCIA/POR HORA/POR KM/COSTO EST. ocultas sin datos) + mapper tests.
+  `DiagnosisScreen` tolera métricas null ("—").
+- [x] **Suite AGENTS en verde**: lintDebug, assembleDebug, testDebugUnitTest,
+  `:domain:test`, `:core:platform:test`, `:core:capture:test`,
+  `:feature:overlay:testDebugUnitTest`, ktlintCheck (BUILD SUCCESSFUL).
+- [x] **Validación DEVICE-01 (Infinix X6850, Android 15, serial
+  `115272543L006207`)**: `:data:connectedDebugAndroidTest` 8/8; evidencia
+  pre-migración (DB v3 con legacy `costPerMinute=0.3`) y post-migración
+  (user_version=4, columna eliminada, `costPerTrip=1.5` y perfil intactos) en
+  `/sdcard/SIRC_TEST/evidence/calc03_pre_migration|calc03_post_migration/`;
+  Settings verificado en físico (dumps + capturas en `/sdcard/SIRC_TEST/
+  {logs,images}/`); oferta real $5.9/27min en historial (id 134) registrada con
+  el motor viejo como NOT_PROFITABLE −3.7 → con el motor nuevo es MARGINAL
+  (probado por tests; sin simulador en producción no se captura oferta en vivo).
+- [ ] **Pendiente**: actualizar `.ai/CONTEXT.md` y `.ai/DECISIONS.md`, verificar
+  `git status`, commit + push, entregar REPORTE FINAL A–Q y DETENERSE.
+
+### WP-12-CALC-02 (auditoría + propuesta, completada, autorizada)
+
+- [x] **Origen de legacy demostrado**: `costPerMinute`/`costPerTrip` nacieron en
+  el MVP (`787fa40`, costos manuales editables en Settings, evidencia DVC-01);
+  FIX-03 derivó `costPerKm` y quitó esos editores de la UI pero D8.1 los
+  mantuvo en el motor → legacy invisibles dominantes.
+- [x] **Mapa de variables** completo (real/objetivo/derivado/legacy/ignorado/
+  duplicado) y fórmulas literales.
+- [x] **Propuesta económica**: única fuente de costo/km derivado (FIX-03 se
+  mantiene); eliminar `costPerMinute` del costo real (su rol lo cubre el
+  objetivo horario); `costPerTrip` → "costo fijo por viaje" editable default 0;
+  jerarquía de decisión ACCEPT/WARNING/REJECT sin mezclar objetivo con costo;
+  dato faltante (distancia/duración) sin cifras falsas + evaluación acotada
+  por mejor caso.
+- [x] **Tabla de 10 escenarios** con números de referencia (Quito/USD/$11/h/
+  $0.50-km no constantes): caso real $5.90/27 min pasa de "pérdida −$11" a
+  WARNING "gana, no confirmable sin distancia".
+- [x] **Competidores verificados** (Ruta Rentable, Viaje Rentable, DecideRider,
+  GigU, Motorista One): estado intermedio "gana pero bajo meta" es el patrón;
+  ninguno etiqueta pérdida donde hay ganancia.
+- [x] **Impacto** en decisión/Settings/tests/archivos + plan mínimo de
+  implementación + riesgos de migración.
+- [x] **8 decisiones (Q1-Q8) autorizadas** para el LOOP de implementación.
+
+## Tarea anterior — WP-12-UI-01 (completada)
+
+Overlay rediseñado con jerarquía de 4 niveles (mapper puro `OverlayPresentation`,
+22 tests JVM, validado en físico con REJECT/WARNING reales, commit `2b09a72`,
+decisión D17.2). Detalle en `.ai/CONTEXT.md`, `.ai/DECISIONS.md`, ROADMAP,
+plan WP-12-UI-01 §A–E.
 
 ## Tarea anterior — Cierre formal Sprint 12 / E1a (completada)
 

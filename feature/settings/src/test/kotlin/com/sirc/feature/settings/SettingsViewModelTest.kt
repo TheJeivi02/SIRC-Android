@@ -160,6 +160,34 @@ class SettingsViewModelTest {
             assertFalse(viewModel.state.value.saved)
         }
 
+    @Test
+    fun `el costo fijo por viaje se edita y persiste al guardar`() =
+        runTest(dispatcher) {
+            configRepo.config = persistedConfig()
+            advanceUntilIdle()
+
+            val current = viewModel.state.value.config
+            viewModel.updateCosts(current.costs.copy(costPerTrip = 2.5))
+            viewModel.save()
+            advanceUntilIdle()
+
+            assertTrue(viewModel.state.value.saved)
+            assertEquals(2.5, configRepo.savedConfig?.costs?.costPerTrip ?: -1.0, 0.001)
+        }
+
+    @Test
+    fun `el costo fijo por viaje no altera el costo por km derivado`() =
+        runTest(dispatcher) {
+            configRepo.config = persistedConfig()
+            advanceUntilIdle()
+            assertEquals(2.5, viewModel.state.value.derivedCostPerKm, 0.001)
+
+            val current = viewModel.state.value.config
+            viewModel.updateCosts(current.costs.copy(costPerTrip = 9.0))
+
+            assertEquals(2.5, viewModel.state.value.derivedCostPerKm, 0.001)
+        }
+
     private class FakeDriverConfigRepository : DriverConfigRepository {
         private val flow = MutableStateFlow<DriverConfig?>(null)
 

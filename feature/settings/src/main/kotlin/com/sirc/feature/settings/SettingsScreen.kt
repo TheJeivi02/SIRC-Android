@@ -120,7 +120,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         SectionCard(title = "Costos") {
             LabeledValue(label = "Costo por km (calculado)", value = formatNumber(state.derivedCostPerKm))
             Text(
-                text = "Se calcula desde combustible/consumo + mantenimiento + otros costos.",
+                text = "Se calcula desde combustible/consumo + mantenimiento + otros costos. No se edita.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -135,6 +135,19 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 value = config.maintenanceCostPerKm,
                 resetKey = state.reloadTick,
                 onValue = viewModel::updateMaintenanceCost,
+            )
+            NumericField(
+                label = "Costo fijo por viaje",
+                value = config.costs.costPerTrip,
+                resetKey = state.reloadTick,
+                onValue = { viewModel.updateCosts(config.costs.copy(costPerTrip = it)) },
+            )
+            Text(
+                text =
+                    "Cargo fijo opcional por cada viaje (p. ej. estacionamiento, zona). " +
+                        "Se resta de la ganancia, no del objetivo.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(text = "Otros costos configurables (opcional)", style = MaterialTheme.typography.titleMedium)
             Text(
@@ -185,15 +198,15 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             }
         }
 
-        SectionCard(title = "Umbrales de decisión") {
+        SectionCard(title = "Objetivos de ganancia") {
             NumericField(
-                label = "Ganancia mínima por km",
+                label = "Objetivo de ganancia por km",
                 value = config.thresholds.minProfitPerKm,
                 resetKey = state.reloadTick,
                 onValue = { viewModel.updateThresholds(config.thresholds.copy(minProfitPerKm = it)) },
             )
             NumericField(
-                label = "Ganancia mínima por hora",
+                label = "Objetivo de ganancia por hora",
                 value = config.thresholds.minProfitPerHour,
                 resetKey = state.reloadTick,
                 onValue = { viewModel.updateThresholds(config.thresholds.copy(minProfitPerHour = it)) },

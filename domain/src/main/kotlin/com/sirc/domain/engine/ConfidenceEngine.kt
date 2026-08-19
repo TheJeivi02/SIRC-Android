@@ -111,11 +111,12 @@ class ConfidenceEngine @Inject constructor() {
 
     /**
      * Un precio por km o por hora fuera de rango delata un parseo erróneo
-     * (decimales corridos, unidades equivocadas, etc.).
+     * (decimales corridos, unidades equivocadas, etc.). Las métricas null
+     * (datos faltantes) no delatan un parseo erróneo y se tratan como sanas.
      */
     private fun metricsAreCoherent(metrics: ProfitMetrics): Boolean {
-        val perKm = metrics.profitPerKm
-        val perHour = metrics.profitPerHour
+        val perKm = metrics.profitPerKm ?: 0.0
+        val perHour = metrics.profitPerHour ?: 0.0
         val sanePerKm = perKm <= MAX_REASONABLE_PROFIT_PER_KM
         val sanePerHour = perHour <= MAX_REASONABLE_PROFIT_PER_HOUR
         return perKm.isFinite() && perHour.isFinite() && sanePerKm && sanePerHour

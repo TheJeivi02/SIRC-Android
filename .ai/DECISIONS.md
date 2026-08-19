@@ -668,7 +668,33 @@ DEVICE-01 con ofertas reales de InDrive Ecuador (REJECT y WARNING capturados;
 ACCEPT solo por tests JVM por ausencia de ofertas ACCEPT en el mercado
 observado). Sin cambios en motores de rentabilidad, pipeline ni thresholds.
 
-## SPRINT 11 — Eliminación de FakeParser (WP-E1-01)
+### D17.3 — Modelo económico real vs objetivo (WP-12-CALC-03)
+
+**Contexto:** los costos legacy `costPerMinute=0.30` y `costPerTrip=1.50`
+(nacidos en el MVP `787fa40`, sin UI tras FIX-03) dominaban el costo real y
+etiquetaban como pérdida ofertas que sí ganaban (caso real InDrive $5.90/27 min
+→ NOT_PROFITABLE −$3.70). Auditoría WP-12-CALC-02 y autorización Q1–Q8
+(18-ago-2026).
+
+**Decisión:** el motor separa **ganancia real** de **objetivo**:
+`costPerMinute` se ELIMINA del costo real; `costPerTrip` se re-expone como
+"Costo fijo por viaje" editable (default 0); `costPerKm` sigue siendo el único
+costo por km (DERIVADO, FIX-03). `totalCost = costPerTrip + distance×costPerKm`
+(distance solo si > 0); `profitPerKm`/`profitPerHour` son **null** si falta
+distancia/duración (nunca se inventan). Jerarquía: ganancia real < 0 → REJECT;
+sin distancia o sin duración → MARGINAL/WARNING; ambas métricas ≥ umbral →
+ACCEPT; break-even (ganancia == 0) → MARGINAL (no REJECT). El objetivo
+NUNCA se resta como costo. El overlay oculta celdas sin datos y usa el tono
+del estado de decisión.
+
+**Consecuencias:** `DriverCosts`/`ProfitMetrics`/`ProfitEngine`/
+`RecommendationEngine`/`ConfidenceEngine` actualizados (56 tests JVM en verde);
+DB v3→v4 (`MIGRATION_3_4` recrea `driver_config` sin `costPerMinute`,
+conservando `costPerTrip` y el perfil; 8/8 connected tests en DEVICE-01);
+Settings con "Costo fijo por viaje" editable y sección "Objetivos de
+ganancia"; overlay con semántica nueva. El caso real $5.90/27 min ya NO da
+pérdida artificial. La persistencia de `costPerTrip` en DEVICE-01 conserva
+1.5 (configuración migrada, editable por el usuario).
 
 ### D11.6 — Eliminación de `FakeParser` de la ruta de producción
 

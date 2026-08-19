@@ -14,7 +14,6 @@ data class DriverConfigEntity(
     @PrimaryKey val id: Int = 1,
     // Costos unitarios del motor actual
     val costPerKm: Double,
-    val costPerMinute: Double,
     val costPerTrip: Double,
     // Perfil
     val name: String?,

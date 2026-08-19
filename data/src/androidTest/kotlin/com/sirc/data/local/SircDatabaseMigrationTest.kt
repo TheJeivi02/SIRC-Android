@@ -76,4 +76,46 @@ class SircDatabaseMigrationTest {
 
         migrated.close()
     }
+
+    @Test
+    fun migracionV3AV4EliminaCostPerMinuteYConservaConfiguracion() {
+        val name = "migration-v3-v4"
+        val db: SupportSQLiteDatabase = helper.createDatabase(name, 3)
+
+        db.execSQL(
+            """
+            INSERT INTO driver_config
+                (id, costPerKm, costPerMinute, costPerTrip, name, country, city, currency,
+                 vehicleName, brand, model, year, fuelType, consumptionKmPerUnit, fuelPrice,
+                 maintenanceCostPerKm, additionalCosts, platforms, minProfitPerKm, minProfitPerHour)
+            VALUES (1, 0.141667, 0.3, 1.5, NULL, 'Ecuador', 'Guayaquil', 'USD',
+                    'Mi carro', 'Toyota', 'Corolla', 2021, 'GASOLINE', 12.0, 0.5,
+                    0.1, '', 'CABIFY,INDRIVE,UBER', 0.5, 10.0)
+            """.trimIndent(),
+        )
+        db.close()
+
+        val migrated =
+            helper.runMigrationsAndValidate(
+                name,
+                4,
+                true,
+                SircMigrations.MIGRATION_3_4,
+            )
+
+        migrated.query("SELECT * FROM driver_config").use { cursor ->
+            cursor.moveToFirst()
+            // El costo por minuto legacy ya no es una columna.
+            assertEquals(-1, cursor.getColumnIndex("costPerMinute"))
+            // El costo fijo por viaje y el resto del perfil se conservan intactos.
+            assertEquals(1.5, cursor.getDouble(cursor.getColumnIndexOrThrow("costPerTrip")), 0.001)
+            assertEquals("Ecuador", cursor.getString(cursor.getColumnIndexOrThrow("country")))
+            assertEquals("Guayaquil", cursor.getString(cursor.getColumnIndexOrThrow("city")))
+            assertEquals("USD", cursor.getString(cursor.getColumnIndexOrThrow("currency")))
+            assertEquals("Corolla", cursor.getString(cursor.getColumnIndexOrThrow("model")))
+            assertEquals(10.0, cursor.getDouble(cursor.getColumnIndexOrThrow("minProfitPerHour")), 0.001)
+        }
+
+        migrated.close()
+    }
 }

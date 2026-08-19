@@ -103,8 +103,8 @@ class ProfitEvaluationEngineTest {
         val detailed = engine.evaluate(offer, config)
         val evaluation = detailed.evaluation
 
-        // costPerKm = 2 + 0.5 + 0.1 = 2.6; costo fijo 1.0; costo/min 0.3
-        assertEquals(1.0 + 10.0 * 2.6 + 30.0 * 0.3, evaluation.metrics.totalCost, 0.001)
+        // costPerKm = 2 + 0.5 + 0.1 = 2.6; costo fijo 1.0; SIN costo por minuto.
+        assertEquals(1.0 + 10.0 * 2.6, evaluation.metrics.totalCost, 0.001)
         assertEquals(10.0 * 2.0, detailed.breakdown.fuelCost, 0.001)
         assertEquals(10.0 * 0.5, detailed.breakdown.vehicleCost, 0.001)
         assertEquals(10.0 * 0.1, detailed.breakdown.operatingCost, 0.001)
@@ -113,11 +113,41 @@ class ProfitEvaluationEngineTest {
     }
 
     @Test
+    fun `el costo fijo por viaje se traslada al motor y la duracion no aporta costo`() {
+        val config = config(costPerTrip = 2.5)
+        val offer = offer(total = 120.0, distanceKm = 10.0, durationMin = 30.0)
+
+        val evaluation = engine.evaluate(offer, config).evaluation
+
+        // costPerKm derivado = 24/12 + 0.5 = 2.5; fijo 2.5; la duración no suma.
+        assertEquals(2.5 + 10.0 * 2.5, evaluation.metrics.totalCost, 0.001)
+    }
+
+    @Test
+    fun `caso real obligatorio con motor completo no es perdida`() {
+        // Referencia de auditoría: Ecuador/USD, costo/km 0.50, fijo $0, objetivo $11/h.
+        val config =
+            config(
+                fuelPrice = 6.0,
+                consumptionKmPerUnit = 12.0,
+                maintenance = 0.0,
+                costPerTrip = 0.0,
+                thresholds = DecisionThresholds(minProfitPerKm = 0.5, minProfitPerHour = 11.0),
+            )
+        val offer = offer(total = 5.90, distanceKm = 0.0, durationMin = 27.0)
+
+        val evaluation = engine.evaluate(offer, config).evaluation
+
+        assertEquals(Decision.MARGINAL, evaluation.decision)
+        assertTrue(evaluation.metrics.estimatedProfit >= 0.0)
+    }
+
+    @Test
     fun `usa los umbrales de la configuración para decidir`() {
         val config = config(thresholds = DecisionThresholds(minProfitPerKm = 10.0, minProfitPerHour = 500.0))
         val offer = offer(total = 120.0, distanceKm = 10.0, durationMin = 30.0)
 
-        // Ganancia ~87, /km 8.7 < 10 => MARGINAL pese a ser rentable en absoluto
+        // Ganancia ~93, /km 9.3 < 10 => MARGINAL pese a ser rentable en absoluto.
         val evaluation = engine.evaluate(offer, config).evaluation
 
         assertEquals(Decision.MARGINAL, evaluation.decision)
@@ -141,7 +171,7 @@ class ProfitEvaluationEngineTest {
         val evaluation = engine.evaluate(offer, config).evaluation
 
         assertTrue(evaluation.metrics.totalCost > 0.0)
-        assertTrue(evaluation.metrics.profitPerKm > 0.0)
+        assertTrue((evaluation.metrics.profitPerKm ?: -1.0) > 0.0)
     }
 
     private fun config(
@@ -149,20 +179,21 @@ class ProfitEvaluationEngineTest {
         consumptionKmPerUnit: Double = 12.0,
         maintenance: Double = 0.5,
         additional: List<AdditionalCost> = emptyList(),
+        costPerTrip: Double = 1.0,
         thresholds: DecisionThresholds = DecisionThresholds.default(),
     ): DriverConfig =
         DriverConfig(
-            profile = DriverProfile(name = null, country = "México", city = "CDMX", currency = "MXN"),
+            profile = DriverProfile(name = null, country = "Ecuador", city = "Quito", currency = "USD"),
             vehicle =
                 DriverVehicle(
                     name = "Auto",
-                    brand = "Marca",
-                    model = "Modelo",
-                    year = 2020,
+                    brand = "Toyota",
+                    model = "Corolla",
+                    year = 2021,
                     fuelType = FuelType.GASOLINE,
                     consumptionKmPerUnit = consumptionKmPerUnit,
                 ),
-            costs = DriverCosts(costPerKm = 1.0, costPerMinute = 0.3, costPerTrip = 1.0),
+            costs = DriverCosts(costPerKm = 1.0, costPerTrip = costPerTrip),
             fuelPrice = fuelPrice,
             maintenanceCostPerKm = maintenance,
             additionalCosts = additional,
@@ -181,6 +212,6 @@ class ProfitEvaluationEngineTest {
             estimatedTotal = total,
             distanceKm = distanceKm,
             durationMin = durationMin,
-            currency = "MXN",
+            currency = "USD",
         )
 }

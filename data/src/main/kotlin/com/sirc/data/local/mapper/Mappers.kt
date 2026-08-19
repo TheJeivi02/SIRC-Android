@@ -31,7 +31,7 @@ fun DriverConfigEntity.toDriverConfig(): DriverConfig =
                 fuelType = FuelType.entries.firstOrNull { it.name == fuelType } ?: FuelType.GASOLINE,
                 consumptionKmPerUnit = consumptionKmPerUnit,
             ),
-        costs = DriverCosts(costPerKm = costPerKm, costPerMinute = costPerMinute, costPerTrip = costPerTrip),
+        costs = DriverCosts(costPerKm = costPerKm, costPerTrip = costPerTrip),
         fuelPrice = fuelPrice,
         maintenanceCostPerKm = maintenanceCostPerKm,
         additionalCosts = decodeAdditionalCosts(additionalCosts),
@@ -42,7 +42,6 @@ fun DriverConfigEntity.toDriverConfig(): DriverConfig =
 fun DriverConfig.toEntity(): DriverConfigEntity =
     DriverConfigEntity(
         costPerKm = costs.costPerKm,
-        costPerMinute = costs.costPerMinute,
         costPerTrip = costs.costPerTrip,
         name = profile.name,
         country = profile.country,

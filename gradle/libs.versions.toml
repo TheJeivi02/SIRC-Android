@@ -56,6 +56,7 @@ androidx-arch-core-testing = { group = "androidx.arch.core", name = "core-testin
 # Test
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-test-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestJunit" }
+androidx-test-runner = { group = "androidx.test", name = "runner", version = "1.6.1" }
 androidx-espresso = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso" }
 
 # ML Kit OCR

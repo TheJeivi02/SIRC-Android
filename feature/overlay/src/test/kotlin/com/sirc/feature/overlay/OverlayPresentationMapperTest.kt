@@ -5,7 +5,10 @@ import com.sirc.core.ui.theme.ProfitState
 import com.sirc.domain.engine.ConfidenceLevel
 import com.sirc.domain.engine.ConfidenceResult
 import com.sirc.domain.engine.ProfitEngine
+import com.sirc.domain.engine.RecommendationEngine
 import com.sirc.domain.model.Decision
+import com.sirc.domain.model.DecisionThresholds
+import com.sirc.domain.model.DriverCosts
 import com.sirc.domain.model.OfferRecommendation
 import com.sirc.domain.model.OverlayConfig
 import com.sirc.domain.model.ProfitEvaluation
@@ -16,6 +19,7 @@ import com.sirc.domain.model.TripOffer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OverlayPresentationMapperTest {
@@ -134,17 +138,17 @@ class OverlayPresentationMapperTest {
     }
 
     @Test
-    fun `tono negativo cuando la ganancia no es positiva`() {
-        val evaluation = evaluation(estimatedProfit = -5.0, totalCost = 60.0)
-        val presentation = mapper(state(evaluation = evaluation), engine)
+    fun `tono negativo cuando hay perdida real`() {
+        val evaluation = evaluation(estimatedProfit = -5.0, totalCost = 60.0, decision = Decision.NOT_PROFITABLE)
+        val presentation = mapper(state(evaluation = evaluation, recommendation = Recommendation.REJECT), engine)
 
         assertEquals(MetricTone.NEGATIVE, presentation?.metricRows?.first()?.left?.tone)
     }
 
     @Test
-    fun `tono neutro en el resto`() {
-        val evaluation = evaluation(estimatedProfit = 20.0, totalCost = 60.0)
-        val presentation = mapper(state(evaluation = evaluation), engine)
+    fun `tono neutro en warning`() {
+        val evaluation = evaluation(estimatedProfit = 20.0, totalCost = 60.0, decision = Decision.MARGINAL)
+        val presentation = mapper(state(evaluation = evaluation, recommendation = Recommendation.WARNING), engine)
 
         assertEquals(MetricTone.NEUTRAL, presentation?.metricRows?.first()?.left?.tone)
     }
@@ -197,6 +201,81 @@ class OverlayPresentationMapperTest {
         val presentation = mapper(OverlayUiState(status = OverlayState.WAITING, visible = true), engine)
 
         assertNull(presentation)
+    }
+
+    @Test
+    fun `sin distancia se ocultan las metricas que dependen de ella`() {
+        val config =
+            OverlayConfig(
+                showProfit = true,
+                showProfitPerHour = true,
+                showProfitPerKm = true,
+                showTripSummary = true,
+            )
+        val evaluation = evaluation(distanceKm = 0.0, durationMin = 27.0, decision = Decision.MARGINAL)
+        val presentation =
+            mapper(state(evaluation = evaluation, recommendation = Recommendation.WARNING, config = config), engine)
+
+        assertTrue(presentation?.metricRows.orEmpty().isEmpty())
+        assertEquals("27 min", presentation?.offer?.summary)
+    }
+
+    @Test
+    fun `sin duracion se oculta por hora pero se conserva por km`() {
+        val config =
+            OverlayConfig(
+                showProfit = true,
+                showProfitPerHour = true,
+                showProfitPerKm = true,
+                showTripSummary = true,
+            )
+        val evaluation = evaluation(distanceKm = 12.4, durationMin = 0.0, decision = Decision.MARGINAL)
+        val presentation =
+            mapper(state(evaluation = evaluation, recommendation = Recommendation.WARNING, config = config), engine)
+
+        val labels =
+            presentation?.metricRows.orEmpty().flatMap { listOfNotNull(it.left.label, it.right?.label) }
+        assertEquals(listOf("GANANCIA", "POR KM", "COSTO EST."), labels)
+    }
+
+    @Test
+    fun `caso 590 en 27 minutos sin distancia se muestra como REVISAR sin metricas falsas`() {
+        val offer =
+            TripOffer(
+                platform = RidePlatform.INDRIVE,
+                timestampMillis = 0,
+                estimatedTotal = 5.90,
+                distanceKm = 0.0,
+                durationMin = 27.0,
+                currency = "USD",
+            )
+        val evaluation =
+            engine.evaluate(
+                offer,
+                DriverCosts(costPerKm = 0.5, costPerTrip = 0.0),
+                DecisionThresholds(minProfitPerKm = 0.5, minProfitPerHour = 11.0),
+            )
+        val recommendation = RecommendationEngine().recommend(evaluation)
+        val presentation =
+            mapper(
+                OverlayUiState(
+                    evaluation = evaluation,
+                    recommendation = recommendation,
+                    config = OverlayConfig(),
+                    status = OverlayState.WAITING,
+                    visible = true,
+                    offerType = "INDRIVE_REQUEST",
+                    confidence =
+                        ConfidenceResult(level = ConfidenceLevel.HIGH, percent = 90, reasons = emptyList()),
+                ),
+                engine,
+            )
+
+        assertEquals("REVISAR", presentation?.decision?.label)
+        assertEquals(ProfitState.MARGINAL, presentation?.decision?.state)
+        assertTrue(presentation?.metricRows.orEmpty().isEmpty())
+        assertEquals("\$5.9", presentation?.offer?.amount)
+        assertEquals("Gana, pero no confirmable sin distancia · 50% confianza", presentation?.secondaryLine)
     }
 
     @Test
@@ -254,8 +333,10 @@ class OverlayPresentationMapperTest {
         estimatedProfit: Double = 65.0,
         profitPerHour: Double = 216.0,
         decision: Decision = Decision.PROFITABLE,
-    ): ProfitEvaluation =
-        ProfitEvaluation(
+    ): ProfitEvaluation {
+        val hasDistance = distanceKm > 0.0
+        val hasDuration = durationMin > 0.0
+        return ProfitEvaluation(
             offer =
                 TripOffer(
                     platform = RidePlatform.INDRIVE,
@@ -272,11 +353,12 @@ class OverlayPresentationMapperTest {
                     durationMin = durationMin,
                     totalCost = totalCost,
                     estimatedProfit = estimatedProfit,
-                    profitPerKm = if (distanceKm > 0) estimatedProfit / distanceKm else 0.0,
-                    profitPerHour = profitPerHour,
+                    profitPerKm = if (hasDistance) estimatedProfit / distanceKm else null,
+                    profitPerHour = if (hasDistance && hasDuration) profitPerHour else null,
                     marginPercent = 0.0,
                 ),
             decision = decision,
             reasons = listOf("Supera los umbrales configurados"),
         )
+    }
 }
