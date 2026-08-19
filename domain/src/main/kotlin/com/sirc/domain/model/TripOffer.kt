@@ -17,5 +17,5 @@ data class TripOffer(
     val rawText: List<String> = emptyList(),
 ) {
     val hasEnoughData: Boolean
-        get() = estimatedTotal != null && ((distanceKm ?: 0.0) > 0.0 || (durationMin ?: 0.0) > 0.0)
+        get() = (estimatedTotal ?: fareAmount) != null
 }

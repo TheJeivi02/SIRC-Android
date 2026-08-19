@@ -139,6 +139,16 @@ es rentable (objetivo UX; `<3 s` es el límite técnico/E2E histórico).
 > umbral → ACCEPT; break-even → MARGINAL. El overlay oculta celdas sin datos y
 > usa el tono del estado de decisión.
 >
+> Nota SPRINT 12 (WP-12-CALC-04, D17.4): la evaluación usa **todos los datos
+> disponibles** de la oferta (monto y/o distancia y/o duración) sin inventar
+> métricas: `hasEnoughData` basta con cualquier dato; `profitPerHour` se calcula
+> con solo duración y `profitPerKm` con solo distancia; lo no calculable queda
+> null. El overlay es un **semáforo sin texto**: una celda por dato derivado
+> (GANANCIA/POR HORA/POR KM) con su propio color (`goalOf`: verde=≥ objetivo,
+> naranja=positivo, rojo=no genera), banner REVISAR para WARNING, sin línea
+> secundaria. ACCEPT solo con distancia Y duración Y ambas metas en verde.
+> Validado en DEVICE-01 (ver D17.4).
+>
 > Nota SPRINT 8: el parser es un **motor de análisis** de pantallas reales de
 > Uber. `OfferParserOrchestrator` (`:core:platform`) primero **detecta la
 > pantalla** (`OfferDetectionEngine` → `ScreenType`; solo `REQUEST` produce
@@ -300,6 +310,23 @@ Service **nunca** interactúa con otras apps.
 
 ## Estado del proyecto
 
+- **SPRINT 12 WP-12-CALC-04 completado y VALIDADO en DEVICE-01
+  (rentabilidad con todos los datos disponibles + overlay semáforo,
+  19-ago-2026, decisión D17.4)**: la evaluación usa monto y/o distancia y/o
+  duración sin inventar métricas (`hasEnoughData` con cualquier dato;
+  `profitPerHour`/`profitPerKm` calculados con la dimensión presente; lo no
+  calculable queda null). El overlay es un **semáforo sin texto**: una celda
+  por dato derivado con su propio color (`goalOf`: verde ≥ objetivo, naranja
+  positivo, rojo sin ganancia), banner REVISAR, sin línea secundaria; ACCEPT
+  solo con ambas dimensiones y ambas metas en verde. 22+ tests JVM TDD en
+  verde; FASE 8 completa (ktlintCheck/lintDebug/assembleDebug/testDebugUnit
+  Test/:domain/:core:platform/:feature:overlay). En físico (OCR TEST, cache
+  fresco): indriver_1 → REJECT; indriver_2 ($4.5/sin km/42 min) → WARNING
+  "Ganancia/hora menor al objetivo" (profitPerHour=4.29/h con solo duración);
+  uber_2 → WARNING. Render verificado por OCR Windows: GANANCIA $3.41 en
+  verde, POR HORA $1.6/h en naranja, REVISAR, overlay oculto tras TTL.
+  Evidencia: `docs/testing/evidence/CALC04_*.txt`,
+  `/sdcard/SIRC_TEST/images/calc04_*`.
 - **SPRINT 12 WP-12-CALC-03 completado y VALIDADO en DEVICE-01
   (modelo económico real vs objetivo, 18-ago-2026, decisión D17.3)**: los
   costos legacy `costPerMinute=0.30` y `costPerTrip=1.50` (sin UI tras

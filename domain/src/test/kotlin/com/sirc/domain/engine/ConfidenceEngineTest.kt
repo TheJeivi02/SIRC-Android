@@ -25,8 +25,29 @@ class ConfidenceEngineTest {
     }
 
     @Test
-    fun `oferta sin datos suficientes es LOW y no accionable`() {
-        val incomplete =
+    fun `oferta sin monto es LOW y no accionable`() {
+        val noAmount =
+            TripOffer(
+                platform = RidePlatform.UBER,
+                timestampMillis = 1_700_000_000_000,
+                estimatedTotal = null,
+                fareAmount = null,
+                distanceKm = 10.0,
+                durationMin = 30.0,
+            )
+
+        val result = engine.assess(noAmount, metrics())
+
+        assertEquals(ConfidenceLevel.LOW, result.level)
+        assertFalse(result.isActionable)
+        assertTrue(result.reasons.any { it.contains("monto") })
+    }
+
+    @Test
+    fun `oferta solo precio con dimensiones desconocidas sigue siendo accionable`() {
+        // Con CALC-04 el monto basta para evaluar: no se degrada la confianza
+        // por faltar distancia o duración (no hay señal de parseo erróneo).
+        val priceOnly =
             TripOffer(
                 platform = RidePlatform.UBER,
                 timestampMillis = 1_700_000_000_000,
@@ -35,11 +56,10 @@ class ConfidenceEngineTest {
                 durationMin = null,
             )
 
-        val result = engine.assess(incomplete, metrics())
+        val result = engine.assess(priceOnly, metrics())
 
-        assertEquals(ConfidenceLevel.LOW, result.level)
-        assertFalse(result.isActionable)
-        assertTrue(result.reasons.isNotEmpty())
+        assertEquals(ConfidenceLevel.HIGH, result.level)
+        assertTrue(result.isActionable)
     }
 
     @Test

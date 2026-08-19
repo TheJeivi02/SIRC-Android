@@ -60,7 +60,7 @@ class ConfidenceEngine @Inject constructor() {
         val reasons = mutableListOf<String>()
 
         if (!offer.hasEnoughData) {
-            reasons += "Faltan datos del viaje (monto, distancia o duración)"
+            reasons += "Falta el monto del viaje"
         }
         if (!metricsAreCoherent(metrics)) {
             reasons += "Métricas incoherentes (precio por km o por hora fuera de rango)"

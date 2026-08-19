@@ -9,6 +9,7 @@ import com.sirc.domain.engine.RecommendationEngine
 import com.sirc.domain.model.Decision
 import com.sirc.domain.model.DecisionThresholds
 import com.sirc.domain.model.DriverCosts
+import com.sirc.domain.model.GoalStatus
 import com.sirc.domain.model.OfferRecommendation
 import com.sirc.domain.model.OverlayConfig
 import com.sirc.domain.model.ProfitEvaluation
@@ -131,14 +132,14 @@ class OverlayPresentationMapperTest {
     }
 
     @Test
-    fun `tono positivo cuando la ganancia es alta`() {
+    fun `ganancia positiva se pinta verde`() {
         val presentation = mapper(state(), engine)
 
         assertEquals(MetricTone.POSITIVE, presentation?.metricRows?.first()?.left?.tone)
     }
 
     @Test
-    fun `tono negativo cuando hay perdida real`() {
+    fun `perdida real pinta la ganancia en rojo`() {
         val evaluation = evaluation(estimatedProfit = -5.0, totalCost = 60.0, decision = Decision.NOT_PROFITABLE)
         val presentation = mapper(state(evaluation = evaluation, recommendation = Recommendation.REJECT), engine)
 
@@ -146,23 +147,30 @@ class OverlayPresentationMapperTest {
     }
 
     @Test
-    fun `tono neutro en warning`() {
-        val evaluation = evaluation(estimatedProfit = 20.0, totalCost = 60.0, decision = Decision.MARGINAL)
+    fun `ganancia al limite se pinta naranja`() {
+        val evaluation = evaluation(estimatedProfit = 0.0, totalCost = 60.0, decision = Decision.MARGINAL)
         val presentation = mapper(state(evaluation = evaluation, recommendation = Recommendation.WARNING), engine)
 
-        assertEquals(MetricTone.NEUTRAL, presentation?.metricRows?.first()?.left?.tone)
+        assertEquals(MetricTone.WARNING, presentation?.metricRows?.first()?.left?.tone)
     }
 
     @Test
-    fun `por hora y por km heredan el tono de la ganancia`() {
+    fun `cada metrica usa el tono de su propio objetivo`() {
         val config = OverlayConfig(showProfitPerKm = true)
-        val presentation = mapper(state(config = config), engine)
+        val evaluation =
+            evaluation(
+                hourlyGoal = GoalStatus.NEAR,
+                kmGoal = GoalStatus.FAILED,
+                decision = Decision.MARGINAL,
+            )
+        val presentation = mapper(state(evaluation = evaluation, config = config), engine)
 
         val gain = presentation?.metricRows?.first()?.left?.tone
         val perHour = presentation?.metricRows?.first()?.right?.tone
         val perKm = presentation?.metricRows?.get(1)?.left?.tone
-        assertEquals(gain, perHour)
-        assertEquals(gain, perKm)
+        assertEquals(MetricTone.WARNING, perHour)
+        assertEquals(MetricTone.NEGATIVE, perKm)
+        assertEquals(MetricTone.POSITIVE, gain)
     }
 
     @Test
@@ -173,38 +181,31 @@ class OverlayPresentationMapperTest {
     }
 
     @Test
-    fun `la linea secundaria usa motivo y confianza de la recomendacion`() {
-        val presentation = mapper(state(recommendation = Recommendation.ACCEPT), engine)
-
-        assertEquals("Supera los umbrales configurados · 85% confianza", presentation?.secondaryLine)
-    }
-
-    @Test
-    fun `la linea secundaria muestra informacion insuficiente sin recomendacion`() {
-        val confidence = ConfidenceResult(level = ConfidenceLevel.LOW, percent = 40, reasons = emptyList())
-        val presentation = mapper(state(recommendation = null, confidence = confidence), engine)
-
-        assertEquals("Información insuficiente · 40% confianza", presentation?.secondaryLine)
-    }
-
-    @Test
-    fun `la linea secundaria muestra confianza accionable sin recomendacion`() {
-        val confidence = ConfidenceResult(level = ConfidenceLevel.HIGH, percent = 90, reasons = emptyList())
+    fun `por hora se pinta verde cuando cumple aunque la decision sea DUDOSO`() {
+        // Oferta real InDrive: monto + duración sin distancia. La decisión es
+        // REVISAR (falta distancia) pero $/hora cumple el objetivo => verde.
+        val evaluation =
+            evaluation(
+                distanceKm = 0.0,
+                durationMin = 27.0,
+                estimatedProfit = 5.9,
+                profitPerHour = 13.1,
+                hourlyGoal = GoalStatus.MET,
+                kmGoal = null,
+                decision = Decision.MARGINAL,
+            )
         val presentation =
-            mapper(state(recommendation = null, confidence = confidence, offerType = "UBER_REQUEST"), engine)
+            mapper(state(evaluation = evaluation, recommendation = Recommendation.WARNING), engine)
 
-        assertEquals("UBER_REQUEST · Confianza 90% (HIGH)", presentation?.secondaryLine)
+        assertEquals(ProfitState.MARGINAL, presentation?.decision?.state)
+        val rows = presentation?.metricRows.orEmpty()
+        assertEquals(1, rows.size)
+        assertEquals("POR HORA", rows[0].left.label)
+        assertEquals(MetricTone.POSITIVE, rows[0].left.tone)
     }
 
     @Test
-    fun `sin evaluacion el mapper devuelve null`() {
-        val presentation = mapper(OverlayUiState(status = OverlayState.WAITING, visible = true), engine)
-
-        assertNull(presentation)
-    }
-
-    @Test
-    fun `sin distancia se ocultan las metricas que dependen de ella`() {
+    fun `sin distancia se ocultan las metricas que dependen de ella pero no por hora`() {
         val config =
             OverlayConfig(
                 showProfit = true,
@@ -216,8 +217,9 @@ class OverlayPresentationMapperTest {
         val presentation =
             mapper(state(evaluation = evaluation, recommendation = Recommendation.WARNING, config = config), engine)
 
-        assertTrue(presentation?.metricRows.orEmpty().isEmpty())
-        assertEquals("27 min", presentation?.offer?.summary)
+        val labels =
+            presentation?.metricRows.orEmpty().flatMap { listOfNotNull(it.left.label, it.right?.label) }
+        assertEquals(listOf("POR HORA"), labels)
     }
 
     @Test
@@ -239,7 +241,17 @@ class OverlayPresentationMapperTest {
     }
 
     @Test
-    fun `caso 590 en 27 minutos sin distancia se muestra como REVISAR sin metricas falsas`() {
+    fun `oferta solo precio no muestra metricas inventadas`() {
+        val evaluation = evaluation(distanceKm = 0.0, durationMin = 0.0)
+        val presentation = mapper(state(evaluation = evaluation), engine)
+
+        assertTrue(presentation?.metricRows.orEmpty().isEmpty())
+        assertEquals("\$125", presentation?.offer?.amount)
+        assertNull(presentation?.offer?.summary)
+    }
+
+    @Test
+    fun `caso 590 en 27 minutos sin distancia se muestra como REVISAR con por hora en verde`() {
         val offer =
             TripOffer(
                 platform = RidePlatform.INDRIVE,
@@ -273,9 +285,13 @@ class OverlayPresentationMapperTest {
 
         assertEquals("REVISAR", presentation?.decision?.label)
         assertEquals(ProfitState.MARGINAL, presentation?.decision?.state)
-        assertTrue(presentation?.metricRows.orEmpty().isEmpty())
         assertEquals("\$5.9", presentation?.offer?.amount)
-        assertEquals("Gana, pero no confirmable sin distancia · 50% confianza", presentation?.secondaryLine)
+        assertEquals("27 min", presentation?.offer?.summary)
+        val rows = presentation?.metricRows.orEmpty()
+        assertEquals(1, rows.size)
+        assertEquals("POR HORA", rows[0].left.label)
+        assertEquals("\$13.11/h", rows[0].left.value)
+        assertEquals(MetricTone.POSITIVE, rows[0].left.tone)
     }
 
     @Test
@@ -332,6 +348,16 @@ class OverlayPresentationMapperTest {
         totalCost: Double = 60.0,
         estimatedProfit: Double = 65.0,
         profitPerHour: Double = 216.0,
+        hourlyGoal: GoalStatus? = if (durationMin > 0.0) GoalStatus.MET else null,
+        kmGoal: GoalStatus? = if (distanceKm > 0.0) GoalStatus.MET else null,
+        netGoal: GoalStatus =
+            if (estimatedProfit > 0.0) {
+                GoalStatus.MET
+            } else if (estimatedProfit == 0.0) {
+                GoalStatus.NEAR
+            } else {
+                GoalStatus.FAILED
+            },
         decision: Decision = Decision.PROFITABLE,
     ): ProfitEvaluation {
         val hasDistance = distanceKm > 0.0
@@ -354,7 +380,10 @@ class OverlayPresentationMapperTest {
                     totalCost = totalCost,
                     estimatedProfit = estimatedProfit,
                     profitPerKm = if (hasDistance) estimatedProfit / distanceKm else null,
-                    profitPerHour = if (hasDistance && hasDuration) profitPerHour else null,
+                    profitPerHour = if (hasDuration) profitPerHour else null,
+                    profitPerHourGoal = hourlyGoal,
+                    profitPerKmGoal = kmGoal,
+                    netGoal = netGoal,
                     marginPercent = 0.0,
                 ),
             decision = decision,

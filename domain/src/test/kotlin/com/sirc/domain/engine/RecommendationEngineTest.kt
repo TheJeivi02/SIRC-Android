@@ -41,18 +41,18 @@ class RecommendationEngineTest {
     }
 
     @Test
-    fun `warning sobre distancia faltante usa la razon del motor`() {
+    fun `warning sobre dimension faltante usa la razon del motor`() {
         val recommendation =
             engine.recommend(
                 evaluation(
                     Decision.MARGINAL,
                     margin = 10.0,
-                    reasons = listOf("Gana, pero no confirmable sin distancia"),
+                    reasons = listOf("Ganancia/hora menor al objetivo"),
                 ),
             )
 
         assertEquals(Recommendation.WARNING, recommendation.recommendation)
-        assertEquals("Gana, pero no confirmable sin distancia", recommendation.mainReason)
+        assertEquals("Ganancia/hora menor al objetivo", recommendation.mainReason)
     }
 
     @Test

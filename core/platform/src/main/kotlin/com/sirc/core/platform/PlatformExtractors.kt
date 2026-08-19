@@ -29,7 +29,6 @@ class GenericPlatformExtractor(
         val cleaned = sanitize(texts)
         val parsed = parser.parse(cleaned)
         val total = chooseAmount(parsed, keywords) ?: return null
-        if (parsed.distancesKm.isEmpty() && parsed.durationsMin.isEmpty()) return null
 
         return TripOffer(
             platform = platform,

@@ -42,22 +42,18 @@ import com.sirc.domain.engine.ProfitEngine
 
 /**
  * Contenido del Overlay. Muestra el estado real del pipeline y, cuando hay
- * resultado, la evaluación organizada en una jerarquía de 4 niveles:
+ * resultado, la evaluación organizada en una jerarquía de 3 niveles:
  *
  * 1. **Decisión** (dominante): banner de ancho completo con el color semáforo
  *    y la etiqueta accionable (ACEPTAR / RECHAZAR / REVISAR).
  * 2. **Oferta**: monto grande + resumen derivado (distancia · duración).
  * 3. **Métricas**: filas de dos columnas con el ancho repartido por igual
- *    (GANANCIA | POR HORA / POR KM | COSTO EST.).
- * 4. **Secundaria**: una línea atenuada (motivo · confianza).
+ *    (GANANCIA | POR HORA / POR KM | COSTO EST.). Cada celda lleva el color de
+ *    SU propio semáforo: verde si cumple su objetivo, naranja si está cerca,
+ *    rojo si no cumple.
  *
- * Cada fila reparte el ancho por igual (`weight(1f)`) y los textos se truncan
- * con ellipsis, de modo que ningún elemento se solapa ni se corta. La tarjeta
- * entra/sale con animación suave (escala + opacidad) y el contenido hace un
- * crossfade entre "estado" y "evaluación".
- *
- * Filosofía: el conductor NO debe leer; debe RECONOCER de un vistazo si el
- * viaje le conviene. Colores semáforo (del tema) + números grandes.
+ * Sin texto explicativo: el conductor RECONOCE de un vistazo si cada dato
+ * cumple. Colores semáforo (del tema) + números grandes.
  */
 @Composable
 fun OverlayContent(
@@ -147,16 +143,6 @@ private fun EvaluationContent(
         }
         presentation.metricRows.forEach { row ->
             MetricRowView(row = row, compact = compact)
-        }
-        presentation.secondaryLine?.let { line ->
-            Text(
-                text = line,
-                color = SircColors.OnDarkMuted,
-                fontSize = if (compact) 9.sp else 11.sp,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
         }
     }
 }
@@ -253,6 +239,7 @@ private fun MetricTone.toColor(): Color =
     when (this) {
         MetricTone.NEUTRAL -> SircColors.OnDark
         MetricTone.POSITIVE -> SircColors.Profit
+        MetricTone.WARNING -> SircColors.Marginal
         MetricTone.NEGATIVE -> SircColors.NotProfit
         MetricTone.MUTED -> SircColors.OnDarkMuted
     }

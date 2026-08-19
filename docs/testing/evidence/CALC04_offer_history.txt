@@ -1,0 +1,41 @@
+EVIDENCIA WP-12-CALC-04 — offer_history en DEVICE-01 (dump 19-ago-2026 00:26)
+Fuente: adb exec-out run-as com.sirc.app cat databases/sirc.db (+ -wal) -> sqlite3
+DB local: %TEMP%\opencode\sirc.db
+
+CONTEXTO DE LA CORRIDA (OCR TEST 00:15:5x)
+- Cache de captura LIMPIADO (am force-stop com.sirc.app -> PID nuevo -> InMemoryCaptureFrameCache vacio)
+- Overlay corriendo (isForeground=true, foregroundId=9001, ventana APPLICATION_OVERLAY (97,97)(885xwrap) gr=TOP START CENTER)
+- 5 imagenes reales inyectadas por DebugImageOcrReceiver (action com.sirc.debug.OCR_TEST, origin=OCR)
+- Resultado por imagen: indriver_1 REJECT, indriver_2 WARNING, uber_2 WARNING, uber_1/uber_3 PANTALLA_NO_REQUEST
+
+OFFER_HISTORY (ids 280-285; 283-285 = corrida con cache fresco)
+id   platform  estimatedTotal  distanceKm  durationMin  estimatedProfit  decision        summary
+---  --------  --------------  ----------  -----------  ---------------  --------------  ---------------------------------------------
+280  INDRIVE   4.5             16.4        13.0         -0.41666         NOT_PROFITABLE  El viaje no cubre los costos (pierdes dinero)
+281  INDRIVE   4.5             0.0         42.0         3.0              MARGINAL        Ganancia/hora menor al objetivo
+282  UBER      25.53           99.0        128.0        3.405            MARGINAL        Ganancia/hora menor al objetivo
+283  INDRIVE   4.5             16.4        13.0         -0.41666         NOT_PROFITABLE  El viaje no cubre los costos (pierdes dinero)
+284  INDRIVE   4.5             0.0         42.0         3.0              MARGINAL        Ganancia/hora menor al objetivo
+285  UBER      25.53           99.0        128.0        3.405            MARGINAL        Ganancia/hora menor al objetivo
+
+LECTURA (CALC-04)
+- indriver_1 (id 283): $4.5 / 16.4 km / 13 min -> REJECT NOT_PROFITABLE (pierde dinero).
+- indriver_2 (id 284): $4.5 / sin distancia / 42 min -> WARNING MARGINAL "Ganancia/hora menor
+  al objetivo". PROBADO: con solo duracion, profitPerHour se calcula (3.0 / 0.7 h = 4.29/h < 10)
+  y alimenta el semaforo POR HORA (antes de CALC-04 daba profitPerHour=null).
+- uber_2 (id 285): $25.53 / 99 km / 128 min -> WARNING MARGINAL. GANANCIA $3.41 > 0 (MET),
+  POR HORA 3.405/2.13 h = 1.6/h > 0 pero < 10 (NEAR). Sin ACCEPT: no hay ambas dimensiones+objetivos verdes.
+
+DRIVER_CONFIG (id=1)
+costPerKm=0.2083333 (derivado), costPerTrip=1.5, currency=USD, country=Ecuador, city=Guayaquil,
+fuelPrice=1.3, maintenanceCostPerKm=0.1, additionalCosts='', platforms=CABIFY,INDRIVE,UBER,
+minProfitPerKm=0.5, minProfitPerHour=10.0   <-- objetivo horario NO modificado (regla)
+
+OVERLAY_CONFIG (id=1)
+showDecision=1 showProfit=1 showProfitPerHour=1 showProfitPerKm=0 showTripSummary=0
+compactMode=1 opacityPercent=90 ttlSeconds=45 positionXPercent=50.0 positionYPercent=4.0
+
+NOTA DEDUP
+- Re-inyectar las 5 imagenes en el MISMO proceso -> snapshot=NULL reason=PARSE_FALLIDO
+  parse=0.0ms (dedup por hash de imagen en InMemoryCaptureFrameCache). Corrida valida SOLO
+  con cache fresco (force-stop previo). Hallazgo conocido de IMG-REPLAY-01.

@@ -11,6 +11,7 @@ import com.sirc.domain.model.FuelType
 import com.sirc.domain.model.RidePlatform
 import com.sirc.domain.model.TripOffer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -140,6 +141,9 @@ class ProfitEvaluationEngineTest {
 
         assertEquals(Decision.MARGINAL, evaluation.decision)
         assertTrue(evaluation.metrics.estimatedProfit >= 0.0)
+        // La duración (27 min) sí está: la ganancia por hora se calcula.
+        assertEquals(5.9 / 0.45, evaluation.metrics.profitPerHour ?: -1.0, 0.001)
+        assertNull(evaluation.metrics.profitPerKm)
     }
 
     @Test
@@ -154,9 +158,32 @@ class ProfitEvaluationEngineTest {
     }
 
     @Test
-    fun `oferta sin datos suficientes no es evaluable`() {
+    fun `precio sin distancia ni duracion se evalua sin inventar metricas`() {
         val config = config()
         val offer = offer(total = 100.0, distanceKm = 0.0, durationMin = 0.0)
+
+        val evaluation = engine.evaluate(offer, config).evaluation
+
+        // Costo fijo 1.0; sin distancia ni duración no hay métricas derivadas.
+        assertEquals(1.0, evaluation.metrics.totalCost, 0.001)
+        assertEquals(99.0, evaluation.metrics.estimatedProfit, 0.001)
+        assertNull(evaluation.metrics.profitPerKm)
+        assertNull(evaluation.metrics.profitPerHour)
+        assertEquals(Decision.MARGINAL, evaluation.decision)
+    }
+
+    @Test
+    fun `oferta sin monto no es evaluable`() {
+        val config = config()
+        val offer =
+            TripOffer(
+                platform = RidePlatform.UBER,
+                timestampMillis = 1_700_000_000_000,
+                estimatedTotal = null,
+                fareAmount = null,
+                distanceKm = 10.0,
+                durationMin = 30.0,
+            )
 
         val result = runCatching { engine.evaluate(offer, config) }
 

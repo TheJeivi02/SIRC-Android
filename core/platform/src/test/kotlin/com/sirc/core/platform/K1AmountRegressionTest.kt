@@ -1,5 +1,9 @@
 package com.sirc.core.platform
 
+import com.sirc.domain.engine.ProfitEngine
+import com.sirc.domain.model.Decision
+import com.sirc.domain.model.DecisionThresholds
+import com.sirc.domain.model.DriverCosts
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -183,6 +187,65 @@ class K1AmountRegressionTest {
         assertEquals(25.53, parsed.offer!!.estimatedTotal ?: 0.0, 0.001)
         assertEquals(99.0, parsed.offer!!.distanceKm ?: 0.0, 0.001)
         assertEquals(128.0, parsed.offer!!.durationMin ?: 0.0, 0.001)
+    }
+
+    // ---------- CALC-04: oferta real con duración y sin distancia llega al motor ----------
+
+    @Test
+    fun `indriver_2 duracion sin distancia llega al motor y calcula ganancia por hora`() {
+        val texts =
+            listOf(
+                "9:31 p. m",
+                "Cerro Guagua",
+                "Pichincha",
+                "Google",
+                "Maria",
+                "Chingui",
+                "45 seg.",
+                "Parrogin 42 min",
+                "28,7 kn",
+                "Nono",
+                "Lloa",
+                "Qúitoumbisi",
+                "1 min.",
+                "San375 metro",
+                "S550 8",
+                "• N70E 7030",
+                "4.7 (21) $4.50, Efectivo",
+                "USD5",
+                "Solicitud de negocio",
+                "Entregas Puerta a puerta",
+                "Funda pequeña",
+                "Sangolqu",
+                "Aceptar por USD4.5",
+                "ofrece tu tarifa",
+                "USD5.4",
+                "Ignorar oferta",
+                "P +",
+                "-375 metro",
+                "Pintan",
+                "US >",
+            )
+        val parsed = parseWithDetection(texts, packageName = "com.leadingsoft.ride.driver")
+        val offer = parsed.offer
+
+        assertNotNull(offer)
+        assertEquals(0.0, offer!!.distanceKm ?: 0.0, 0.001)
+        assertEquals(42.0, offer!!.durationMin ?: 0.0, 0.001)
+
+        val evaluation =
+            ProfitEngine().evaluate(
+                offer,
+                DriverCosts(costPerKm = 0.5, costPerTrip = 0.0),
+                DecisionThresholds(minProfitPerKm = 0.5, minProfitPerHour = 11.0),
+            )
+
+        // Precio + duración sin distancia: la ganancia por hora se calcula.
+        assertEquals(4.5, evaluation.metrics.estimatedProfit, 0.001)
+        assertNull(evaluation.metrics.profitPerKm)
+        assertEquals(4.5 / 0.7, evaluation.metrics.profitPerHour ?: -1.0, 0.001)
+        assertEquals(Decision.MARGINAL, evaluation.decision)
+        assertTrue(evaluation.metrics.profitPerHourGoal != null)
     }
 
     // ---------- Fixtures E2E reales (pantallas sin oferta) ----------

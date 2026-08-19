@@ -696,6 +696,50 @@ ganancia"; overlay con semántica nueva. El caso real $5.90/27 min ya NO da
 pérdida artificial. La persistencia de `costPerTrip` en DEVICE-01 conserva
 1.5 (configuración migrada, editable por el usuario).
 
+### D17.4 — Rentabilidad con todos los datos disponibles + overlay semáforo (WP-12-CALC-04)
+
+**Contexto:** tras CALC-03, una oferta sin distancia o sin duración NO
+inventaba métricas pero solo evaluaba con el dato presente. Una oferta con
+**solo monto** era descartada (pantalla no-oficial) pese a ser evaluable, y el
+overlay mostraba texto plano con una línea secundaria que repetía razones.
+Solicitud del usuario (19-ago-2026): evaluar siempre que exista **cualquier**
+dato (monto y/o distancia y/o duración) sin inventar métricas, y presentar el
+overlay como **semáforo sin texto**: cada dato con su propio color
+(verde=cumple objetivo, naranja=cerca, rojo=no cumple), y ACCEPT solo cuando
+haya ambas dimensiones (distancia y duración) y ambos objetivos en verde.
+
+**Decisión:**
+- `TripOffer.hasEnoughData` = true con monto o distancia o duración presentes
+  (un monto solo ya es evaluable). `OfferTextParser`/`PlatformExtractors` ya no
+  descartan ofertas sin distancia (el fixture real indriver_2 solo tiene
+  monto+duración y se evalúa).
+- `ProfitEngine`: se calcula **todo lo derivable** con los datos presentes:
+  `profit` (con lo disponible), `profitPerHour` si hay duración, `profitPerKm`
+  si hay distancia; lo no calculable queda **null** (nunca se inventa).
+  `goalOf` (verde si ≥ objetivo, naranja si > 0, rojo si ≤ 0) define el color
+  de cada celda independientemente del estado global.
+- `OverlayPresentation`: sin línea secundaria; **una celda por dato derivado**
+  (GANANCIA / POR HORA / POR KM), cada una con su propio tono (`MetricTone`).
+  El banner mantiene el estado de decisión (REVISAR = WARNING). `AnimatedContent`
+  con estado booleano para compacto/expandido.
+- ACCEPT solo cuando distancia Y duración presentes Y ambas metas en verde.
+  El objetivo horario (`minProfitPerHour=10.0`) NO se modifica (regla).
+
+**Consecuencias:** `ProfitMetrics` (GoalStatus MET/NEAR/FAILED, netGoal,
+profitPerKmGoal/profitPerHourGoal), `ProfitEngine` (profitPerHour con solo
+duración), `PlatformExtractors`, `OverlayPresentation`/`OverlayContent`
+actualizados; 22+ tests JVM TDD en verde (FASE 8 completa: ktlintCheck,
+lintDebug, assembleDebug, testDebugUnitTest, :domain/:core:platform/
+:feature:overlay). **Validado en DEVICE-01** (OCR TEST, cache fresco):
+indriver_1 ($4.5/16.4 km/13 min) → REJECT; indriver_2 ($4.5/sin km/42 min) →
+WARNING "Ganancia/hora menor al objetivo" (profitPerHour=4.29/h calculado con
+solo duración — antes null); uber_2 ($25.53/99 km/128 min) → WARNING. Render
+del overlay verificado por OCR de Windows: Uber · GANANCIA **$3.41 en verde**
+(#1DB954) · REVISAR · $25.53 · POR HORA **$1.6/h en naranja** (#F5A623), sin
+rojo; overlay se oculta tras TTL. Evidencia:
+`docs/testing/evidence/CALC04_offer_history.txt`,
+`CALC04_overlay_render.txt`, capturas `/sdcard/SIRC_TEST/images/calc04_*.png`.
+
 ### D11.6 — Eliminación de `FakeParser` de la ruta de producción
 
 **Contexto:** `FakeParser` (injectable vía `@Inject @Singleton` en `src/main` de

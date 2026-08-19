@@ -1,0 +1,33 @@
+EVIDENCIA WP-12-CALC-04 — render del overlay con semaforo por celda (DEVICE-01)
+Fecha: 19-ago-2026 00:16 (capturas calc04_t1..t4.png) / extraccion OCR 00:28
+Metodo: el modelo no lee imagenes -> analisis de pixeles (System.Drawing) + OCR de Windows
+  (Windows.Media.Ocr) sobre recorte de la ventana APPLICATION_OVERLAY (97,97)(885xwrap)
+  del screenshot calc04_t4.png. Recorte: overlay_crop.png (885x506).
+
+CONTEXTO
+- Estado renderizado = UBER 2 (ultima evaluacion de la corrida OCR TEST 00:15:5x, uber_2).
+- Capturas t1..t4 tomadas DESPUES de la corrida (timestamps 00:16; la corrida termino 00:15:59.6)
+  -> el overlay muestra el ultimo estado evaluado. No hay bug de refresh: el contenido final
+  coincide con uber_2. El overlay se oculta tras el TTL (calc04_after_ttl.png: 0 px naranja).
+
+TEXTO RENDERIZADO (OCR Windows, en orden de lineas)
+  L0: Uber
+  L1: GANANCIA
+  L2: $3.41
+  L3: REVISAR        <- banner de decision (WARNING)
+  L4: $25.53         <- monto de la oferta (SIN texto explicativo, solo derivado/decision)
+  L5: POR HORA
+  L6: $1.6/h
+
+COLORES DEL SEMAFORO (scan de pixeles sobre overlay_crop.png)
+  ORANGE #F5A623 : 16113 px, bbox (22,200)-(862,474) -> banner REVISAR + celda POR HORA
+  GREEN  #1DB954 :   180 px, bbox (24,444)-(110,474) -> valor GANANCIA $3.41 (MET, >0)
+  RED    #E5484D :     0 px                           -> sin metrica en rojo en este estado
+
+LECTURA (CALC-04)
+- El overlay SOLO muestra informacion derivada (GANANCIA, POR HORA, REVISAR) y el monto;
+  el texto libre de la oferta queda fuera. Cada dato lleva su propio semaforo:
+  - GANANCIA $3.41 -> VERDE (ganancia real > 0 = MET).
+  - POR HORA $1.6/h -> NARANJA (positivo pero por debajo del objetivo 10.0 = NEAR).
+- TTL: la ventana desaparece tras ttlSeconds (45) -> flujo uiState->OverlayController->window OK.
+- No hay ACCEPT (REVISAR): falta que ambas dimensiones y ambos objetivos esten en verde.

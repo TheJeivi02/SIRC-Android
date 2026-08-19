@@ -3,20 +3,23 @@ package com.sirc.feature.overlay
 import com.sirc.core.ui.theme.ProfitState
 import com.sirc.core.ui.theme.recommendationLabel
 import com.sirc.domain.engine.ProfitEngine
+import com.sirc.domain.model.GoalStatus
 import com.sirc.domain.model.ProfitMetrics
 
 /**
- * Modelo de presentación del overlay con jerarquía de 4 niveles:
- * 1. decisión (dominante), 2. oferta, 3. métricas, 4. secundaria.
+ * Modelo de presentación del overlay con jerarquía de 3 niveles:
+ * 1. decisión (semáforo dominante), 2. oferta, 3. métricas (cada una con su
+ * propio semáforo según su objetivo).
  *
- * Es lógica de presentación pura (JVM testable): no contiene tipos Compose
- * renderizables; la capa UI mapea el [MetricTone] y el [ProfitState] a colores.
+ * Sin texto explicativo: el conductor reconoce de un vistazo por color si cada
+ * dato cumple su objetivo. Es lógica de presentación pura (JVM testable): no
+ * contiene tipos Compose renderizables; la capa UI mapea el [MetricTone] y el
+ * [ProfitState] a colores.
  */
 data class OverlayPresentation(
     val decision: DecisionPresentation?,
     val offer: OfferPresentation?,
     val metricRows: List<MetricRowPresentation>,
-    val secondaryLine: String?,
 )
 
 /** Nivel 1 — decisión: etiqueta accionable + estado semáforo. */
@@ -52,6 +55,9 @@ enum class MetricTone {
 
     /** Rentable (verde). */
     POSITIVE,
+
+    /** Cerca del objetivo pero sin cumplirlo (naranja). */
+    WARNING,
 
     /** No rentable (rojo). */
     NEGATIVE,
@@ -98,7 +104,6 @@ fun mapToOverlayPresentation(
             summary = buildSummary(metrics, config.showTripSummary, engine),
         )
 
-    val tone = toneFor(decision)
     val profitPerHour = metrics.profitPerHour
     val profitPerKm = metrics.profitPerKm
     val cells =
@@ -107,7 +112,7 @@ fun mapToOverlayPresentation(
                 MetricCellPresentation(
                     "GANANCIA",
                     engine.formatCurrency(metrics.estimatedProfit, currency),
-                    tone,
+                    goalTone(metrics.netGoal),
                 )
             } else {
                 null
@@ -116,7 +121,7 @@ fun mapToOverlayPresentation(
                 MetricCellPresentation(
                     "POR HORA",
                     "${engine.formatCurrency(profitPerHour, currency)}/h",
-                    tone,
+                    goalTone(metrics.profitPerHourGoal),
                 )
             } else {
                 null
@@ -125,7 +130,7 @@ fun mapToOverlayPresentation(
                 MetricCellPresentation(
                     "POR KM",
                     "${engine.formatCurrency(profitPerKm, currency)}/km",
-                    tone,
+                    goalTone(metrics.profitPerKmGoal),
                 )
             } else {
                 null
@@ -146,7 +151,6 @@ fun mapToOverlayPresentation(
         decision = decision,
         offer = offer,
         metricRows = metricRows,
-        secondaryLine = buildSecondaryLine(state),
     )
 }
 
@@ -161,27 +165,15 @@ private fun buildSummary(
     return listOfNotNull(distance, duration).joinToString(" · ").ifBlank { null }
 }
 
-private fun buildSecondaryLine(state: OverlayUiState): String? {
-    val recommendation = state.recommendation
-    if (recommendation != null) {
-        return "${recommendation.mainReason} · ${recommendation.confidencePercent}% confianza"
-    }
-    val confidence = state.confidence ?: return null
-    return if (confidence.isActionable) {
-        val type = state.offerType ?: "Oferta"
-        "$type · Confianza ${confidence.percent}% (${confidence.level.name})"
-    } else {
-        "Información insuficiente · ${confidence.percent}% confianza"
-    }
-}
-
 /**
- * Tono semáforo de las métricas según el estado de la decisión: ACCEPT verde,
- * WARNING neutro, REJECT rojo. No usa el objetivo ni heurísticas de margen.
+ * Tono semáforo de una métrica según su objetivo: verde si cumple, naranja si
+ * está cerca, rojo si no cumple. Cada dato del overlay refleja su propio
+ * semáforo, independiente de la decisión general.
  */
-private fun toneFor(decision: DecisionPresentation?): MetricTone =
-    when (decision?.state) {
-        ProfitState.PROFITABLE -> MetricTone.POSITIVE
-        ProfitState.NOT_PROFITABLE -> MetricTone.NEGATIVE
-        else -> MetricTone.NEUTRAL
+private fun goalTone(status: GoalStatus?): MetricTone =
+    when (status) {
+        GoalStatus.MET -> MetricTone.POSITIVE
+        GoalStatus.NEAR -> MetricTone.WARNING
+        GoalStatus.FAILED -> MetricTone.NEGATIVE
+        null -> MetricTone.NEUTRAL
     }

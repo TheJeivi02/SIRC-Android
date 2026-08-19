@@ -6,58 +6,87 @@
 
 ## Tarea actual
 
-**WP-12-CALC-03 — IMPLEMENTACIÓN DEL MODELO ECONÓMICO APROBADO (18-ago-2026).
-ESTADO: IMPLEMENTADO + VALIDADO EN DEVICE-01 (falta commit/push + reporte
-final A–Q). Decisiones Q1–Q8 autorizadas. Motor nuevo: `costPerMinute`
-ELIMINADO del costo real; `costPerTrip` = "Costo fijo por viaje" editable
-(default 0); `costPerKm` sigue DERIVADO; objetivo ≠ costo (nunca se resta);
-sin distancia/duración → sin cifras falsas; jerarquía ACCEPT/WARNING/REJECT
-(REJECT solo si ganancia real < 0; ACCEPT exige distancia+duración y ambos
-objetivos; break-even = MARGINAL). Dominio 56 tests verdes; migración DB
-v3→v4 verificada en físico (8/8 connected tests; `costPerMinute` eliminado,
-`costPerTrip=1.5` conservado, perfil intacto); Settings validado en
-dispositivo (Costo por km calculado readonly + Costo fijo por viaje +
-sección "Objetivos de ganancia"); caso real $5.90/27 min del historial del
-dispositivo (id 134) ya NO da pérdida artificial (−3.7 → gana/no confirmable,
-probado por tests del motor real). Resta: commit + push + REPORTE A–Q.
-DETENERSE tras entregar el reporte (no abrir WP-12-UI-02 ni Sprint 13).**
+**SPRINT 12 / WP-12-CALC-04 (19-ago-2026). COMPLETADO + VALIDADO en DEVICE-01
+y en verde. Rentabilidad con TODOS los datos disponibles (monto y/o distancia
+y/o duración) sin inventar métricas + overlay como SEMÁFORO SIN TEXTO (cada
+dato con su color: verde=cumple objetivo, naranja=positivo, rojo=no genera;
+ACCEPT solo con distancia Y duración Y ambas metas en verde). Decisión D17.4.**
 
-### WP-12-CALC-03 (implementación TDD autorizada, completada y validada)
+### WP-12-CALC-04 — Implementación (TDD) + validación física
 
-- [x] **Autorización recibida** (Q1–Q8): eliminar `costPerMinute`; `costPerTrip`
-  editable default 0; distancia desconocida → nunca ACCEPT; `costPerKm` único
-  derivado; separar ganancia real de objetivo; REJECT = pérdida real, WARNING =
-  gana bajo objetivo/falta dato, ACCEPT = cumple objetivo con datos; nunca
-  inventar datos; migrar configs sin romper perfiles.
-- [x] **Dominio (TDD RED→GREEN, 56 tests)**: `DriverCosts` sin `costPerMinute`;
-  `ProfitMetrics` con `profitPerKm`/`profitPerHour` nullable + hasDistance/
-  hasDuration; `ProfitEngine` nueva fórmula (`totalCost = costPerTrip +
-  distance*costPerKm`) y jerarquía; `RecommendationEngine` mensajes nuevos;
-  caso obligatorio $5.90/27 min → MARGINAL sin pérdida ni métricas falsas.
-- [x] **Persistencia v4**: `DriverConfigEntity` sin `costPerMinute`, mappers,
-  `MIGRATION_3_4` (recreación de tabla compatible SQLite <3.35), version=4,
-  schema `4.json`, test androidTest v3→v4 + registro en `DatabaseModule`.
-- [x] **Settings**: campo editable "Costo fijo por viaje", "Costo por km
-  (calculado)" solo lectura, sección "Umbrales" → "Objetivos de ganancia"
-  (etiquetas objetivo/hora y objetivo/km); tests de ViewModel que bloquean
-  edición/persistencia e independencia del derivado.
-- [x] **Overlay**: `OverlayPresentation` con semántica nueva (tono por decisión;
-  GANANCIA/POR HORA/POR KM/COSTO EST. ocultas sin datos) + mapper tests.
-  `DiagnosisScreen` tolera métricas null ("—").
-- [x] **Suite AGENTS en verde**: lintDebug, assembleDebug, testDebugUnitTest,
-  `:domain:test`, `:core:platform:test`, `:core:capture:test`,
-  `:feature:overlay:testDebugUnitTest`, ktlintCheck (BUILD SUCCESSFUL).
-- [x] **Validación DEVICE-01 (Infinix X6850, Android 15, serial
-  `115272543L006207`)**: `:data:connectedDebugAndroidTest` 8/8; evidencia
-  pre-migración (DB v3 con legacy `costPerMinute=0.3`) y post-migración
-  (user_version=4, columna eliminada, `costPerTrip=1.5` y perfil intactos) en
-  `/sdcard/SIRC_TEST/evidence/calc03_pre_migration|calc03_post_migration/`;
-  Settings verificado en físico (dumps + capturas en `/sdcard/SIRC_TEST/
-  {logs,images}/`); oferta real $5.9/27min en historial (id 134) registrada con
-  el motor viejo como NOT_PROFITABLE −3.7 → con el motor nuevo es MARGINAL
-  (probado por tests; sin simulador en producción no se captura oferta en vivo).
-- [ ] **Pendiente**: actualizar `.ai/CONTEXT.md` y `.ai/DECISIONS.md`, verificar
-  `git status`, commit + push, entregar REPORTE FINAL A–Q y DETENERSE.
+- [x] **Motor**: `TripOffer.hasEnoughData` = true con monto o distancia o
+      duración (un monto solo ya es evaluable); `ProfitEngine` calcula
+      `profitPerHour` con solo duración (antes null) y `profitPerKm` con solo
+      distancia; `goalOf` por métrica (MET ≥ objetivo / NEAR > 0 / FAILED ≤ 0);
+      `ProfitMetrics` con `netGoal`, `profitPerKmGoal`, `profitPerHourGoal`;
+      lo no calculable queda null (nunca se inventa).
+- [x] **Parser/extractores**: `OfferTextParser` y `PlatformExtractors` ya no
+      descartan ofertas sin distancia; el fixture real indriver_2 (solo
+      monto+duración) se evalúa.
+- [x] **Overlay**: `OverlayPresentation`/`OverlayContent` sin línea secundaria;
+      una celda por dato derivado (GANANCIA/POR HORA/POR KM) cada una con su
+      propio `MetricTone`; banner REVISAR para WARNING; `AnimatedContent`
+      booleano compacto/expandido. El objetivo horario NO se modifica
+      (`minProfitPerHour=10.0`, regla).
+- [x] **Tests TDD en verde** (FASE 8): `ProfitEngineTest`, `ProfitEvaluation
+      EngineTest`, `RecommendationEngineTest`, `ConfidenceEngineTest`,
+      `K1AmountRegressionTest` (extractores), `OverlayPresentationMapperTest`.
+      `.\gradlew.bat ktlintCheck`, `lintDebug`, `assembleDebug`,
+      `testDebugUnitTest`, `:domain:test`, `:core:platform:test`,
+      `:feature:overlay:testDebugUnitTest` → BUILD SUCCESSFUL.
+- [x] **Validación física DEVICE-01** (OCR TEST 00:15:5x, cache fresco +
+      overlay corriendo; APK debug instalado): indriver_1 ($4.5/16.4 km/13 min)
+      → REJECT "El viaje no cubre los costos (pierdes dinero)"; **indriver_2
+      ($4.5/sin km/42 min) → WARNING "Ganancia/hora menor al objetivo"
+      (profitPerHour=4.29/h calculado con solo duración)**; uber_2 ($25.53/99
+      km/128 min) → WARNING; uber_1/uber_3 → PANTALLA_NO_REQUEST. DB
+      `offer_history` ids 283-285 confirma la persistencia.
+- [x] **Render del overlay verificado** (capturas `calc04_t1..t4.png`,
+      extracción por OCR Windows + scan de píxeles): muestra **uber_2** =
+      Uber · GANANCIA **$3.41 verde** (#1DB954, MET) · REVISAR · $25.53 ·
+      POR HORA **$1.6/h naranja** (#F5A623, NEAR); 0 px rojo. Capturas
+      posteriores a la corrida (00:16) → el overlay refleja el último estado
+      evaluado (no hay bug de refresh; el flujo uiState→ventana funciona).
+      TTL: la ventana se oculta tras `ttlSeconds` (`calc04_after_ttl.png`).
+- [x] **Evidencia en repo**: `docs/testing/evidence/CALC04_offer_history.txt`,
+      `CALC04_overlay_render.txt`. En dispositivo:
+      `/sdcard/SIRC_TEST/images/calc04_*.png`.
+
+**Siguiente (plan FASE 9, autorizado):** commit + push de CALC-04 y REPORTE
+FINAL con DETENERSE. NO abrir WP-12-UI-02, ni Sprint 13, ni monetización.
+
+## Tarea anterior
+
+### Auditoría POST-CALC-03 (sin código, entregable A–N)
+
+- [x] **A. Compact mode**: NO tratado como indicador en conteo/layout; SÍ
+  mezclado en la UI (6º toggle en la misma tarjeta). Hallazgo UI-CONFIG-01
+  completo (causa, archivo/línea, comportamiento, impacto, propuesta, tests).
+- [x] **B/C. Flujo de imágenes históricas**: DebugImageOcrReceiver
+  (app/src/debug, action `com.sirc.debug.OCR_TEST`) lee assets/sirc_test (5
+  JPG) → OCR + detección + `CaptureRequest(texts, imageData, origin=OCR)` →
+  `pipeline.process`. Llega a evaluación+persistencia Room la 1ª vez. Cortes
+  exactos identificados (dedup, overlay sin servicio, sesión del coordinador,
+  guard snapshotInFlight; config no recomputa evaluación).
+- [x] **D. Mecanismos**: captura real (AccessibilityCaptureInput con gate de
+  plataformas + MediaProjectionCaptureInput + coordinador con sesión) vs
+  receiver debug (sin gate, sin sesión, no arranca overlay). No existe otro
+  mecanismo (SimulatedOverlayDataSource no existe; FakeParser eliminado).
+- [x] **E. Inventario de indicadores**: banner decisión (showDecision) + 4
+  celdas máx. (GANANCIA/POR HORA/POR KM/COSTO EST.) + resumen viaje en oferta
+  (showTripSummary) + línea secundaria (no configurable). Opciones de
+  presentación: compactMode, opacity, posición, TTL, límite historial.
+  "máx. 4" sin enforcement; 0 indicadores = solo oferta+secundaria (sin
+  validación).
+- [x] **F. Confirmación**: compact mode es opción independiente de
+  presentación; debe separarse visualmente de los indicadores.
+- [x] **G. Competencia**: Ruta Rentable verificada (semáforo bueno/regular/
+  malo por $/km y $/h; metas configurables; análisis por captura de pantalla;
+  Ecuador incluido) — patrón "probar oferta desde imagen" es real en
+  competidores. Fuentes registradas.
+- [x] **H–M**: propuesta mínima en 2 WPs (UI-CONFIG-01 y DEBUG-REPLAY-01),
+  tests, riesgos/regresiones, orden, archivos, criterios de aceptación.
+- [x] **N. Docs**: solo este TASK.md; sin tocar código. DETENERSE.
 
 ### WP-12-CALC-02 (auditoría + propuesta, completada, autorizada)
 

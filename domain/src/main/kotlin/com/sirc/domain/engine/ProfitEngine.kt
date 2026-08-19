@@ -3,6 +3,7 @@ package com.sirc.domain.engine
 import com.sirc.domain.model.Decision
 import com.sirc.domain.model.DecisionThresholds
 import com.sirc.domain.model.DriverCosts
+import com.sirc.domain.model.GoalStatus
 import com.sirc.domain.model.ProfitEvaluation
 import com.sirc.domain.model.ProfitMetrics
 import com.sirc.domain.model.TripOffer
@@ -21,9 +22,10 @@ import kotlin.math.roundToInt
  * - El costo real es `costPerTrip + distanceKm × costPerKm`; el costo por
  *   minuto no participa y el objetivo de ganancia NO es un costo.
  * - Distancia/duración `0` se interpretan como desconocidas: no se fabrican
- *   métricas derivadas falsas.
- * - Decisión: pérdida real (ganancia < 0) → REJECT; cumple los objetivos con
- *   los datos necesarios → ACCEPT; en cualquier otro caso → MARGINAL.
+ *   métricas derivadas falsas. Cada dimensión disponible se calcula por
+ *   separado: $/hora solo necesita la duración, $/km solo la distancia.
+ * - Decisión: pérdida real (ganancia < 0) → REJECT; ACCEPT solo con ambas
+ *   dimensiones y ambos objetivos cumplidos; en cualquier otro caso → MARGINAL.
  */
 class ProfitEngine @Inject constructor() {
     fun evaluate(
@@ -31,7 +33,7 @@ class ProfitEngine @Inject constructor() {
         costs: DriverCosts,
         thresholds: DecisionThresholds,
     ): ProfitEvaluation {
-        require(offer.hasEnoughData) { "La oferta no contiene datos suficientes para evaluar." }
+        require(offer.hasEnoughData) { "La oferta no contiene el monto para evaluar." }
         val total = offer.estimatedTotal ?: offer.fareAmount ?: 0.0
         val distance = offer.distanceKm ?: 0.0
         val duration = offer.durationMin ?: 0.0
@@ -46,7 +48,7 @@ class ProfitEngine @Inject constructor() {
 
         val profit = total - totalCost
         val profitPerKm = if (hasDistance) profit / distance else null
-        val profitPerHour = if (hasDistance && hasDuration) profit / (duration / 60.0) else null
+        val profitPerHour = if (hasDuration) profit / (duration / 60.0) else null
         val marginPercent = if (total > 0.0) profit / total * 100.0 else 0.0
 
         val metrics =
@@ -59,6 +61,8 @@ class ProfitEngine @Inject constructor() {
                 profitPerKm = profitPerKm,
                 profitPerHour = profitPerHour,
                 marginPercent = marginPercent,
+                profitPerKmGoal = if (hasDistance) goalOf(profitPerKm!!, thresholds.minProfitPerKm) else null,
+                profitPerHourGoal = if (hasDuration) goalOf(profitPerHour!!, thresholds.minProfitPerHour) else null,
             )
 
         val decision = decide(metrics, thresholds)
@@ -99,9 +103,31 @@ class ProfitEngine @Inject constructor() {
 
             Decision.MARGINAL ->
                 when {
-                    !metrics.hasDistance -> listOf("Gana, pero no confirmable sin distancia")
-                    !metrics.hasDuration -> listOf("Falta la duración para confirmar el objetivo")
+                    !metrics.hasDistance && !metrics.hasDuration ->
+                        listOf("Faltan la distancia y la duración para evaluar la rentabilidad")
+
+                    !metrics.hasDistance -> {
+                        val hourly =
+                            if ((metrics.profitPerHour ?: 0.0) >= thresholds.minProfitPerHour) {
+                                "Cumple el objetivo por hora"
+                            } else {
+                                "Ganancia/hora menor al objetivo"
+                            }
+                        listOf(hourly, "Falta la distancia para confirmar el objetivo completo")
+                    }
+
+                    !metrics.hasDuration -> {
+                        val perKm =
+                            if ((metrics.profitPerKm ?: 0.0) >= thresholds.minProfitPerKm) {
+                                "Cumple el objetivo por km"
+                            } else {
+                                "Ganancia/km menor al objetivo"
+                            }
+                        listOf(perKm, "Falta la duración para confirmar el objetivo completo")
+                    }
+
                     metrics.estimatedProfit == 0.0 -> listOf("El viaje solo cubre los costos (sin ganancia)")
+
                     else -> {
                         val reasons = mutableListOf<String>()
                         if ((metrics.profitPerHour ?: 0.0) < thresholds.minProfitPerHour) {
@@ -113,6 +139,20 @@ class ProfitEngine @Inject constructor() {
                         reasons.ifEmpty { listOf("El viaje está al límite de los objetivos") }
                     }
                 }
+        }
+
+    /**
+     * Semáforo de una métrica frente a su objetivo: verde si cumple, naranja
+     * si es positiva pero no llega al objetivo, rojo si no genera ganancia.
+     */
+    private fun goalOf(
+        value: Double,
+        min: Double,
+    ): GoalStatus =
+        when {
+            value >= min -> GoalStatus.MET
+            value > 0.0 -> GoalStatus.NEAR
+            else -> GoalStatus.FAILED
         }
 
     fun formatCurrency(
