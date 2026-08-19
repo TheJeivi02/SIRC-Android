@@ -787,3 +787,70 @@ Resultado de la auditoría de cierre (solo documentación; sin cambios de códig
   bloqueantes (§15.4).
 - **No se abre Sprint 13 ni se implementa monetización** (E1b, Supabase,
   Billing, Play Integrity, trial, AHU, anti-fatiga) sin autorización explícita.
+
+---
+
+## WP‑12‑UI‑01 — Overlay funcional: jerarquía de 4 niveles (18-ago-2026)
+
+### A. Causa raíz
+
+El overlay evaluado (`OverlayContent`) componía una **columna vertical de
+elementos de igual peso visual** (insignia + PRECIO + GANANCIA + POR HORA +
+POR KM + resumen + COSTO EST. + motivo + confianza) en una ventana angosta
+(82 % de ancho, `WRAP_CONTENT`): la decisión no dominaba, las métricas no se
+agrupaban y el resultado se percibía superpuesto/desordenado (requisito del
+usuario: "se montan unos sobre otros", difícil de interpretar en <1 s).
+
+### B. Solución (aprobada por el usuario)
+
+- **Presentación en 4 niveles jerárquicos**: 1) decisión dominante (banner
+  semáforo de ancho completo + etiqueta ACEPTAR/RECHAZAR/REVISAR),
+  2) oferta (monto grande + resumen distancia·duración), 3) métricas en
+  filas de 2 columnas con ancho repartido (`weight(1f)`) y textos con
+  ellipsis, 4) secundaria en una sola línea atenuada (motivo · confianza).
+- **Mapper puro** `OverlayPresentation.mapToOverlayPresentation`
+  (`OverlayPresentation.kt`): `OverlayUiState + ProfitEngine →
+  OverlayPresentation`; no contiene tipos Compose renderizables; respeta los
+  indicadores de `OverlayConfig`; sin datos inventados; sin `fillMaxSize()`;
+  conserva animaciones, drag y `FLAG_NOT_TOUCHABLE` (oculto).
+- `OverlayContent` reescrito para renderizar el modelo. `MetricCell` trunca
+  valores largos (`maxLines=1` + ellipsis).
+- **Sin infraestructura de tests de UI Compose** (regla 4: sin dependencias
+  nuevas); el layout se valida en dispositivo.
+
+### C. Tests (TDD, RED→GREEN)
+
+`OverlayPresentationMapperTest` (nuevo, 22 tests, JVM): mapping
+ACCEPT/REJECT/WARNING → etiqueta+estado, fallback a la decisión del motor,
+oferta (plataforma+monto), resumen (distancia·duración con omisión de ceros),
+agrupación en pares de métricas y respeto de flags, tonos (positivo/negativo/
+neutro/mutado), línea secundaria (motivo·confianza, insuficiente, accionable),
+nulls y redondeo de montos largos. Suite AGENTS en verde (ktlintCheck,
+lintDebug, assembleDebug, tests JVM).
+
+### D. Validación en DEVICE-01 (Infinix X6850, Android 15)
+
+Ofertas reales de InDrive Ecuador en vivo (logcat `PipelineOverlay`):
+
+- **WAITING**: ventana 885×223; "Esperando oferta…" sin solapamientos.
+- **REJECT** real ($1.9 y $9.4): banner RECHAZAR + monto + rejilla
+  GANANCIA|POR HORA / POR KM (variante sin resumen y variante completa con
+  COSTO EST.) + secundaria; sin solapamientos (bounds vía `uiautomator
+  --windows`).
+- **WARNING** real ($9.65): REVISAR + $9.65 + "27 min" + rejilla completa +
+  secundaria; sin solapamientos.
+- **ACCEPT**: no llegó ninguna oferta ACCEPT en el mercado observado
+  (solo REJECT/WARNING); validado por tests JVM (misma geometría).
+- Flags: activo → `NOT_FOCUSABLE NOT_TOUCH_MODAL LAYOUT_NO_LIMITS`;
+  oculto → `+ FLAG_NOT_TOUCHABLE` (sin bloqueo de toques). Sin FATAL/errores.
+
+Evidencia: `/sdcard/SIRC_TEST/images/ui01_overlay_{waiting,reject,warning}.png`
++ dumps `ui01_*.xml` en `/sdcard/SIRC_TEST/tmp/`.
+
+### E. Resultado
+
+✅ Jerarquía 1→4 visible y distinguible · ✅ semáforo + texto en cada
+decisión · ✅ cero solapamientos (3 geometrías reales) · ✅ respeta la
+configuración del usuario · ✅ `FLAG_NOT_TOUCHABLE` mantenido · ✅ sin tocar
+motores/pipeline/thresholds · ✅ suite en verde · ⚠️ ACCEPT validado solo por
+tests JVM (sin ofertas ACCEPT en mercado observado). Decisión D17.2.

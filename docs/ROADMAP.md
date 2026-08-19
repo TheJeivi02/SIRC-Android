@@ -405,6 +405,9 @@ Respondiendo al gate:
   Uber Driver/DiDi/Cabify en vivo, muestra ≥20 por plataforma, <1 s en ruta,
   estabilidad 8 h, batería, ciclo de vida, DVC-02, PRV/SEC dinámicos. Ver
   `docs/testing/SPRINT_12_DEVICE_VALIDATION.md` §15. Sin monetización (E1b).
+  **WP-12-UI-01 (18-ago-2026)**: overlay rediseñado con jerarquía de 4 niveles
+  (decisión dominante → oferta → métricas → secundaria), validado en DEVICE-01
+  con ofertas reales (REJECT/WARNING; ACCEPT por tests JVM). D17.2.
 
 ## Sprint 3 — Accessibility
 

@@ -110,6 +110,14 @@ es rentable (objetivo UX; `<3 s` es el límite técnico/E2E histórico).
 > con `logger.error/warn` y `isRunning` se corrige con el estado real del
 > servicio vía `OverlayController.onServiceRunning()` (extraído
 > `OverlayServiceLauncher` para testear el controller sin Android).
+> Desde WP-12-UI-01 (SPRINT 12): el contenido evaluado del overlay usa una
+> **jerarquía de 4 niveles** (decisión dominante en banner semáforo con
+> etiqueta, oferta monto+resumen, métricas en filas de 2 columnas con ancho
+> repartido y textos con ellipsis, secundaria en una sola línea). La lógica de
+> presentación vive en `OverlayPresentation.mapToOverlayPresentation`
+> (mapper puro, 22 tests); `OverlayContent` solo renderiza el modelo. Se
+> respetan los indicadores de `OverlayConfig` y se conservan animaciones,
+> drag y `FLAG_NOT_TOUCHABLE` (oculto).
 >
 > Nota SPRINT 7: la oferta capturada se evalúa en detalle y el overlay muestra
 > una **recomendación accionable**. `PipelineOverlayDataSource` mapea el snapshot

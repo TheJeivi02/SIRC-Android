@@ -9,13 +9,17 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,25 +28,33 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sirc.capture.model.OverlayState
-import com.sirc.core.ui.components.DecisionBadge
 import com.sirc.core.ui.components.MetricCell
 import com.sirc.core.ui.components.OverlayCard
 import com.sirc.core.ui.components.OverlayCardContent
-import com.sirc.core.ui.components.RecommendationBadge
+import com.sirc.core.ui.theme.ProfitState
 import com.sirc.core.ui.theme.SircColors
+import com.sirc.core.ui.theme.SircSpacing
 import com.sirc.domain.engine.ProfitEngine
-import com.sirc.domain.model.ProfitMetrics
 
 /**
  * Contenido del Overlay. Muestra el estado real del pipeline y, cuando hay
- * resultado, la recomendación (ACEPTAR/RECHAZAR/REVISAR), el precio, el costo
- * estimado y las métricas de rentabilidad (ganancia, por hora, por km).
+ * resultado, la evaluación organizada en una jerarquía de 4 niveles:
  *
- * La tarjeta entra/sale con animación suave (escala + opacidad) y el contenido
- * hace un crossfade entre "estado" y "evaluación", evitando parpadeos.
+ * 1. **Decisión** (dominante): banner de ancho completo con el color semáforo
+ *    y la etiqueta accionable (ACEPTAR / RECHAZAR / REVISAR).
+ * 2. **Oferta**: monto grande + resumen derivado (distancia · duración).
+ * 3. **Métricas**: filas de dos columnas con el ancho repartido por igual
+ *    (GANANCIA | POR HORA / POR KM | COSTO EST.).
+ * 4. **Secundaria**: una línea atenuada (motivo · confianza).
+ *
+ * Cada fila reparte el ancho por igual (`weight(1f)`) y los textos se truncan
+ * con ellipsis, de modo que ningún elemento se solapa ni se corta. La tarjeta
+ * entra/sale con animación suave (escala + opacidad) y el contenido hace un
+ * crossfade entre "estado" y "evaluación".
  *
  * Filosofía: el conductor NO debe leer; debe RECONOCER de un vistazo si el
  * viaje le conviene. Colores semáforo (del tema) + números grandes.
@@ -54,8 +66,7 @@ fun OverlayContent(
     onDismiss: () -> Unit,
     onDrag: (dx: Int, dy: Int) -> Unit = { _, _ -> },
 ) {
-    val evaluation = state.evaluation
-    if (evaluation == null && state.status == OverlayState.DISABLED) return
+    if (state.evaluation == null && state.status == OverlayState.DISABLED) return
     val config = state.config
 
     val visibility by animateFloatAsState(
@@ -86,25 +97,21 @@ fun OverlayContent(
             compact = config.compactMode,
         ) {
             OverlayCardContent(
-                title = evaluation?.offer?.platform?.displayName ?: "SIRC",
+                title = state.evaluation?.offer?.platform?.displayName ?: "SIRC",
                 compact = config.compactMode,
                 onDismiss = onDismiss,
             ) {
                 AnimatedContent(
-                    targetState = evaluation != null,
+                    targetState = state.evaluation != null,
                     transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(150)) },
                     label = "overlayBody",
                 ) { hasEvaluation ->
                     if (hasEvaluation) {
-                        val current = evaluation
-                        if (current != null) {
-                            EvaluationContent(
-                                state = state,
-                                evaluation = current,
-                                engine = engine,
-                                compact = config.compactMode,
-                            )
-                        }
+                        EvaluationContent(
+                            state = state,
+                            engine = engine,
+                            compact = config.compactMode,
+                        )
                     } else {
                         StatusLabel(
                             status = state.status,
@@ -120,100 +127,135 @@ fun OverlayContent(
 @Composable
 private fun EvaluationContent(
     state: OverlayUiState,
-    evaluation: com.sirc.domain.model.ProfitEvaluation,
     engine: ProfitEngine,
     compact: Boolean,
 ) {
-    val config = state.config
-    val recommendation = state.recommendation
-    if (recommendation != null) {
-        RecommendationBadge(
-            recommendation = recommendation.recommendation,
-            compact = compact,
-        )
-    } else {
-        DecisionBadge(decision = evaluation.decision, compact = compact)
-    }
+    val presentation = remember(state) { mapToOverlayPresentation(state, engine) } ?: return
 
-    val metrics = evaluation.metrics
-    val color = valueColor(metrics)
-    MetricCell(
-        label = "PRECIO",
-        value = engine.formatCurrency(metrics.estimatedTotal, evaluation.offer.currency),
-        valueColor = SircColors.OnDark,
-        compact = compact,
-    )
-    if (config.showProfit) {
-        MetricCell(
-            label = "GANANCIA",
-            value = engine.formatCurrency(metrics.estimatedProfit, evaluation.offer.currency),
-            valueColor = color,
-            compact = compact,
+    Column(
+        verticalArrangement = Arrangement.spacedBy(if (compact) SircSpacing.XS else SircSpacing.SM),
+    ) {
+        presentation.decision?.let { decision ->
+            DecisionBanner(
+                state = decision.state,
+                label = decision.label,
+                compact = compact,
+            )
+        }
+        presentation.offer?.let { offer ->
+            OfferBlock(offer = offer, compact = compact)
+        }
+        presentation.metricRows.forEach { row ->
+            MetricRowView(row = row, compact = compact)
+        }
+        presentation.secondaryLine?.let { line ->
+            Text(
+                text = line,
+                color = SircColors.OnDarkMuted,
+                fontSize = if (compact) 9.sp else 11.sp,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/** Nivel 1 — decisión dominante: barra de ancho completo con el color semáforo. */
+@Composable
+private fun DecisionBanner(
+    state: ProfitState,
+    label: String,
+    compact: Boolean,
+) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(state.color)
+                .padding(vertical = if (compact) 4.dp else 6.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            color = Color.White,
+            fontSize = if (compact) 14.sp else 16.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
         )
     }
-    if (config.showProfitPerHour) {
-        MetricCell(
-            label = "POR HORA",
-            value = "${engine.formatCurrency(metrics.profitPerHour, evaluation.offer.currency)}/h",
-            valueColor = color,
-            compact = compact,
+}
+
+/** Nivel 2 — oferta: monto grande y resumen derivado (distancia · duración). */
+@Composable
+private fun OfferBlock(
+    offer: OfferPresentation,
+    compact: Boolean,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text = offer.amount,
+            color = SircColors.OnDark,
+            fontSize = if (compact) 22.sp else 28.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
-    }
-    if (config.showProfitPerKm) {
-        MetricCell(
-            label = "POR KM",
-            value = "${engine.formatCurrency(metrics.profitPerKm, evaluation.offer.currency)}/km",
-            valueColor = color,
-            compact = compact,
-        )
-    }
-    if (config.showTripSummary) {
-        val distance = if (metrics.distanceKm > 0) "${metrics.distanceKm} km" else null
-        val duration = if (metrics.durationMin > 0) engine.formatHours(metrics.durationMin) else null
-        val summary = listOfNotNull(distance, duration).joinToString(" · ")
-        if (summary.isNotBlank()) {
+        offer.summary?.let { summary ->
             Text(
                 text = summary,
                 color = SircColors.OnDarkMuted,
                 fontSize = if (compact) 10.sp else 12.sp,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = if (compact) 4.dp else 6.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
-        MetricCell(
-            label = "COSTO EST.",
-            value = engine.formatCurrency(metrics.totalCost, evaluation.offer.currency),
-            valueColor = SircColors.OnDarkMuted,
-            compact = compact,
-        )
-    }
-    if (recommendation != null) {
-        Text(
-            text = "${recommendation.mainReason} · ${recommendation.confidencePercent}% confianza",
-            color = SircColors.OnDarkMuted,
-            fontSize = if (compact) 9.sp else 11.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = if (compact) 4.dp else 6.dp),
-        )
-    }
-    val confidence = state.confidence
-    if (confidence != null) {
-        val confidenceText =
-            if (confidence.isActionable) {
-                val type = state.offerType ?: "Oferta"
-                "$type · Confianza ${confidence.percent}% (${confidence.level.name})"
-            } else {
-                "Información insuficiente · ${confidence.percent}% confianza"
-            }
-        Text(
-            text = confidenceText,
-            color = if (confidence.isActionable) SircColors.OnDarkMuted else SircColors.NotProfit,
-            fontSize = if (compact) 9.sp else 11.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = if (compact) 2.dp else 4.dp),
-        )
     }
 }
+
+/** Nivel 3 — métricas en filas de dos columnas con ancho repartido. */
+@Composable
+private fun MetricRowView(
+    row: MetricRowPresentation,
+    compact: Boolean,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(SircSpacing.SM),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        MetricCell(
+            label = row.left.label,
+            value = row.left.value,
+            valueColor = row.left.tone.toColor(),
+            compact = compact,
+            modifier = Modifier.weight(1f),
+        )
+        row.right?.let { right ->
+            MetricCell(
+                label = right.label,
+                value = right.value,
+                valueColor = right.tone.toColor(),
+                compact = compact,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+/** Mapea el tono semáforo del modelo de presentación al color del tema. */
+private fun MetricTone.toColor(): Color =
+    when (this) {
+        MetricTone.NEUTRAL -> SircColors.OnDark
+        MetricTone.POSITIVE -> SircColors.Profit
+        MetricTone.NEGATIVE -> SircColors.NotProfit
+        MetricTone.MUTED -> SircColors.OnDarkMuted
+    }
 
 /** Etiqueta ligera del estado del pipeline cuando aún no hay evaluación. */
 @Composable
@@ -251,13 +293,6 @@ private fun StatusLabel(
         )
     }
 }
-
-private fun valueColor(metrics: ProfitMetrics): Color =
-    when {
-        metrics.estimatedProfit <= 0 -> SircColors.NotProfit
-        metrics.estimatedProfit >= metrics.totalCost * 0.5 -> SircColors.Profit
-        else -> SircColors.OnDark
-    }
 
 private const val OVERLAY_ANIMATION_MS = 220
 private const val OVERLAY_SCALE_MIN = 0.94f

@@ -641,6 +641,33 @@ full-frame MP ~2.5 s, force-stop deshabilita accesibilidad, jank inicial).
 Supabase, Billing, Play Integrity, trial, AHU, anti-fatiga)** sin autorización
 explícita (regla R16).
 
+### D17.2 — Overlay con jerarquía de 4 niveles (WP-12-UI-01)
+
+**Contexto:** en DEVICE-01 el overlay mostraba la evaluación como una columna
+uniforme de elementos de igual peso visual (insignia + 5 celdas + resumen +
+motivo + confianza), densa y difícil de interpretar de un vistazo.
+WP-12-UI-01 (18-ago-2026) rediseñó la presentación del overlay para que el
+conductor reconozca en <1 s.
+
+**Decisión:** presentación con **4 niveles jerárquicos** — 1) decisión
+dominante (banner semáforo de ancho completo + etiqueta ACEPTAR/RECHAZAR/
+REVISAR), 2) oferta (monto grande + resumen derivado distancia·duración),
+3) métricas en filas de dos columnas con ancho repartido (`weight(1f)`) y
+textos con ellipsis, 4) secundaria en una sola línea atenuada (motivo ·
+confianza). La lógica de presentación se extrae a un **mapper puro**
+`OverlayPresentation.mapToOverlayPresentation` (JVM testable, 22 tests TDD);
+la UI solo renderiza el modelo. Se respetan los indicadores de `OverlayConfig`,
+sin datos inventados, sin `fillMaxSize()`, conservando animaciones, drag y
+`FLAG_NOT_TOUCHABLE` (cuando está oculto). No se añade infraestructura de
+tests de UI Compose (regla 4: sin dependencias nuevas; el layout se valida en
+dispositivo).
+
+**Consecuencias:** `OverlayContent` reescrito (lee el modelo); `MetricCell`
+trunca valores largos (`maxLines=1` + ellipsis). Validado en físico en
+DEVICE-01 con ofertas reales de InDrive Ecuador (REJECT y WARNING capturados;
+ACCEPT solo por tests JVM por ausencia de ofertas ACCEPT en el mercado
+observado). Sin cambios en motores de rentabilidad, pipeline ni thresholds.
+
 ## SPRINT 11 — Eliminación de FakeParser (WP-E1-01)
 
 ### D11.6 — Eliminación de `FakeParser` de la ruta de producción

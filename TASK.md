@@ -6,6 +6,36 @@
 
 ## Tarea actual
 
+**WP-12-UI-01 — OVERLAY FUNCIONAL: JERARQUÍA DE 4 NIVELES (18-ago-2026).
+COMPLETADO y VERIFICADO en DEVICE-01 con ofertas reales de InDrive Ecuador.
+Sin tocar motores/pipeline/thresholds. Reporte final A-P entregado.
+DETENERSE: esperando autorización (no abrir otro WP).**
+
+- [x] **Causa raíz diagnosticada**: overlay evaluado era una columna uniforme
+  de elementos de igual peso visual (insignia + 5 celdas + resumen + motivo +
+  confianza) → la decisión no dominaba; percibido como "superpuesto/desorden".
+- [x] **Solución (aprobada)**: mapper puro `OverlayPresentation`
+  (`mapToOverlayPresentation(OverlayUiState, ProfitEngine)`) → modelo de 4
+  niveles: 1) decisión dominante (banner semáforo + ACEPTAR/RECHAZAR/REVISAR),
+  2) oferta (monto + resumen distancia·duración), 3) métricas en filas de 2
+  columnas (`weight(1f)` + ellipsis), 4) secundaria 1 línea (motivo ·
+  confianza). `OverlayContent` reescrito para renderizar el modelo; respeta
+  indicadores de `OverlayConfig`; sin `fillMaxSize()`; conserva animaciones,
+  drag y `FLAG_NOT_TOUCHABLE` (oculto). `MetricCell` trunca valores largos.
+- [x] **TDD JVM**: `OverlayPresentationMapperTest` (22 tests) RED→GREEN.
+- [x] **Suite en verde**: ktlintCheck, lintDebug, assembleDebug, tests JVM.
+- [x] **Validación física DEVICE-01** (Infinix X6850, Android 15): ofertas
+  reales InDrive — REJECT ($1.9 y $9.4) y WARNING ($9.65) con geometría
+  verificada sin solapamientos (`uiautomator dump --windows` + screencap);
+  WAITING sin solapamiento; ACCEPT solo por tests JVM (el mercado observado no
+  produjo ofertas ACCEPT). Flags activo/oculto correctos. Sin FATAL/errores.
+- [x] **Docs actualizadas**: TASK.md, `.ai/CONTEXT.md`, `.ai/DECISIONS.md`
+  (D17.2), ROADMAP (Sprint 12), plan (WP-12-UI-01 §A-E). Evidencia en
+  `/sdcard/SIRC_TEST/images/ui01_overlay_{waiting,reject,warning}.png` +
+  dumps `ui01_*.xml` en `/sdcard/SIRC_TEST/tmp/`.
+
+## Tarea anterior — Cierre formal Sprint 12 / E1a (completada)
+
 **LOOP ENGINEERING — CIERRE FORMAL DEL SPRINT 12 / E1a (18-ago-2026).
 AUDITORÍA + CONSOLIDACIÓN + DOCUMENTACIÓN (sin código). E1a = PASS WITH
 PENDING: núcleo validado en físico (InDrive Ecuador E2E real); P0/Alta
