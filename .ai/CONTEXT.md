@@ -364,6 +364,25 @@ Service **nunca** interactúa con otras apps.
   - **+2 tests**: `OverlayPresentationMapperTest` (24→25) y
     `SettingsViewModelTest` (11→12). Suite completa BUILD SUCCESSFUL. G2
     intacto. **FASE 10 sigue PENDING.**
+- **LOOP ENGINEERING G10 COMPLETADO (20-ago-2026) — validación instrumentada
+  en dispositivo (DEVICE-01 / Android 15)**: infraestructura androidTest para
+  los DEVICE_REQUIRED de G7, sin cambios de producción:
+  - `:feature:overlay` ganó infraestructura instrumentada (runner + Compose
+    test + assets del dataset `test-images`); `:app` ganó runner para el smoke.
+  - `OverlayContent` render real: **6 casos** (`OverlayContentTest`, A–F).
+  - `MlKitOcrEngine` real: **13/13 imágenes** procesadas sin excepción
+    (1–4 líneas/imagen; 60–238 ms; total 1124 ms; decode inválido →
+    `emptyList()`). **Precisión = NOT_VALIDATED** (dataset = marcadores).
+  - `OverlayService` smoke: FGS arranca (`isForeground`, `types=0x40000000`),
+    ventana `ty=APPLICATION_OVERLAY` registrada en WindowManager, stop sin
+    crash. **OJO entorno**: AGP desinstala la app tras cada corrida y Android
+    revoca `SYSTEM_ALERT_WINDOW` y DESHABILITA la accesibilidad → hay que
+    regrantar appop y re-habilitar accesibilidad (comandos en G10 doc).
+  - 2 flakes resueltos sin skips: matcher de ventana (el título es el package
+    name, no "Application Overlay") y carrera Compose (waitForIdle tras
+    setContent). ktlintFormat aplicado a los tests.
+  - Suite completa AGENTS en verde + connected 8/8 + 1/1. G2/G3/G5/G6
+    intactos. **FASE 10 sigue PENDING.**
 - **LOOP ENGINEERING G7 PARTIAL / DEVICE_VALIDATION_PENDING (20-ago-2026) —
   cobertura crítica UI + OCR** (+3 tests JVM de evidencia, sin cambios de
   producción; frontera COVERED/DEVICE_REQUIRED documentada en

@@ -13,6 +13,7 @@ android {
 
     defaultConfig {
         minSdk = 24
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     compileOptions {
@@ -26,6 +27,10 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+    }
+
+    sourceSets {
+        getByName("androidTest").assets.srcDir(project.file("../../core/capture/src/test/resources/test-images"))
     }
 }
 
@@ -51,4 +56,11 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+
+    androidTestImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.junit)
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    debugImplementation(libs.compose.ui.test.manifest)
 }

@@ -6,11 +6,48 @@
 
 ## Tarea actual
 
+**LOOP ENGINEERING G10 (20-ago-2026) — Validación instrumentada en dispositivo
+(DEVICE-01 / Infinix X6850 / Android 15 / API 35). COMPLETADO.** Infraestructura
+androidTest para los componentes DEVICE_REQUIRED de G7, sin cambios de
+producción; 2 flakes reales resueltos (no skips); commit + push a `main`:
+
+- **`MlKitOcrEngine` real (DEVICE_VALIDATED comportamiento)**: ML Kit on-device
+  procesa las **13 imágenes** del dataset `test-images` sin excepción
+  (1–4 líneas/imagen; 60–238 ms; total 1124 ms; decode inválido → `emptyList`).
+  **Precisión = NOT_VALIDATED** (el README del dataset declara marcadores, no
+  fixtures de precisión). Evidencia: logcat `G10OcrTest`.
+- **`OverlayContent` render Compose (INSTRUMENTED_COVERED)**: `OverlayContentTest`
+  6 casos (A–F) sobre el Application host de `:feature:overlay`.
+- **`OverlayService` smoke (DEVICE_VALIDATED)**: en el Application real (Hilt)
+  el FGS arranca (`isForeground=true`, `foregroundId=9001`, specialUse), la
+  ventana `ty=APPLICATION_OVERLAY` queda registrada en WindowManager y
+  stop/removal no produce crash. Matcher de ventana corregido: el título es el
+  package name (`u0 com.sirc.app}`), no "Application Overlay".
+- **Infraestructura**: `:feature/overlay` runner + Compose test + assets del
+  dataset (ruta `../../core/...`); `:app` runner + androidx.test.runner;
+  `libs.versions.toml` + `compose-ui-test-junit4`/`compose-ui-test-manifest`
+  (BOM existente, sin upgrades). ktlintFormat aplicado a los tests.
+- **Estabilidad**: flake Compose "No compose hierarchies found" (carrera de
+  relaunch) resuelto con `compose.waitForIdle()` tras cada `setContent` — 4
+  corridas 8/8 consecutivas; smoke 1/1.
+- **Verificación**: connected `:feature:overlay` **8/8** + `:app` **1/1** +
+  suite completa AGENTS BUILD SUCCESSFUL (ktlintCheck/lintDebug/assembleDebug/
+  testDebugUnitTest/:domain:test/:core:platform:test/:core:capture:test/
+  :feature:overlay:testDebugUnitTest).
+- **Entorno DEVICE-01**: AGP desinstala la app tras cada corrida y Android
+  revoca `SYSTEM_ALERT_WINDOW` y DESHABILITA la accesibilidad → re-grant appop +
+  re-habilitar accesibilidad (comandos en `docs/testing/G10_INSTRUMENTED_VALIDATION.md`).
+  Estado final del dispositivo: app instalada, overlay appop `allow`, accesibilidad
+  habilitada.
+- **Docs**: `docs/testing/G10_INSTRUMENTED_VALIDATION.md` (nuevo),
+  `docs/testing/COVERAGE_G7.md` → VERIFIED, `.ai/CONTEXT.md`. G2/G3/G5/G6
+  intactos. **FASE 10 sigue PENDING.**
+
+## Tarea anterior
+
 **LOOP ENGINEERING G7 (20-ago-2026) — Cobertura crítica UI + OCR.
-PARTIAL / DEVICE_VALIDATION_PENDING (+3 tests JVM; documentación de
-frontera).** Se expandió la cobertura de los comportamientos críticos del
-overlay y del OCR con tests deterministas JVM, sin tocar producción ni G2/G3/
-G5/G6/FASE 10:
+PARTIAL / DEVICE_VALIDATION_PENDING → validada por G10.** (+3 tests JVM;
+documentación de frontera).
 
 - **Cobertura OCR (contrato, JVM)**: `DefaultCapturePipelineTest` (13→15)
   añade los dos caminos que el `FakeOcrEngine` ya soportaba pero nadie
