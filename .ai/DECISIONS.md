@@ -947,6 +947,26 @@ sesión/historial son incondicionales (el pipeline no referencia `showDecision`)
 evaluación, solo cambia la visibilidad; settings 11→12: toggle persiste y se
 recupera al recargar). No se modificó comportamiento ni se tocó G2/FASE 10.
 
+### D11.16 — G3 verificado: `OfferType.GENERIC` es el contrato para DiDi/Cabify/InDrive (20-ago-2026)
+
+**Contexto:** la auditoría marcó G3 porque DiDi/Cabify/InDrive tenían
+`offerTypes = emptyList()`. La inspección repo-wide confirmó que eso es
+intencional y no bloquea: `OfferParserOrchestrator` cae a
+`OfferType.GENERIC` + `GenericPlatformExtractor` específico de cada plataforma
+cuando no hay variantes; `ProfitEngine` no depende del tipo (informativo:
+Debug/History/persistencia).
+
+**Decisión (VERIFIED, sin cambios de producción):** el contrato genérico
+existente es la representación correcta. NO se crean `DIDI_REQUEST`/
+`CABIFY_REQUEST`/`INDRIVE_REQUEST` porque no hay evidencia de los formatos
+reales de esas pantallas (prohibido fabricar taxonomía comercial); cuando un
+dump real las demuestre, se añadirá el `OfferTypeVariant` correspondiente sin
+cambiar el contrato.
+
+**Consecuencias:** +1 test de evidencia (`OfferParserOrchestratorTest` 14→15:
+packages reales `com.cabify.rider` / `com.leadingsoft.ride.driver` → GENERIC +
+oferta $120). Suite completa en verde; G2/G5/G6 intactos; FASE 10 PENDING.
+
 ### D11.13 — Unified Capture Source (WP-E3-03)
 
 **Contexto:** la captura se repartía entre `ScreenCapture`/`ScreenFrame`/

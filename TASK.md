@@ -6,47 +6,36 @@
 
 ## Tarea actual
 
-**LOOP ENGINEERING G5+G6 (20-ago-2026) — Configuración efectiva: `costPerKm` +
-`showDecision`. VERIFICADO como ya correcto (sin cambios de comportamiento);
-+2 tests de evidencia; suite completa en verde.** Tras inspección extremo a
-extremo (Settings → persistencia → configuración cargada → evaluación →
-ProfitEngine → recomendación → overlay/presentación) con evidencia en código y
-tests:
+**LOOP ENGINEERING G3 (20-ago-2026) — Tipos de oferta: DiDi / Cabify / InDrive.
+VERIFIED (sin cambios de producción; +1 test de evidencia).** La auditoría
+marcó G3 porque DiDi/Cabify/InDrive tenían `offerTypes = emptyList()`; la
+inspección repo-wide demuestra que eso NO bloquea: el contrato existente ya
+representa esas plataformas con **`OfferType.GENERIC`** + el extractor genérico
+específico de cada plataforma (`extractorKeywords`), y el pipeline continúa
+normalmente:
 
-- **G5 `costPerKm` VERIFICADO (ya correcto, FIX-03, sin cambios)**:
-  `ProfitEvaluationEngine.driverCosts(config)` lo DERIVA (única fuente de
-  verdad: `fuelPrice/consumo + maintenanceCostPerKm + Σ additionalCosts`) y
-  `ProfitEngine.evaluate` lo usa (`costDistance = distance × costs.costPerKm`,
-  `ProfitEngine.kt:46`). La UI muestra "Costo por km (calculado)" SOLO lectura
-  y edita sus componentes; al guardar `normalizeCostPerKm()` persiste la
-  columna con el derivado; el motor ignora un `costs.costPerKm` manual (test
-  `el costo por km manual ... no altera el derivado`). Evidencia previa ya
-  suficiente: derivado 2.5→6.1 (componentes), decisión PROFITABLE→no con la
-  misma oferta, sin hardcode, persistencia `costPerKm=3.0` normalizado en
-  `SettingsViewModelTest`. No existe ruta que sustituya el valor configurado
-  por una constante.
-- **G6 `showDecision` VERIFICADO (ya correcto, sin cambios)**:
-  `OverlayConfig.showDecision` (default true) persiste en `overlay_config`
-  (Mapper ida/vuelta, columnas `OverlayConfigEntity`); toggle en Settings →
-  `updateOverlay` → `save`. `mapToOverlayPresentation` (`OverlayPresentation.kt:84`)
-  gatea SOLO el `DecisionPresentation` (null cuando false); oferta y métricas
-  siempre se construyen y `OverlayContent.kt:134` renderiza `decision` nullable.
-  La EVALUACIÓN es incondicional (`PipelineOverlayDataSource:139`
-  `evaluateUseCase(offer)` sin gate; `showDecision` no se referencia en el
-  pipeline) y sesión/historial usan `evaluation.decision` siempre
-  (`recordOffer`/persist). `false` no desactiva cálculo ni oculta otros
-  indicadores.
-- **+2 tests de evidencia (aditivos, sin tocar producción)**:
-  `OverlayPresentationMapperTest` (+1 → 25) `showDecision solo altera la
-  visibilidad de la decision y no el calculo`: misma evaluación con true/false
-  → decisión visible vs null, oferta y metricRows IDÉNTICAS;
-  `SettingsViewModelTest` (+1 → 12) `toggle showDecision se persiste al guardar
-  y se recupera al recargar`: savedOverlay.showDecision=false y recarga
-  recupera false.
-- **Regresión**: ProfitEngineTest, RecommendationEngineTest,
-  OverlayEvaluationEngineTest, OverlayConfigTest y G2 (PlatformDetection
-  EngineTest 23, DetectionMatcherTest 9, K1 11/11) intactos. Suite completa
-  BUILD SUCCESSFUL. **G2 permanece intacto. FASE 10 sigue PENDING.**
+- **Inventario** (`PlatformDescriptors.kt`): UBER → 5 variantes
+  (UBER_REQUEST/RADAR/RESERVATION/MOTO/XL) + GENERIC de respaldo; DIDI, CABIFY
+  e INDRIVE → `offerTypes = emptyList()` → el orquestador cae al extractor
+  genérico (`OfferParserOrchestrator.kt:71-76` → `type = GENERIC`).
+- **`OfferType` downstream**: informativo. `PlatformOfferParser.rawDataFor`
+  serializa `type=GENERIC` sin fallar; se muestra en DebugPanel/History y se
+  persiste en `offer_history.offerType`. **ProfitEngine/ProfitEvaluationEngine
+  NO dependen del tipo** (`TripOffer` no lo lleva); no hay gating.
+- **Evidencia previa**: `plataforma distinta a uber usa el extractor generico`
+  (DiDi → GENERIC + oferta); K1 regresión extrae InDrive REAL del dataset OCR
+  (4.5/16.4/13) vía el mismo orquestador. Validación física Sprint 12 evaluó
+  ofertas InDrive reales (GENERIC) → REJECT/WARNING.
+- **Regla respetada**: NO se creó `DIDI_REQUEST`/`CABIFY_REQUEST`/`INDRIVE_
+  REQUEST` (no hay evidencia de formatos reales de esas pantallas; inventarlos
+  violaría "no fabricar taxonomía comercial"). El contrato genérico es la
+  representación correcta.
+- **+1 test de evidencia**: `OfferParserOrchestratorTest` (14→15) `cabify e
+  indrive se representan con el tipo generico y su extractor` — packages reales
+  (`com.cabify.rider`, `com.leadingsoft.ride.driver`) → `GENERIC` + oferta
+  extraída $120. Sin cambios en producción.
+- **Suite completa BUILD SUCCESSFUL**. G2/G5/G6 intactos. **FASE 10 sigue
+  PENDING** (no se concluye nada sobre `distance=0.0`).
 
 ## Tarea anterior
 

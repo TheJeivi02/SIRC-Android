@@ -364,6 +364,17 @@ Service **nunca** interactúa con otras apps.
   - **+2 tests**: `OverlayPresentationMapperTest` (24→25) y
     `SettingsViewModelTest` (11→12). Suite completa BUILD SUCCESSFUL. G2
     intacto. **FASE 10 sigue PENDING.**
+- **LOOP ENGINEERING G3 VERIFIED (20-ago-2026) — tipos de oferta
+  DiDi/Cabify/InDrive**: los `offerTypes = emptyList()` de esas plataformas NO
+  bloquean: el contrato existente las representa con `OfferType.GENERIC` + el
+  extractor genérico por plataforma (`extractorKeywords`); `OfferParserOrchestrator`
+  cae a GENERIC cuando no hay variantes; `rawDataFor` serializa `type=GENERIC`;
+  `ProfitEngine` NO depende del tipo (informativo en Debug/History). NO se
+  inventó `DIDI_REQUEST`/`CABIFY_REQUEST`/`INDRIVE_REQUEST` (sin evidencia de
+  formatos reales). +1 test de evidencia (`OfferParserOrchestratorTest` 14→15:
+  packages reales de Cabify/InDrive → GENERIC + oferta $120). Sin cambios de
+  producción. Suite completa BUILD SUCCESSFUL. G2/G5/G6 intactos. **FASE 10
+  sigue PENDING.**
 - **LOOP ENGINEERING G2 CORREGIDO (20-ago-2026, commit `fix: harden
   multi-platform detection` + docs, push, HEAD==origin/main)**: la detección
   por keywords ya no es ambigua. Antes: `matchScore` puntuaba las `detectionRules`

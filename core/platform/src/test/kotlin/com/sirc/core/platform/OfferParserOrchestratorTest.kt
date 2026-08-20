@@ -114,6 +114,29 @@ class OfferParserOrchestratorTest {
     }
 
     @Test
+    fun `cabify e indrive se representan con el tipo generico y su extractor`() {
+        val cabify =
+            parse(
+                texts = listOf("Nueva solicitud", "Total $120", "8.5 km", "25 min"),
+                packageName = PACKAGE_CABIFY,
+                descriptors = listOf(PlatformDescriptors.UBER, PlatformDescriptors.CABIFY),
+            )
+        val indrive =
+            parse(
+                texts = listOf("Nueva solicitud", "Total $120", "8.5 km", "25 min"),
+                packageName = PACKAGE_INDRIVE,
+                descriptors = listOf(PlatformDescriptors.UBER, PlatformDescriptors.INDRIVE),
+            )
+
+        assertEquals(OfferType.GENERIC, cabify.type)
+        assertNotNull(cabify.offer)
+        assertEquals(120.0, cabify.offer?.estimatedTotal ?: 0.0, 0.001)
+        assertEquals(OfferType.GENERIC, indrive.type)
+        assertNotNull(indrive.offer)
+        assertEquals(120.0, indrive.offer?.estimatedTotal ?: 0.0, 0.001)
+    }
+
+    @Test
     fun `package de plataforma no registrada devuelve none`() {
         val parsed =
             parse(
@@ -201,5 +224,7 @@ class OfferParserOrchestratorTest {
     private companion object {
         const val PACKAGE_UBER = "com.ubercab"
         const val PACKAGE_DIDI = "com.didiglobal.passenger"
+        const val PACKAGE_CABIFY = "com.cabify.rider"
+        const val PACKAGE_INDRIVE = "com.leadingsoft.ride.driver"
     }
 }
