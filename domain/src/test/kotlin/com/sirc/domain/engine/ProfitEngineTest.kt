@@ -194,6 +194,32 @@ class ProfitEngineTest {
     }
 
     @Test
+    fun `la evaluacion usa el objetivo por hora configurado y no un valor fijo`() {
+        // Misma oferta (ganancia 13.0 -> 13/h): MET con objetivo 11, por debajo con 15.
+        val ecuadorCosts = DriverCosts(costPerKm = 0.5, costPerTrip = 0.0)
+        val conObjetivoOnce =
+            evaluate(
+                total = 14.0,
+                distanceKm = 2.0,
+                durationMin = 60.0,
+                costs = ecuadorCosts,
+                thresholds = DecisionThresholds(minProfitPerKm = 0.5, minProfitPerHour = 11.0),
+            )
+        val conObjetivoQuince =
+            evaluate(
+                total = 14.0,
+                distanceKm = 2.0,
+                durationMin = 60.0,
+                costs = ecuadorCosts,
+                thresholds = DecisionThresholds(minProfitPerKm = 0.5, minProfitPerHour = 15.0),
+            )
+
+        assertEquals(13.0, conObjetivoOnce.metrics.profitPerHour ?: -1.0, 0.001)
+        assertEquals(GoalStatus.MET, conObjetivoOnce.metrics.profitPerHourGoal)
+        assertEquals(GoalStatus.NEAR, conObjetivoQuince.metrics.profitPerHourGoal)
+    }
+
+    @Test
     fun `distancia desconocida nunca produce ACCEPT pese a cumplir el objetivo horario`() {
         // Ganancia de mejor caso muy alta, pero sin distancia no se confirma.
         val evaluation = evaluate(total = 100.0, distanceKm = 0.0, durationMin = 30.0)

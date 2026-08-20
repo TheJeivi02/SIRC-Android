@@ -1,0 +1,110 @@
+AUDITORÍA DE CONTINUIDAD — 20-ago-2026
+======================================
+
+Repos: rama main, HEAD == origin/main == 2aa02a0 (limpio al inicio).
+Build: APK debug 0.1.0, instalado en DEVICE-01 (115272543L006207, Transsion/XOS).
+Suite AGENTS: ktlintCheck + lintDebug + assembleDebug + testDebugUnitTest +
+:domain:test + :core:platform:test + :core:capture:test +
+:feature:overlay:testDebugUnitTest -> BUILD SUCCESSFUL.
+
+FASE 6 — activeIndicatorCount (tests añadidos, 3+1)
+---------------------------------------------------
+domain/src/test/kotlin/com/sirc/domain/model/OverlayConfigTest.kt (NUEVO, 3 tests):
+  - activeIndicatorCount excluye compactMode
+  - cuenta solo los indicadores activos
+  - por defecto es cuatro
+feature/overlay/src/test/.../OverlayPresentationMapperTest.kt (+1):
+  - "compactMode no altera los indicadores activos" (24 tests total)
+OverlayConfig.kt:22-23 excluye compactMode del conteo. 0 fallos.
+
+FASE 11 — IMG-REPLAY-01 (dedup)
+-------------------------------
+CLASIFICADO: el replay devuelve snapshot=NULL por DEDUP INTENCIONAL
+(InMemoryCaptureFrameCache, clave = contentHashCode del imageData, MAX_ENTRIES=32;
+DefaultCapturePipeline.kt:81 `if (!cache.isNew(request))`). La etiqueta
+PARSE_FALLIDO del receiver es un MISLABEL del harness (motivo real = DUPLICATE).
+Verificado en build actual (re-inyección idéntica, cache en memoria):
+  snapshot=NULL reason=PARSE_FALLIDO (sin monto/plataforma extraíbles)
+  state=WAITING parse=0.0ms
+Límite de replay: la cache es en memoria -> force-stop limpia (requisito).
+
+FASE 12 — copy obsoleto "simulador"
+-----------------------------------
+CORREGIDO en app/src/main/kotlin/com/sirc/app/DiagnosisScreen.kt:
+  - KDoc: sin mención a simulación.
+  - Título SectionCard: "Vista previa (datos simulados)" -> "Última oferta evaluada".
+  - Estado vacío: "una oferta simulada cada 20 segundos" ->
+    "El overlay aún no muestra datos. Inicia el overlay para ver aquí la última
+    oferta procesada en tiempo real."
+  Verificado en pantalla (dump a11y). grep "simulad|20 segundos|Vista previa" -> 0.
+
+FASE 13 — objetivo por hora (CERRADA el 20-ago-2026)
+----------------------------------------------------
+DecisionThresholds.default() = (4.0, 120.0) (dominio).
+El 10.0 NO está en código main (grep "10\.0|11\.0" solo en tests); es valor
+persistido del usuario en driver_config (onboarding). El motor es 100% dinámico
+(ProfitEngine.evaluate recibe los thresholds). Sin cambios de arquitectura.
+CIERRE (autorizado por usuario): objetivo de validación ajustado a $11/h,
+configurable y persistente:
+- El valor 10.0 se cambió a 11.0 en driver_config.minProfitPerHour del
+  dispositivo (mismo mecanismo que Settings; integrity_check=ok).
+- Configurable: modificable desde Settings (round-trip verificado en FASE 15c);
+  el usuario puede usar cualquier valor (los tests usan 15).
+- Persistencia verificada (SettingsViewModelTest) y evaluación dinámica
+  (ProfitEngineTest usa el objetivo configurado, no 11 fijo).
+Tests añadidos (4): SettingsViewModelTest (+3: carga 11.0, 11->15 persiste,
+recarga recupera 15) y ProfitEngineTest (+1: 13/h -> MET con 11, NEAR con 15).
+SettingsViewModelTest 11 tests / ProfitEngineTest 19 tests, 0 fallos.
+Commit: "test: validate configurable hourly target at 11".
+
+FASE 15 — validación física (DEVICE-01)
+---------------------------------------
+a) OCR TEST (build actual, cache fresco, receiver con -f 0x10000000 y
+   -n com.sirc.app/.debug.DebugImageOcrReceiver; el dispositivo difiere
+   broadcasts a apps en background sin componente explícito):
+   - indriver_1 ($4.5 / 16.4 km / 13 min) -> REJECT (profit -0.42)  [correcto]
+   - indriver_2 ($4.5 / 0.0 km / 42 min)  -> WARNING (profit 3.0)   [correcto; el
+     OCR leyó "28,7 kn" (unidad mal leída) -> regex km no matchea; dato parcial]
+   - uber_2    ($25.53 / 99 km / 128 min) -> WARNING (profit 3.41)  [correcto]
+   - uber_1 / uber_3 -> PANTALLA_NO_REQUEST (rechazadas)            [correcto]
+   Latencia total pipeline 156-260 ms; eval 2.5-11.4 ms; overlay 12-21 ms
+   (< 3 s objetivo). Dedup re-run: snapshot=NULL (mislabel PARSE_FALLIDO).
+
+b) Persistencia Room (sirc.db + WAL):
+   offer_history ids 344-349 (OCR test), 296-303 (E2E live InDrive dist 0.0),
+   340-343 (UBER). overlay_config: showDecision=1 showProfit=1 showProfitPerHour=1
+   showProfitPerKm=0 showTripSummary=0 compactMode=1 opacity=90 ttl=45 x=50 y=4
+   historyLimit=500. driver_config: minProfitPerKm=0.5 minProfitPerHour=11.0
+   (actualizado de 10.0 en el cierre de FASE 13; overlay_config sin cambios).
+
+c) Settings toggles (ida y vuelta completo):
+   - Carga limpia tras force-stop/reopen: los 6 switches coinciden con el DB
+     (1,1,1,0,0,1) -> NO hay bug de carga. El Switch Compose tiene touch target
+     mínimo 48dp que se extiende más allá de sus bounds visuales (x=849-992);
+     un tap en x=1020 (fuera de los bounds) SÍ conmuta.
+   - Round-trip: toggle "Mostrar ganancia por km" ON -> "Guardar configuración"
+     -> DB showProfitPerKm=1; toggle OFF -> Guardar -> DB=0. Restaurado.
+
+d) OverlayService.kt:247 FLAG_NOT_TOUCHABLE -> el banner no bloquea toques.
+
+e) Estado final del dispositivo restaurado: OverlayService corriendo
+   (ServiceRecord isForeground=true), accesibilidad ENABLED y bindeada
+   (Enabled services: com.sirc.app/...CaptureAccessibilityService), permiso de
+   overlay Activo, notificaciones FGS Activo, batería Activo. Pantalla Diagnóstico
+   muestra "Última oferta evaluada" con el copy corregido.
+
+FASE 10 — InDrive distance 0.0 (PENDING)
+----------------------------------------
+Evidencia parcial: el parser extrae 16.4 km del fixture real indriver_1 (OCR test).
+En la ruta live por accesibilidad las 6+ ofertas reales registraron distance=0.0.
+Sospecha de unidad mal leída ("28,7 kn") / layout de oferta InDrive Ecuador sin
+distancia parseable. Para clasificar A-C hace falta un dump a11y de una oferta
+real en vivo (pantalla actual sin ofertas). NO se asume causa.
+
+HERRAMIENTAS / COMANDOS USADOS
+------------------------------
+- Pull DB Room en WAL: run-as com.sirc.app cat databases/sirc.db y sirc.db-wal
+  a dir limpio; sqlite3 (platform-tools).
+- Broadcast OCR test: am broadcast -f 0x10000000 -n com.sirc.app/.debug.DebugImageOcrReceiver -a com.sirc.debug.OCR_TEST
+- screencap binario: cmd /c "adb exec-out screencap -p > archivo" (PS ">" corrompe).
+- Lectura de pantallas: uiautomator dump.

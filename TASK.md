@@ -6,6 +6,74 @@
 
 ## Tarea actual
 
+**AUDITORÍA DE CONTINUIDAD (20-ago-2026) — VERIFICADA en código + física en
+DEVICE-01. 19 fases ejecutadas; 18/18 verificadas; 1 PENDING explícito
+(fase 10). Sin defectos nuevos en el motor/parser/overlay/settings. Cambios
+seguros: 4 tests añadidos (activeIndicatorCount + compactMode) y copy
+obsoleto corregido en DiagnosisScreen. Fase 15 C/D y D/F validadas en físico
+(toggles con persistencia real e ida y vuelta; FLAG_NOT_TOUCHABLE). Suite
+AGENTS completa en verde. Evidencia:
+`docs/testing/evidence/AUDIT_2026-08-20_continuidad.txt`.**
+
+### Resultado de la auditoría (sin abrir WPs nuevos)
+
+- [x] **FASE 1-9**: git limpio (HEAD==origin/main==`2aa02a0`); `ProfitEngine`
+      casos A-D; métricas (`hasEnoughData`/`hasDistance`/`netGoal` MET|NEAR|
+      FAILED); recomendación/confianza; `overlayContent` por-oferta con
+      `MetricTone`; `OverlayConfig.activeIndicatorCount`; `ProfitState`;
+      `OverlayPresentationMapperTest`; `ProfitEngineTest` 8 casos. VERIFICADO.
+- [x] **FASE 6 (complemento tests)**: `OverlayConfigTest.kt` NUEVO (3 tests:
+      excluye compactMode, cuenta solo indicadores activos, por defecto cuatro)
+      + `OverlayPresentationMapperTest.kt` (+1 test "compactMode no altera los
+      indicadores activos", 24 total). `OverlayConfig.kt:22-23` excluye
+      compactMode. 0 fallos.
+- [x] **FASE 10 (PENDING explícito)**: evidencia parcial — el parser extrae
+      16.4 km del fixture real indriver_1; en ruta live por accesibilidad las
+      ofertas reales registraron distance=0.0; el OCR leyó "28,7 kn" (unidad
+      mal leída → regex km no matchea). Clasificar A-C requiere un dump a11y de
+      una oferta real en vivo (no disponible hoy). NO se asume causa.
+- [x] **FASE 11 (IMG-REPLAY-01)**: CLASIFICADO — dedup INTENCIONAL
+      (`InMemoryCaptureFrameCache`, clave `contentHashCode`, MAX_ENTRIES=32;
+      `DefaultCapturePipeline.kt:81`). PARSE_FALLIDO es mislabel del harness
+      (motivo real DUPLICATE). Verificado en build actual: re-inyección →
+      `snapshot=NULL reason=PARSE_FALLIDO (sin monto/plataforma extraíbles)
+      state=WAITING parse=0.0ms`. Límite: force-stop limpia la cache.
+- [x] **FASE 12**: copy obsoleto "datos simulados"/"cada 20 segundos"
+      CORREGIDO en `DiagnosisScreen.kt` (KDoc + título "Última oferta
+      evaluada" + texto vacío real). Verificado en pantalla; grep sin restos.
+- [x] **FASE 13**: `DecisionThresholds.default()=(4.0,120.0)`; dispositivo
+      persiste 0.5/10.0 (driver_config); usuario mencionó $11/h → 10.0 ≠ 11.0
+      → **PENDING_USER_DECISION** (NO se modifica; Settings muestra 10).
+- [x] **FASE 14**: suite completa en verde
+      (ktlintCheck/lintDebug/assembleDebug/tests unitarios).
+- [x] **FASE 15 (validación física, DEVICE-01)**:
+  - OCR TEST build actual: indriver_1 $4.5/16.4km/13min → REJECT (profit −0.42);
+    indriver_2 $4.5/0.0km/42min → WARNING (profit 3.0); uber_2 $25.53/99km/128min
+    → WARNING (profit 3.41); uber_1/uber_3 → PANTALLA_NO_REQUEST. Latencia
+    total 156-260 ms, eval 2.5-11.4 ms, overlay 12-21 ms (<3 s).
+  - Dedup re-run verificado (snapshot=NULL).
+  - Persistencia Room verificada (db+wal): overlay_config `1|1|1|0|0|1|90|45|50|4|500`,
+    driver_config `|0.5|10.0`.
+  - Settings toggles ida y vuelta: carga limpia 6/6 coinciden con DB (no hay
+    bug de carga; el Switch Compose tiene touch target ≥48dp que excede sus
+    bounds visuales); toggle "Mostrar ganancia por km" → Guardar → DB=1 →
+    revertir → Guardar → DB=0. Restaurado.
+  - `OverlayService.kt:247` FLAG_NOT_TOUCHABLE → no bloquea toques.
+  - Estado final del dispositivo restaurado: overlay corriendo
+    (isForeground=true), accesibilidad habilitada y bindeada, permiso Activo.
+- [x] **FASE 16-17 (docs)**: este TASK.md + `.ai/CONTEXT.md` + evidencia
+      `AUDIT_2026-08-20_continuidad.txt`. Cambios en repo (3): 2 tests + copy.
+- [x] **FASE 18 (reporte final)**: VERIFICADO/PENDIENTES/DECISIONES abajo.
+- [x] **FASE 19 (STOP)**: DETENERSE. Esperando confirmación.
+
+### Siguiente (NO abierto)
+
+- Continuar pendientes condicionados (fase 10 con dump a11y de oferta real en
+  vivo; resto = validación E1a según `docs/testing/SPRINT_12_DEVICE_VALIDATION.md` §15).
+- NO abrir Sprint 13 ni monetización (E1b) sin autorización explícita.
+
+## Tarea anterior
+
 **SPRINT 12 / WP-12-CALC-04 (19-ago-2026). COMPLETADO + VALIDADO en DEVICE-01
 y en verde. Rentabilidad con TODOS los datos disponibles (monto y/o distancia
 y/o duración) sin inventar métricas + overlay como SEMÁFORO SIN TEXTO (cada

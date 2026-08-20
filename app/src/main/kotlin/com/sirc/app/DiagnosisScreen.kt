@@ -35,8 +35,8 @@ import kotlin.math.roundToInt
 
 /**
  * Diagnóstico del overlay: estado de los 5 requisitos (overlay, accesibilidad,
- * servicio en ejecución, notificaciones, batería) + vista previa con datos
- * simulados.
+ * servicio en ejecución, notificaciones, batería) + última oferta evaluada por
+ * el overlay en tiempo real.
  */
 @Composable
 fun DiagnosisScreen(
@@ -111,13 +111,13 @@ fun DiagnosisScreen(
             }
         }
 
-        SectionCard(title = "Vista previa (datos simulados)") {
+        SectionCard(title = "Última oferta evaluada") {
             val evaluation = overlayState.evaluation
             if (evaluation == null) {
                 Text(
                     text =
                         "El overlay aún no muestra datos. Inicia el overlay para ver " +
-                            "una oferta simulada cada 20 segundos.",
+                            "aquí la última oferta procesada en tiempo real.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

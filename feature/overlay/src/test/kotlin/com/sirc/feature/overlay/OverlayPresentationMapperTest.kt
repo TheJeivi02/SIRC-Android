@@ -295,6 +295,22 @@ class OverlayPresentationMapperTest {
     }
 
     @Test
+    fun `compactMode no altera los indicadores activos`() {
+        val base = mapper(state(), engine)
+        val compact = mapper(state(config = OverlayConfig(compactMode = true)), engine)
+
+        assertEquals(base?.decision?.label, compact?.decision?.label)
+        assertEquals(base?.decision?.state, compact?.decision?.state)
+        assertEquals(base?.offer?.platform, compact?.offer?.platform)
+        assertEquals(base?.offer?.amount, compact?.offer?.amount)
+        assertEquals(base?.offer?.summary, compact?.offer?.summary)
+        assertEquals(
+            base?.metricRows.orEmpty().map { it.left.label to it.right?.label },
+            compact?.metricRows.orEmpty().map { it.left.label to it.right?.label },
+        )
+    }
+
+    @Test
     fun `showDecision desactivado oculta la decision pero conserva oferta y metricas`() {
         val config = OverlayConfig(showDecision = false)
         val presentation = mapper(state(config = config), engine)

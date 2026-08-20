@@ -1,6 +1,7 @@
 package com.sirc.feature.settings
 
 import com.sirc.domain.model.AdditionalCost
+import com.sirc.domain.model.DecisionThresholds
 import com.sirc.domain.model.DriverConfig
 import com.sirc.domain.model.OverlayConfig
 import com.sirc.domain.model.RidePlatform
@@ -186,6 +187,59 @@ class SettingsViewModelTest {
             viewModel.updateCosts(current.costs.copy(costPerTrip = 9.0))
 
             assertEquals(2.5, viewModel.state.value.derivedCostPerKm, 0.001)
+        }
+
+    @Test
+    fun `el objetivo por hora persistido se carga`() =
+        runTest(dispatcher) {
+            configRepo.config =
+                persistedConfig().copy(
+                    thresholds = DecisionThresholds(minProfitPerKm = 0.5, minProfitPerHour = 11.0),
+                )
+            advanceUntilIdle()
+
+            assertEquals(11.0, viewModel.state.value.config.thresholds.minProfitPerHour, 0.001)
+        }
+
+    @Test
+    fun `cambiar el objetivo por hora de 11 a otro valor y guardar persiste el nuevo valor`() =
+        runTest(dispatcher) {
+            configRepo.config =
+                persistedConfig().copy(
+                    thresholds = DecisionThresholds(minProfitPerKm = 0.5, minProfitPerHour = 11.0),
+                )
+            advanceUntilIdle()
+
+            viewModel.updateThresholds(DecisionThresholds(minProfitPerKm = 0.5, minProfitPerHour = 15.0))
+            viewModel.save()
+            advanceUntilIdle()
+
+            assertTrue(viewModel.state.value.saved)
+            assertEquals(15.0, configRepo.savedConfig?.thresholds?.minProfitPerHour ?: -1.0, 0.001)
+        }
+
+    @Test
+    fun `recargar despues de guardar recupera el objetivo modificado`() =
+        runTest(dispatcher) {
+            configRepo.config =
+                persistedConfig().copy(
+                    thresholds = DecisionThresholds(minProfitPerKm = 0.5, minProfitPerHour = 11.0),
+                )
+            advanceUntilIdle()
+            viewModel.updateThresholds(DecisionThresholds(minProfitPerKm = 0.5, minProfitPerHour = 15.0))
+            viewModel.save()
+            advanceUntilIdle()
+
+            val reloaded =
+                SettingsViewModel(
+                    getDriverConfig = GetDriverConfigUseCase(configRepo),
+                    saveDriverConfig = SaveDriverConfigUseCase(configRepo),
+                    getOverlayConfig = GetOverlayConfigUseCase(overlayRepo),
+                    saveOverlayConfig = SaveOverlayConfigUseCase(overlayRepo),
+                )
+            advanceUntilIdle()
+
+            assertEquals(15.0, reloaded.state.value.config.thresholds.minProfitPerHour, 0.001)
         }
 
     private class FakeDriverConfigRepository : DriverConfigRepository {

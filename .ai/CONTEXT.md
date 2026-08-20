@@ -310,6 +310,34 @@ Service **nunca** interactúa con otras apps.
 
 ## Estado del proyecto
 
+- **AUDITORÍA DE CONTINUIDAD (20-ago-2026) — 19 fases; 18/18 verificadas, 1
+  PENDING explícito; sin defectos nuevos.** Git limpio (HEAD==origin/main==
+  `2aa02a0`). Fases 1-9/11/14 verificadas en código (ProfitEngine, métricas,
+  recomendación/confianza, overlayContent por-oferta, ProfitState, tests).
+  **Fase 6**: `OverlayConfigTest.kt` (nuevo, 3 tests: `activeIndicatorCount`
+  excluye compactMode, cuenta solo indicadores activos, por defecto cuatro) +
+  `OverlayPresentationMapperTest` (+1, 24 tests) → verdes. **Fase 10 PENDING**:
+  ofertas reales InDrive en vivo registran distance=0.0 (OCR leyó "28,7 kn",
+  unidad mal leída); clasificar A-C requiere dump a11y de oferta real (no
+  asumir causa). **Fase 11**: IMG-REPLAY-01 clasificado — dedup intencional
+  (`InMemoryCaptureFrameCache`, clave `contentHashCode`, MAX_ENTRIES=32;
+  `DefaultCapturePipeline.kt:81`); PARSE_FALLIDO = mislabel del harness
+  (motivo DUPLICATE); verificado físicamente (snapshot=NULL). **Fase 12**:
+  copy obsoleto corregido en `DiagnosisScreen.kt` (título "Última oferta
+  evaluada", texto vacío real) — verificado en pantalla. **Fase 13**:
+  `DecisionThresholds.default()=(4.0,120.0)`; dispositivo 0.5/10.0; usuario
+  mencionó $11/h → 10.0≠11.0 → PENDING_USER_DECISION (no tocar). **Fase 15
+  física (DEVICE-01)**: OCR test build actual (indriver_1 → REJECT −0.42;
+  indriver_2 → WARNING 3.0; uber_2 → WARNING 3.41; uber_1/3 → NO_REQUEST;
+  total 156-260 ms); dedup re-run; persistencia Room (overlay_config
+  `1|1|1|0|0|1|90|45|50|4|500`, driver_config `|0.5|10.0`); Settings toggles
+  ida y vuelta con persistencia real (showProfitPerKm 0→1→0, restaurado);
+  carga limpia 6/6 toggles = DB (el Switch Compose tiene touch target ≥48dp
+  que excede sus bounds visuales); `OverlayService.kt:247` FLAG_NOT_TOUCHABLE;
+  overlay y accesibilidad restaurados (en ejecución/habilitada). Suite AGENTS
+  completa en verde. Evidencia:
+  `docs/testing/evidence/AUDIT_2026-08-20_continuidad.txt`. **STOP: esperando
+  confirmación; no se abren Sprint 13 ni monetización (E1b).**
 - **SPRINT 12 WP-12-CALC-04 completado y VALIDADO en DEVICE-01
   (rentabilidad con todos los datos disponibles + overlay semáforo,
   19-ago-2026, decisión D17.4)**: la evaluación usa monto y/o distancia y/o
