@@ -926,6 +926,27 @@ todas las plataformas empataban → `AMBIGUOUS`. Se endureció la identidad por 
 inequívoco sigue ganando siempre; sin evidencia suficiente → `AMBIGUOUS`/`NONE`
 (`UNSUPPORTED_PLATFORM` en el pipeline). Sin cambio de contrato ni de consumidores.
 
+### D11.15 — G5+G6 verificados: `costPerKm` y `showDecision` ya eran efectivos (20-ago-2026)
+
+**Contexto:** la auditoría post-Sprint 11 marcó G5 (`costPerKm` editable pero
+potencialmente ignorado) y G6 (`showDecision` configurable pero potencialmente
+sin efecto). Este LOOP verificó el estado real sin asumir el defecto.
+
+**Decisión (VERIFICADO, sin cambios de comportamiento):** **G5** — `costPerKm`
+es DERIVADO por `ProfitEvaluationEngine.driverCosts(config)` (única fuente de
+verdad: `fuelPrice/consumo + maintenanceCostPerKm + Σ additionalCosts`) y
+`ProfitEngine.evaluate` lo usa en `costDistance = distance × costPerKm`
+(`ProfitEngine.kt:46`). La UI no lo edita directo ("Costo por km (calculado)")
+y `normalizeCostPerKm()` persiste la columna con el derivado al guardar; el
+motor ignora un valor manual. **G6** — `showDecision` gatea SOLO el
+`DecisionPresentation` en `mapToOverlayPresentation` (null cuando false);
+oferta y métricas siempre se construyen; la evaluación y la persistencia de
+sesión/historial son incondicionales (el pipeline no referencia `showDecision`).
+
+**Consecuencias:** +2 tests de evidencia aditivos (mapper 24→25: misma
+evaluación, solo cambia la visibilidad; settings 11→12: toggle persiste y se
+recupera al recargar). No se modificó comportamiento ni se tocó G2/FASE 10.
+
 ### D11.13 — Unified Capture Source (WP-E3-03)
 
 **Contexto:** la captura se repartía entre `ScreenCapture`/`ScreenFrame`/

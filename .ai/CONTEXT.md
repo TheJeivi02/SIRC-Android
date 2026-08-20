@@ -344,6 +344,26 @@ Service **nunca** interactúa con otras apps.
   completa en verde. Evidencia:
   `docs/testing/evidence/AUDIT_2026-08-20_continuidad.txt`. **CIERRE FASE 13
   hecho y commiteado (`0732e85`, pushed).**
+- **LOOP ENGINEERING G5+G6 VERIFICADO (20-ago-2026) — configuración efectiva:
+  `costPerKm` + `showDecision` ya eran correctos; SIN cambios de comportamiento,
+  solo +2 tests de evidencia**:
+  - **G5 `costPerKm`**: `ProfitEvaluationEngine.driverCosts(config)` lo deriva
+    (única fuente de verdad: fuelPrice/consumo + mantenimiento + Σ adicionales)
+    y `ProfitEngine.evaluate` lo usa en `costDistance = distance × costPerKm`.
+    UI lo muestra "Costo por km (calculado)" y edita sus componentes;
+    `normalizeCostPerKm()` persiste el derivado al guardar; el motor ignora un
+    valor manual (test). Sin hardcode; cambiar componentes 2.5→6.1 cambia la
+    decisión con la misma oferta.
+  - **G6 `showDecision`**: `OverlayConfig.showDecision` persiste en
+    `overlay_config`; `mapToOverlayPresentation` gatea SOLO el
+    `DecisionPresentation` (null cuando false); oferta y métricas siempre se
+    construyen (`OverlayContent` renderiza decision nullable). La evaluación es
+    INCONDICIONAL en `PipelineOverlayDataSource` y sesión/historial usan
+    `evaluation.decision` siempre → `false` no desactiva cálculo ni oculta otros
+    indicadores.
+  - **+2 tests**: `OverlayPresentationMapperTest` (24→25) y
+    `SettingsViewModelTest` (11→12). Suite completa BUILD SUCCESSFUL. G2
+    intacto. **FASE 10 sigue PENDING.**
 - **LOOP ENGINEERING G2 CORREGIDO (20-ago-2026, commit `fix: harden
   multi-platform detection` + docs, push, HEAD==origin/main)**: la detección
   por keywords ya no es ambigua. Antes: `matchScore` puntuaba las `detectionRules`

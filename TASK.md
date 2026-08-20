@@ -6,37 +6,47 @@
 
 ## Tarea actual
 
-**LOOP ENGINEERING G2 (20-ago-2026) — Detección multi-plataforma endurecida y
-con regresión. CORREGIDO y VALIDADO (suite completa en verde, commit + push,
-HEAD==origin/main, working tree limpio).** La detección por keywords ya no
-produce ambigüedad: la identidad por OCR usa solo identificadores fuertes de
-marca (`PlatformDescriptor.platformKeywords`); `matchScore` puntúa solo por esas
-marcas y `KEYWORD_CANDIDATE` exige score > 0; package inequívoco sigue ganando;
-palabras genéricas o dos marcas → `AMBIGUOUS`/`NONE` (`UNSUPPORTED_PLATFORM`),
-nunca inventa plataforma. Matriz 14 casos en `PlatformDetectionEngineTest` +
-`DetectionMatcherTest` (9). Sin cambios en ProfitEngine/Settings/Room/parser de
-campos. FASE 10 sigue PENDING. Antecedente: auditoría de continuidad (18/18 +
-FASE 13 cerrada, commit `8d11514`).
+**LOOP ENGINEERING G5+G6 (20-ago-2026) — Configuración efectiva: `costPerKm` +
+`showDecision`. VERIFICADO como ya correcto (sin cambios de comportamiento);
++2 tests de evidencia; suite completa en verde.** Tras inspección extremo a
+extremo (Settings → persistencia → configuración cargada → evaluación →
+ProfitEngine → recomendación → overlay/presentación) con evidencia en código y
+tests:
 
-### Resultado G2 (detalles)
-
-- **Arquitectura encontrada**: `PlatformDetectionEngine` (package→PACKAGE_MATCH;
-  keywords→candidatos con `matchScore`); seed `PlatformDescriptors` con
-  `detectionRules = defaultRules()` idénticas en las 4 plataformas → el score de
-  keywords era indistinguible (siempre AMBIGUOUS sin package). K2 en
-  `SPRINT_12_DEVICE_VALIDATION.md` lo confirmaba.
-- **Cambios**: `PlatformDescriptor` +`platformKeywords` (identificadores fuertes:
-  uber/didi/cabify/indriver + variantes); `DetectionMatcher.matchScore` puntúa
-  solo identificadores fuertes; `PlatformDetectionEngine` exige score>0 para
-  `KEYWORD_CANDIDATE`. Sin cambio de contrato/consumidores.
-- **Matriz verificada**: package+OCR→package gana; sin package+ marca única→
-  plataforma (4/4); genéricas→AMBIGUOUS; 2 marcas→AMBIGUOUS; texto vacío+package→
-  plataforma; sin señal→NONE.
-- **Tests**: `PlatformDetectionEngineTest` 9→23; `DetectionMatcherTest` 6→9;
-  `K1AmountRegressionTest` 11/11 (regresión intacta). Suite completa BUILD
-  SUCCESSFUL.
-- **Commit**: `fix: harden multi-platform detection` (+ docs). HEAD==origin/main.
-- **FASE 10**: sigue PENDING (no tocada).
+- **G5 `costPerKm` VERIFICADO (ya correcto, FIX-03, sin cambios)**:
+  `ProfitEvaluationEngine.driverCosts(config)` lo DERIVA (única fuente de
+  verdad: `fuelPrice/consumo + maintenanceCostPerKm + Σ additionalCosts`) y
+  `ProfitEngine.evaluate` lo usa (`costDistance = distance × costs.costPerKm`,
+  `ProfitEngine.kt:46`). La UI muestra "Costo por km (calculado)" SOLO lectura
+  y edita sus componentes; al guardar `normalizeCostPerKm()` persiste la
+  columna con el derivado; el motor ignora un `costs.costPerKm` manual (test
+  `el costo por km manual ... no altera el derivado`). Evidencia previa ya
+  suficiente: derivado 2.5→6.1 (componentes), decisión PROFITABLE→no con la
+  misma oferta, sin hardcode, persistencia `costPerKm=3.0` normalizado en
+  `SettingsViewModelTest`. No existe ruta que sustituya el valor configurado
+  por una constante.
+- **G6 `showDecision` VERIFICADO (ya correcto, sin cambios)**:
+  `OverlayConfig.showDecision` (default true) persiste en `overlay_config`
+  (Mapper ida/vuelta, columnas `OverlayConfigEntity`); toggle en Settings →
+  `updateOverlay` → `save`. `mapToOverlayPresentation` (`OverlayPresentation.kt:84`)
+  gatea SOLO el `DecisionPresentation` (null cuando false); oferta y métricas
+  siempre se construyen y `OverlayContent.kt:134` renderiza `decision` nullable.
+  La EVALUACIÓN es incondicional (`PipelineOverlayDataSource:139`
+  `evaluateUseCase(offer)` sin gate; `showDecision` no se referencia en el
+  pipeline) y sesión/historial usan `evaluation.decision` siempre
+  (`recordOffer`/persist). `false` no desactiva cálculo ni oculta otros
+  indicadores.
+- **+2 tests de evidencia (aditivos, sin tocar producción)**:
+  `OverlayPresentationMapperTest` (+1 → 25) `showDecision solo altera la
+  visibilidad de la decision y no el calculo`: misma evaluación con true/false
+  → decisión visible vs null, oferta y metricRows IDÉNTICAS;
+  `SettingsViewModelTest` (+1 → 12) `toggle showDecision se persiste al guardar
+  y se recupera al recargar`: savedOverlay.showDecision=false y recarga
+  recupera false.
+- **Regresión**: ProfitEngineTest, RecommendationEngineTest,
+  OverlayEvaluationEngineTest, OverlayConfigTest y G2 (PlatformDetection
+  EngineTest 23, DetectionMatcherTest 9, K1 11/11) intactos. Suite completa
+  BUILD SUCCESSFUL. **G2 permanece intacto. FASE 10 sigue PENDING.**
 
 ## Tarea anterior
 

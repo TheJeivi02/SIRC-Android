@@ -242,6 +242,32 @@ class SettingsViewModelTest {
             assertEquals(15.0, reloaded.state.value.config.thresholds.minProfitPerHour, 0.001)
         }
 
+    @Test
+    fun `toggle showDecision se persiste al guardar y se recupera al recargar`() =
+        runTest(dispatcher) {
+            configRepo.config = persistedConfig()
+            advanceUntilIdle()
+
+            val current = viewModel.state.value.overlayConfig
+            viewModel.updateOverlay(current.copy(showDecision = false))
+            viewModel.save()
+            advanceUntilIdle()
+
+            assertTrue(viewModel.state.value.saved)
+            assertFalse(overlayRepo.savedOverlay.showDecision)
+
+            val reloaded =
+                SettingsViewModel(
+                    getDriverConfig = GetDriverConfigUseCase(configRepo),
+                    saveDriverConfig = SaveDriverConfigUseCase(configRepo),
+                    getOverlayConfig = GetOverlayConfigUseCase(overlayRepo),
+                    saveOverlayConfig = SaveOverlayConfigUseCase(overlayRepo),
+                )
+            advanceUntilIdle()
+
+            assertFalse(reloaded.state.value.overlayConfig.showDecision)
+        }
+
     private class FakeDriverConfigRepository : DriverConfigRepository {
         private val flow = MutableStateFlow<DriverConfig?>(null)
 

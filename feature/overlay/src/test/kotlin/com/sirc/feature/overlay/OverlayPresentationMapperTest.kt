@@ -321,6 +321,19 @@ class OverlayPresentationMapperTest {
     }
 
     @Test
+    fun `showDecision solo altera la visibilidad de la decision y no el calculo`() {
+        val visible = mapper(state(), engine)
+        val hidden = mapper(state(config = OverlayConfig(showDecision = false)), engine)
+
+        // Misma evaluación con el toggle en ambos estados: solo la presentación
+        // de la decisión cambia; oferta y métricas permanecen idénticas.
+        assertNotNull(visible?.decision)
+        assertNull(hidden?.decision)
+        assertEquals(visible?.offer, hidden?.offer)
+        assertEquals(visible?.metricRows, hidden?.metricRows)
+    }
+
+    @Test
     fun `montos con decimales largos se redondean a dos digitos`() {
         val evaluation = evaluation(estimatedProfit = 4.0867, totalCost = 60.0, estimatedTotal = 125.0)
         val config = OverlayConfig(showProfitPerHour = true, showTripSummary = false)
