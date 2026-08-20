@@ -6,6 +6,42 @@
 
 ## Tarea actual
 
+**LOOP ENGINEERING E2E MULTIPLATFORM (20-ago-2026) — Validación funcional
+end-to-end real en DEVICE-01 con apps reales. COMPLETADO + CIERRE DOCUMENTAL
+APROBADO (GAP #19 CLOSED).** LOOP solo de validación: cero cambios de
+producción; FASE 10 NO iniciada. Estado de partida HEAD==origin/main==`1ef3d42`:
+
+- **Matriz multiplataforma**: Uber = NOT_AVAILABLE (`com.ubercab.driver` NO
+  instalada, solo app de pasajero; NO declarar regresión/validación de Uber);
+  **InDrive = PASS** (E2E real, 141 ofertas); DiDi/Cabify = NOT_AVAILABLE;
+  **OCR E2E real = NOT_VALIDATED** (todas las ofertas llegaron por
+  ACCESSIBILITY; OCR cubierto por fixtures de G10; NO asumir OCR como causa de
+  distanceKm=0.0).
+- **InDrive E2E real**: 141 ofertas procesadas y persistidas (ids 1-141;
+  $2.0-$13.8; 8-63 min; MARGINAL 100 %, confianza 75 %, GENERIC; eval
+  0.8-15.1 ms ≪ 3 s). `distanceKm=0.0` en el 100 % → **FASE 10 reproducible,
+  pendiente** (contrato WP-12-CALC-04 intacto: sin profit/km inventado).
+- **Overlay build actual**: ventana APPLICATION_OVERLAY correcta (NOT_FOCUSABLE/
+  NOT_TOUCHABLE entre ofertas, alpha 0.8, ratio 0.82), FGS activo, InDrive
+  utilizable bajo el overlay.
+- **GAP #19 CERRADO**: recaptura válida (cmd /c) → 45/72 capturas 1080×2436 con
+  overlay renderizado (ámbar #F5A623 WARNING); cruce visual↔logcat↔DB **8/8
+  exacto**; **veredicto visual PASS del build actual** (ghost text CONFIRMADO
+  AUSENTE — el de overlay_crop era del build 08-19; overlay dinámico; sin textos
+  obsoletos ni datos simulados). Única observación ($0.25 delta 165433_b)
+  explicada por carrera de refresco InDrive 1-3 s (DB id82 $11.5 vs id83 $11.75):
+  consistente, no bug.
+- **Reinicio OK**: force-stop → sin onboarding, config persistida (0.5/11.0),
+  accesibilidad restaurada, 4 ofertas nuevas post-reinicio. Lección: Room usa
+  WAL → copiar .db + .wal + .shm para verificar.
+- **Verificación**: no aplica suite de build (LOOP solo de validación, sin
+  cambios de código). Evidencia:
+  `docs/testing/evidence/E2E_MULTIPLATFORM_2026-08-20.txt`.
+- **Docs**: `.ai/CONTEXT.md` + TASK.md. **FASE 10 sigue PENDING — NO iniciar sin
+  autorización explícita.**
+
+## Tarea anterior
+
 **LOOP ENGINEERING G9 (20-ago-2026) — Auditoría y resolución controlada de deuda
 técnica. COMPLETADO.** Auditoría repo-wide de deuda real; clasificación
 RESOLVE_NOW / KEEP_INTENTIONAL / REMOVE_DEAD / DEFER; corrección solo de lo

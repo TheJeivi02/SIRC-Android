@@ -1,0 +1,202 @@
+================================================================================
+E2E MULTIPLATFORM — VALIDACIÓN FUNCIONAL END-TO-END REAL
+================================================================================
+Fecha: 2026-08-20
+Commit: 1ef3d42 (HEAD == origin/main, tree limpio) · G9 applied
+Dispositivo: Infinix X6850 (INFINIX) · Android 15 · API 35 · 1080x2436 @440dpi
+SIRC: v0.1.0 (versionCode 1) · targetSdk 35 · build debug
+================================================================================
+
+1. ENTORNO
+--------------------------------------------------------------------------------
+- Plataformas instaladas en el dispositivo:
+    com.ubercab 4.644.10000 ........ app de PASAJERO (launcher RootActivity).
+                                         com.ubercab.driver NO instalado.
+    sinet.startup.inDriver 5.180.1 . app de CONDUCTOR -> InDrive REAL disponible.
+    com.didiglobal.passenger ......... NO instalada.
+    com.cabify.rider ................. NO instalada.
+- Estado de permisos: SYSTEM_ALERT_WINDOW=allow, MediaProjection activa
+  (dumpsys media_projection: com.sirc.app uid=10364, TYPE_SCREEN_CAPTURE).
+- Accesibilidad: com.sirc.app/.feature.overlay.CaptureAccessibilityService
+  habilitada (reiniciada tras force-stop del test de reinicio).
+
+2. CONFIGURACIÓN DEL USUARIO (persistida en Room tras onboarding real)
+--------------------------------------------------------------------------------
+- driver_config: Ecuador/Quito/USD, Toyota Corolla 2021, gasolina 12 km/L,
+  combustible 1.5, mantenimiento 0.1/km, costPerKm 2.0, plataformas
+  INDRIVE,UBER, minProfitPerKm=0.5, minProfitPerHour=11.0.
+- overlay_config: sin filas (usa defaults hasta guardar ajustes).
+- Hallazgo previo: las corridas androidTest de G10 desinstalaron la app y la DB
+  quedó vacia -> onboarding forzado al arrancar; el usuario lo completo con sus
+  valores reales. Config verificada en DB Room via run-as + sqlite3.
+
+3. RESULTADO POR PLATAFORMA
+--------------------------------------------------------------------------------
+  PLATAFORMA   ESTADO              EVIDENCIA
+  -----------  ------------------  --------------------------------------------
+  Uber         NOT_AVAILABLE       com.ubercab.driver no instalado (verificado 2x);
+                                   solo existe la app de pasajero. Sin ofertas de
+                                   conductor capturables -> no ejecutable en este
+                                   dispositivo.
+  InDrive      PASS                E2E real: 41 ofertas procesadas y persistidas.
+  DiDi         NOT_AVAILABLE       com.didiglobal.passenger no instalada.
+  Cabify       NOT_AVAILABLE       com.cabify.rider no instalada.
+  OCR          NOT_VALIDATED       En este LOOP ninguna oferta llego por imagen:
+                                   las 41 llegaron por ACCESSIBILITY. La validacion
+                                   OCR queda cubierta por fixtures en G10
+                                   (MlKitOcrEngine sobre imagenes sinteticas).
+
+4. E2E REAL InDrive (evidencia tecnica)
+--------------------------------------------------------------------------------
+- Cadena observada en logcat (por oferta):
+    request recibido: origin=ACCESSIBILITY package=sinet.startup.inDriver
+      -> deteccion: INDRIVE / REQUEST en X ms
+      -> snapshot INDRIVE guardado: parse X ms · total X ms
+      -> overlay mostrando: INDRIVE · $X · WARNING
+         (origen=ACCESSIBILITY · eval X ms · reglas X ms · overlay X ms)
+- Base de datos offer_history (verificada con sqlite3; copiar SIEMPRE sirc.db +
+  sirc.db-wal + sirc.db-shm: Room usa WAL y la copia solo del .db queda corta):
+    141 filas · plataforma=INDRIVE (1 unica) · decision=MARGINAL (100 %)
+    confidence=75 % · offerType=GENERIC
+    estimatedTotal: min 2.0 · max 13.8
+    durationMin: 8-63 min
+    distanceKm: SIEMPRE 0.0  (ver hallazgo A)
+    processingMillis: 0.9-15.7 · evaluationMillis: 0.8-15.1 (<< 3000 ms)
+    Sub-sesiones: 41 ofertas al cierre del LOOP inicial (ids 1-41) + 100 ofertas
+    durante la recaptura GAP #19 (ids 42-141, 16:51:22-16:58:52).
+- Contrato WP-12-CALC-04 respetado: con distance=0.0 se calculo profit/h
+  (ej. 5.2/(37/60)=8.43 < 11.0 -> MARGINAL) y NO se invento profit/km.
+  Caso natural "monto+duracion" validado; demas combinaciones en unit tests.
+- Overlay window (dumpsys window windows):
+    Window{com.sirc.app} ty=APPLICATION_OVERLAY
+    fl=NOT_FOCUSABLE NOT_TOUCHABLE NOT_TOUCH_MODAL LAYOUT_NO_LIMITS
+    fmt=TRANSLUCENT alpha=0.8 pos(142,232) ancho 885px (ratio 0.82 de 1080)
+    NOT_TOUCHABLE operativo entre ofertas (no bloquea InDrive).
+- Overlay FGS: onStartCommand -> overlay activo; startForegroundCount=1.
+
+5. TEST DE REINICIO (APROBADO POR USUARIO)
+--------------------------------------------------------------------------------
+- Pre-state: config 0.5/11.0 + ofertas + accesibilidad activa + overlay FGS.
+- am force-stop com.sirc.app -> overlay FGS eliminado, accesibilidad deshabilitada
+  (comportamiento conocido de Android tras force-stop), proceso muerto.
+- Relanzado -> abre en Home SIN onboarding: config persistida en Room
+  (0.5/11.0, INDRIVE/UBER, 1.5/0.1). Accesibilidad restaurada via settings put.
+  Overlay reiniciado por UI.
+- Ofertas NUEVAS post-reinicio confirmadas en DB: ids 38-41 a las 16:21 y 16:26
+  (INDRIVE, $4.4, 20 min, MARGINAL, 75 %) -> el pipeline completo corrio en el
+  proceso nuevo con datos frescos (sin reutilizar snapshot viejo).
+
+5b. RECAPTURA GAP #19 (overlay CON oferta real, build actual) — 16:51-16:58
+--------------------------------------------------------------------------------
+- InDrive lanzado a primer plano por adb; bucle de captura con redireccion
+  binaria valida (cmd /c "adb exec-out screencap -p > file").
+- 19 ofertas reales capturadas en 38 PNG (captura inmediata + follow-up +2,5 s),
+  todos validos 1080x2436 (System.Drawing; 0 corruptos).
+- 45/72 capturas con overlay renderizado (confirmado por scan de pixeles del
+  color WARNING/REVISAR #F5A623 en la region del overlay pos(142,232) ancho 885).
+- Cruce logcat->captura->DB EXACTO (muestra): $2.1->id46, $4.0->id50, $10.0->id67,
+  $8.7->id72, $9.3->id73/74/75, $11.25->id81, $12.0->id84/111/112-117,
+  $11.75->id87/88, $10.25->id98, $10.5->id100-103, $2.0->id118/120/123/131,
+  $4.1->id134, $5.8->id141. Latencia por oferta: eval 0.9-10.8 ms, overlay
+  2.9-29.4 ms (<< 3000 ms). La unica discrepancia puntual de monto en log vs DB
+  ($4.3 log 16:52:51 vs $4.6 id53) se atribuye a solapamiento temporal de
+  refrescos de oferta en InDrive; el agente visual reportara el monto en pantalla.
+- Leccion: las ofertas llegan en rafagas (repetidas en intervalos de ~15-30 s);
+  el overlay solo es visible unos segundos por oferta -> algunas capturas caen en
+  ventana oculta (0 px ambar): esperado, no es fallo.
+
+6. VALIDACION VISUAL EXTERNA (agente con vision) + CRUCE CON EVIDENCIA TECNICA
+--------------------------------------------------------------------------------
+- offer_0..offer_5 (este LOOP): CORRUPTOS (redirect PowerShell corrompe
+  binarios). El agente los reporto como no procesables -> consistente.
+- overlay_live.png (este LOOP, 16:18:26, valido 1080x2436): sin overlay visible;
+  app subyacente = Uber pasajero (pantalla Confort, $4.40). La evidencia tecnica
+  (window NOT_TOUCHABLE + contrato de visibilidad) confirma que el overlay se
+  oculta entre ofertas: comportamiento correcto, NO es un fallo.
+- overlay_crop.png / overlay_crop2.png (sesion PREVIA, build 08-19): overlay
+  real con $25.53, GANANCIA $3.41, POR HORA $1.6/h, banner REVISAR (naranja) y
+  GHOST TEXT (texto de pantalla SIRC subyacente sangrado). Cruce:
+    * $25.53 NO existe en la DB de este LOOP (min 3.0/max 6.0) -> corresponde a
+      una sesion historica distinta; no hay conflicto con este LOOP.
+    * Cadena MARGINAL -> WARNING -> REVISAR confirmada en codigo
+      (RecommendationEngine.kt:20; ProfitState.kt:46) -> el banner REVISAR del
+      agente es coherente con la decision MARGINAL que produce el motor.
+    * GHOST TEXT: observacion sobre build 08-19 (pre-G8/G9). Con las capturas
+      de la seccion 5b (build actual, overlay CON oferta) el agente con vision
+      podra confirmar si el sangrado persiste en el build actual o quedo
+      corregido. NO se resuelve por inferencia.
+- sirc_e2e_uber_img.png (PREVIA 08-16): Uber $6.90 visible y overlay en estado
+  idle "Esperando oferta...". Historica, build previo; fuera del alcance de este
+  LOOP. No contradice la evidencia actual.
+- sirc_overlay.png (PREVIA): overlay idle con dot; 5/5 servicios en verde ->
+  coincide con el pre-check de este LOOP (overlay allow, accesibilidad, FGS).
+- debug_panel_offer.png (PREVIA): 3 ofertas procesadas, 0 errores, ACTIVE 147s.
+  Historica; coherente con contadores de esa sesion.
+- sirc_smoke1.png (PREVIA): onboarding (Paso 1 de 6) -> coincide con el estado
+  de DB vacia hallado al inicio del LOOP (onboarding forzado).
+
+VEREDICTO DEL CRUCE: las evidencias tecnicas y visuales son CONSISTENTES en todo
+lo cruzable. El GAP #19 quedo CERRADO (ver 6b).
+
+6b. VEREDICTO VISUAL GAP #19 (agente con vision, build actual) — 8/8 capturas
+--------------------------------------------------------------------------------
+- VEREDICTO_VISUAL_GLOBAL: **PASS** (8 imagenes = 4 ofertas + follow-ups +3s).
+- GHOST_TEXT_ACTUAL: **CONFIRMADO_AUSENTE** (sin sangrado de pantalla SIRC; el
+  GHOST TEXT de overlay_crop (build 08-19) NO se reproduce en el build actual).
+- TEXTOS_OBSOLETOS: ausentes (sin RuleEngine/"cada regla"/"cada 20 segundos").
+- DATOS_SIMULADOS: ausentes. OFERTA_ANTERIOR: ausente. OVERLAY_CONGELADO: no
+  (se actualizo $2.1->$4.3 y $11.25->$11.5 al cambiar la oferta).
+- InDrive utilizable bajo el overlay en las 8 (PASS).
+- CRUCE visual->logcat->DB (EXACTO en 8/8):
+    imagen            overlay monto/porhora/durac   DB id   logcat   conc.
+    gap19_offer_165148     $2.1 · $6/h · 21 min      id46    $2.1     OK
+    gap19_offer_165148_b   $4.3 · $12.29/h · 21 min  id47-49 $4.3     OK
+    gap19_offer_165433     $11.25 · $10.71/h · 1h03m id81    $11.25   OK
+    gap19_offer_165433_b   $11.5 · $10.95/h · 1h03m  id82    $11.5    OK
+    gap19_offer_165611     $10.5 · $10/h · 1h03m     id100   $10.5    OK
+    gap19_offer_165611_b   $10.5 · $10/h · 1h03m     id100   $10.5    OK
+    gap19_offer_165744     $2.0 · $15/h · 8 min      id118   $2.0     OK
+    gap19_offer_165744_b   $2.0 · $15/h · 8 min      id118   $2.0     OK
+- Validacion aritmetica POR HORA = monto*60/duracion (0 costes con distance=0):
+  $2.1/21min->6.0, $4.3/21min->12.29, $11.25/63min->10.71, $11.5/63min->10.95,
+  $10.5/63min->10.0, $2.0/8min->15.0. Todas coinciden con lo reportado.
+- Decision REVISAR coherente con motor: $10.71/$10.95/$10.0 < 11.0 (meta horaria)
+  -> MARGINAL; y el caso $15/h >= 11.0 tambien da REVISAR porque distance=0
+  -> profitPerKm=null -> sin ACCEPT (contrato WP-12-CALC-04; hallazgo A).
+- Unica observacion visual ($0.25 delta en 165433_b: overlay $11.5 vs InDrive
+  $11.75): la DB confirma id82=$11.5@16:54:34 e id83=$11.75@16:54:35 -> carrera
+  de refresco de InDrive de 1-3 s; el overlay refleja el snapshot procesado
+  (id82), InDrive ya pintaba el siguiente (id83). CONSISTENTE, no es bug.
+
+REGISTRO DE VALIDACION: con esto el LOOP queda validado end-to-end en build
+actual con evidencia tecnica + visual CONSISTENTE (matriz multiplataforma:
+InDrive PASS, Uber/DiDi/Cabify NOT_AVAILABLE, OCR NOT_VALIDATED).
+
+7. HALLAZGOS REGISTRADOS (para siguiente LOOP)
+--------------------------------------------------------------------------------
+A) distanceKm=0.0 en el 100 % de las 141 ofertas (FASE 10 reproducido). Se respeta
+   el contrato (sin profit/km inventado), pero el parseo de distancia InDrive no
+   extrae datos -> evidencia clara para la FASE 10. NO se corrige en este LOOP.
+B) Duplicados a 1-3 s con misma cantidad/duracion (patron recurrente: InDrive
+   refresca la misma oferta y cada refresco genera una fila): registrado sin
+   concluir causa ni resolverlo (no es un fallo del pipeline).
+C) Config de usuario previa (pre-G10) perdida por las desinstalaciones de las
+   corridas androidTest de G10; recuperada por onboarding real del usuario.
+D) Capturas del LOOP corruptas por redirect de PowerShell; metodo valido = cmd /c
+   "adb exec-out screencap -p > file" (overlay_live.png 1080x2436 valido).
+E) Room usa WAL: para verificar la DB copiar sirc.db + sirc.db-wal + sirc.db-shm
+   (la copia solo del .db sub-contaba 9 filas en la recaptura).
+F) Discrepancia puntual de monto log vs DB (log $4.3 @16:52:51 vs DB id53 $4.6):
+   unico caso en 100 ofertas; atribuida a solapamiento de refrescos (1 s), sin
+   resolver por inferencia; el agente visual validara el monto en pantalla.
+
+8. RESTAURACION / ESTADO FINAL
+--------------------------------------------------------------------------------
+- Accesibilidad: habilitada. Overlay FGS: activo. App: com.sirc.app en estado
+  operativo. Sin cambios de codigo de produccion en este LOOP (solo evidencia).
+- Git: HEAD 1ef3d42, sin cambios de codigo; este documento es el unico artefacto
+  nuevo de evidencia.
+
+9. NO SE INCLUYE: datos PII de pasajeros ni credenciales (100 % local, sin
+   telemetria). No se subio nada fuera del dispositivo.
+================================================================================

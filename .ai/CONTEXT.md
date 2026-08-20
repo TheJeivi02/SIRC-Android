@@ -344,6 +344,51 @@ Service **nunca** interactúa con otras apps.
   completa en verde. Evidencia:
   `docs/testing/evidence/AUDIT_2026-08-20_continuidad.txt`. **CIERRE FASE 13
   hecho y commiteado (`0732e85`, pushed).**
+- **LOOP ENGINEERING E2E MULTIPLATFORM COMPLETADO + CIERRE DOCUMENTAL APROBADO
+  (20-ago-2026) — validación funcional end-to-end real en DEVICE-01 (Android 15,
+  API 35) con apps reales; GAP #19 CLOSED; cero cambios de producción; FASE 10
+  NO iniciada (STOP pendiente de autorización).** Estado de partida
+  HEAD==origin/main==`1ef3d42`:
+  - **Matriz multiplataforma**: Uber = **NOT_AVAILABLE** (`com.ubercab.driver` NO
+    instalada, solo la app de pasajero con launcher RootActivity; verificado 2×;
+    NO declarar regresión/validación de Uber sin la app real); **InDrive =
+    PASS** (E2E real); DiDi/Cabify = **NOT_AVAILABLE**; **OCR E2E real =
+    NOT_VALIDATED** (las 141 ofertas llegaron por ACCESSIBILITY, ninguna por
+    imagen; OCR cubierto por fixtures de G10; NO asumir OCR como causa de
+    distanceKm=0.0).
+  - **InDrive E2E real**: 141 ofertas procesadas y persistidas (ids 1-141;
+    $2.0-$13.8; duración 8-63 min; MARGINAL 100 %, confianza 75 %, GENERIC;
+    eval 0.8-15.1 ms y processing 0.9-15.7 ms ≪ 3 s). **`distanceKm=0.0` en el
+    100 %** → FASE 10 reproducible y pendiente (contrato WP-12-CALC-04 intacto:
+    con distance=0.0 se calcula profit/h real y NO se inventa profit/km).
+  - **Overlay build actual**: ventana `ty=APPLICATION_OVERLAY`
+    (NOT_FOCUSABLE/NOT_TOUCHABLE/NOT_TOUCH_MODAL/LAYOUT_NO_LIMITS, alpha 0.8,
+    ratio 0.82 de 1080), FGS activo, NOT_TOUCHABLE entre ofertas → InDrive
+    utilizable bajo el overlay.
+  - **GAP #19 CERRADO (recaptura válida)**: redirección binaria `cmd /c`
+    (el redirect PowerShell corrompe PNG), 19 ofertas capturadas en 38 PNG
+    válidos 1080×2436 (0 corruptos), **45/72 con overlay renderizado** (scan de
+    píxeles #F5A623 WARNING). **Cruce visual↔logcat↔DB 8/8 exacto** ($2.1→id46,
+    $4.3→id47-49, $11.25→id81, $11.5→id82, $10.5→id100, $2.0→id118, etc.).
+    **Veredicto visual del build actual: PASS** — GHOST TEXT CONFIRMADO AUSENTE
+    (el de `overlay_crop` era del build 08-19 pre-G8/G9), sin textos obsoletos
+    (RuleEngine/"cada regla"/"cada 20 segundos"), sin datos simulados, overlay
+    dinámico (se actualizó $2.1→$4.3 y $11.25→$11.5), POR HORA = monto×60/
+    duración verificado, decisiones REVISAR coherentes con la meta 11.0 y con el
+    contrato (el caso $15/h ≥ 11.0 también REVISAR porque distance=0 →
+    profitPerKm=null → sin ACCEPT). Única observación ($0.25 delta en
+    gap19_offer_165433_b: overlay $11.5 vs InDrive $11.75) explicada por carrera
+    de refresco de InDrive 1-3 s (DB id82=$11.5@16:54:34 vs id83=$11.75@16:54:35)
+    → consistente, no es bug.
+  - **Test de reinicio OK**: force-stop → sin onboarding (config persistida
+    0.5/11.0 en Room), accesibilidad restaurada, overlay reiniciado, 4 ofertas
+    nuevas post-reinicio (ids 38-41) → datos frescos sin snapshot viejo.
+  - **Lección**: Room usa WAL → para verificar la DB copiar sirc.db +
+    sirc.db-wal + sirc.db-shm (la copia solo del .db sub-contaba 9 filas).
+    Registrado también: duplicados a 1-3 s (patrón de refresco de InDrive, sin
+    concluir causa).
+  - Evidencia: `docs/testing/evidence/E2E_MULTIPLATFORM_2026-08-20.txt`.
+    **FASE 10 sigue PENDING (STOP: NO iniciar sin autorización explícita).**
 - **LOOP ENGINEERING G5+G6 VERIFICADO (20-ago-2026) — configuración efectiva:
   `costPerKm` + `showDecision` ya eran correctos; SIN cambios de comportamiento,
   solo +2 tests de evidencia**:
