@@ -253,8 +253,6 @@ class DefaultCapturePipelineTest {
             assertTrue(metrics.ocrCalls > 0)
             assertTrue(metrics.parseCalls > 0)
             val last = pipeline.lastMetrics.value
-            assertNotNull(last.captureMillis)
-            assertEquals(0.0, last.captureMillis)
             assertNotNull(last.ocrMillis)
             assertNotNull(last.detectionMillis)
             assertNotNull(last.parseMillis)
@@ -269,8 +267,6 @@ class DefaultCapturePipelineTest {
 
             assertEquals(1, performanceTracker.lastOffers.value.size)
             val timing = performanceTracker.lastOffers.value.single()
-            assertNotNull(timing.captureMillis)
-            assertEquals(0.0, timing.captureMillis)
             assertNotNull(timing.detectionMillis)
             assertNotNull(timing.parseMillis)
             assertNotNull(timing.totalMillis)

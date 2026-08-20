@@ -138,7 +138,6 @@ class DefaultCapturePipeline @Inject constructor(
             repository.save(snapshot)
             performanceTracker.record(
                 OfferTiming(
-                    captureMillis = 0.0,
                     ocrMillis = if (request.imageData != null) lastOcrMillis else null,
                     detectionMillis = snapshot.detectionMillis,
                     parseMillis = parseMillis,
@@ -157,7 +156,6 @@ class DefaultCapturePipeline @Inject constructor(
         }
         _lastMetrics.value =
             ProcessingMetrics(
-                captureMillis = 0.0,
                 ocrMillis = if (request.imageData != null) lastOcrMillis else null,
                 detectionMillis = snapshot?.detectionMillis,
                 parseMillis = parseMillis,

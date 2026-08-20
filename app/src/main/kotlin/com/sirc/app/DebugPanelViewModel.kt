@@ -65,7 +65,6 @@ class DebugPanelViewModel @Inject constructor(
         val activeSession: OfferCaptureSession? = null,
         val lastSnapshot: OfferSnapshot? = null,
         val lastProcessingTimeMillis: Double? = null,
-        val lastCaptureMillis: Double? = null,
         val lastOcrMillis: Double? = null,
         val lastDetectionMillis: Double? = null,
         val lastParseMillis: Double? = null,
@@ -76,7 +75,6 @@ class DebugPanelViewModel @Inject constructor(
         val flags: List<FlagStatus> = emptyList(),
         val lastOffer: OfferEvaluationRecord? = null,
         val lastTiming: OfferTiming? = null,
-        val avgCaptureMillis: Double? = null,
         val avgOcrMillis: Double? = null,
         val avgDetectionMillis: Double? = null,
         val avgParseMillis: Double? = null,
@@ -223,7 +221,6 @@ class DebugPanelViewModel @Inject constructor(
             appendLine("Errores: ${session.errors}")
             appendLine()
             appendLine("== Rendimiento (promedio) ==")
-            appendLine("Captura: ${avg.captureMillis ?: "-"} ms")
             appendLine("OCR: ${avg.ocrMillis ?: "-"} ms")
             appendLine("Detección: ${avg.detectionMillis ?: "-"} ms")
             appendLine("Parseo: ${avg.parseMillis ?: "-"} ms")
@@ -234,7 +231,6 @@ class DebugPanelViewModel @Inject constructor(
             appendLine()
             appendLine("== Última oferta ==")
             if (last != null) {
-                appendLine("Captura: ${last.captureMillis ?: "-"} ms")
                 appendLine("OCR: ${last.ocrMillis ?: "-"} ms")
                 appendLine("Parseo: ${last.parseMillis ?: "-"} ms")
                 appendLine("Reglas: ${last.rulesMillis ?: "-"} ms")
@@ -282,7 +278,6 @@ class DebugPanelViewModel @Inject constructor(
             activeSession = capture.activeSession,
             lastSnapshot = capture.lastSnapshot,
             lastProcessingTimeMillis = capture.lastProcessingTimeMillis,
-            lastCaptureMillis = metrics.captureMillis,
             lastOcrMillis = metrics.ocrMillis,
             lastDetectionMillis = metrics.detectionMillis,
             lastParseMillis = metrics.parseMillis,
@@ -293,7 +288,6 @@ class DebugPanelViewModel @Inject constructor(
             flags = flags,
             lastOffer = lastOffer,
             lastTiming = lastTiming,
-            avgCaptureMillis = averages.captureMillis,
             avgOcrMillis = averages.ocrMillis,
             avgDetectionMillis = averages.detectionMillis,
             avgParseMillis = averages.parseMillis,

@@ -85,7 +85,6 @@ class InMemoryOfferPerformanceTracker @Inject constructor() : OfferPerformanceTr
             return values.sum() / values.size
         }
         return OfferTiming(
-            captureMillis = average { it.captureMillis },
             ocrMillis = average { it.ocrMillis },
             detectionMillis = average { it.detectionMillis },
             parseMillis = average { it.parseMillis },

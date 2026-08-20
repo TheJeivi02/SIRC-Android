@@ -5,7 +5,6 @@ package com.sirc.capture.metrics
  * depuración (solo Debug).
  */
 data class ProcessingMetrics(
-    val captureMillis: Double? = null,
     val ocrMillis: Double? = null,
     val detectionMillis: Double? = null,
     val parseMillis: Double? = null,

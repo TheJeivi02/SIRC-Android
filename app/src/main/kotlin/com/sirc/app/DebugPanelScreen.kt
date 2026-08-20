@@ -168,7 +168,6 @@ fun DebugPanelScreen(viewModel: DebugPanelViewModel = hiltViewModel()) {
                 label = "Tiempo de procesamiento",
                 value = "${formatMillis(state.lastProcessingTimeMillis)} ms",
             )
-            LabeledValue(label = "Captura", value = "${formatMillis(state.lastCaptureMillis)} ms")
             LabeledValue(label = "OCR", value = "${formatMillis(state.lastOcrMillis)} ms")
             LabeledValue(label = "Detección", value = "${formatMillis(state.lastDetectionMillis)} ms")
             LabeledValue(label = "Parseo", value = "${formatMillis(state.lastParseMillis)} ms")
@@ -282,7 +281,6 @@ fun DebugPanelScreen(viewModel: DebugPanelViewModel = hiltViewModel()) {
         }
 
         SectionCard(title = "Rendimiento (promedio últimas 20 ofertas)") {
-            LabeledValue(label = "Captura", value = "${formatMillis(state.avgCaptureMillis)} ms")
             LabeledValue(label = "OCR", value = "${formatMillis(state.avgOcrMillis)} ms")
             LabeledValue(label = "Detección", value = "${formatMillis(state.avgDetectionMillis)} ms")
             LabeledValue(label = "Parseo", value = "${formatMillis(state.avgParseMillis)} ms")
