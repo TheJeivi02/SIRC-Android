@@ -18,16 +18,17 @@ object DetectionMatcher {
     }
 
     /**
-     * Puntúa [descriptor] por las keywords de detección presentes en
-     * [normalizedTexts]. Por ahora el score es el número de keywords (de todas
-     * las [DetectionRule]s del descriptor, sin duplicados); el nombre permite
-     * evolucionar el algoritmo sin romper la API.
+     * Puntúa [descriptor] por los identificadores fuertes de plataforma
+     * ([PlatformDescriptor.platformKeywords]) presentes en [normalizedTexts].
+     * Solo marcas y patrones específicos de cada plataforma puntúan: las
+     * keywords genéricas de pantalla (aceptar, viaje, oferta, tarifa...) no
+     * determinan la plataforma y evitan falsos positivos (G2).
      */
     fun matchScore(
         descriptor: PlatformDescriptor,
         normalizedTexts: List<String>,
     ): Int {
-        val keywords = descriptor.detectionRules.flatMap { it.keywords }.distinct()
+        val keywords = descriptor.platformKeywords.distinct()
         return keywords.count { keyword ->
             normalizedTexts.any { it.contains(OfferDetectionEngine.normalize(keyword)) }
         }

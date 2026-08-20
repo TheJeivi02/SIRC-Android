@@ -136,7 +136,7 @@ Estado general: **PARCIAL** — OCR/detección/parsing reales en DEVICE‑01 (§
 | PLT‑2 | DiDi | Captura + detección + parsing | Correcto | PENDING — SIN DISPOSITIVO/CUENTA/OFERTAS REALES |
 | PLT‑3 | Cabify | Captura + detección + parsing | Correcto | PENDING — SIN DISPOSITIVO/CUENTA/OFERTAS REALES |
 | PLT‑4 | InDrive | Captura + detección + parsing | Correcto | **PARCIAL** — 2 capturas reales parseadas (§6.2); sin overlay (pendiente) |
-| PLT‑5 | Keywords | Hallazgo previo: keywords ambiguas | Verificar AMBIGUOUS→GENERIC en pantallas reales; registrar, NO corregir | **PARCIAL** — confirmado: sin `packageName` es AMBIGUOUS; con `packageName` real resuelve PACKAGE_MATCH (§6.2, §10-K2) |
+| PLT‑5 | Keywords | Hallazgo previo: keywords ambiguas | Verificar AMBIGUOUS→GENERIC en pantallas reales; registrar, NO corregir | **CORREGIDO (G2, 20-ago)** — la identidad por keywords usa solo identificadores fuertes de marca (`platformKeywords`); sin paquete, la marca única resuelve (UBER/DIDI/CABIFY/INDRIVE) y las palabras genéricas quedan AMBIGUOUS→UNSUPPORTED (no inventan plataforma). Con paquete real sigue PACKAGE_MATCH (§10-K2, matriz G2 en `PlatformDetectionEngineTest`) |
 | VEL‑1 | Rendimiento | Latencias por etapa (captura/OCR/detección/parse/eval/overlay/total) | min/max/avg (+p95 si muestra ≥ suficiente) | **PARCIAL** — reales en inyección de imágenes (§6.2); sin overlay/UI |
 | VEL‑2 | Rendimiento | Decisión visible <1 s (UX) | Registrado con cronómetro en ruta | PENDING — SIN EVIDENCIA |
 | VEL‑3 | Rendimiento | E2E <3 s (límite técnico) | Registrado en dispositivo | PENDING — SIN EVIDENCIA |
@@ -457,13 +457,20 @@ contenía el monto correcto:
 Registrado para depuración posterior (NO corregir en esta pasada, §5.10).
 El problema está en la extracción (parser), no en el OCR.
 
-### K2 — Detección por keywords AMBIGUOUS sin `packageName` [CONFIRMADO EN CAMPO]
+### K2 — Detección por keywords AMBIGUOUS sin `packageName` [CORREGIDO en G2, 20-ago]
 
 Sin `packageName` (primer intento del test) el detector devolvió `AMBIGUOUS`
-(todas las plataformas comparten `defaultRules`); con `packageName` real
-resolvió `PACKAGE_MATCH` en 5/5. Confirma el hallazgo previo PLT‑5
-(KEYWORD_CANDIDATE ambiguo). En producción el paquete siempre llega vía
-accesibilidad → no bloquea, pero refuerza el fallo a corregir.
+(todas las plataformas compartían `defaultRules` y el `matchScore` no distinguía
+plataformas); con `packageName` real resolvió `PACKAGE_MATCH` en 5/5.
+
+**Fix G2 (20-ago):** `PlatformDescriptor.platformKeywords` (identificadores
+fuertes de marca) es la única señal de identidad por OCR; `matchScore` puntúa
+solo por esas marcas y `KEYWORD_CANDIDATE` exige score > 0. Verificado en
+`PlatformDetectionEngineTest` (matriz 14 casos + `DetectionMatcherTest` 9):
+marca única sin paquete → plataforma; palabras genéricas o dos marcas →
+`AMBIGUOUS`→`UNSUPPORTED_PLATFORM`; paquete inequívoco siempre gana. En
+producción el paquete llega vía accesibilidad (PACKAGE_MATCH), y la ruta OCR
+conserva el fallback determinista.
 
 ### K1‑build — Dependencia necesaria para el receptor de prueba
 
@@ -588,7 +595,7 @@ Leyenda: **DEMO** = demostrado en físico; **PARC** = demostrado parcialmente;
 | PLT-2 | DiDi | PEND | sin cuenta |
 | PLT-3 | Cabify | PEND | sin cuenta |
 | PLT-4 | InDrive | DEMO | E2E completo en vivo (captura→det→parse→eval→overlay) |
-| PLT-5 | Keywords | PARC | PACKAGE_MATCH 5/5 con paquete; AMBIGUOUS sin paquete (conocido no bloqueante) |
+| PLT-5 | Keywords | CORR | PACKAGE_MATCH 5/5 con paquete; sin paquete: marca única→plataforma, genéricas/2 marcas→AMBIGUOUS (G2 corregido, 20-ago) |
 | VEL-1 | Latencias por etapa | PARC | pipeline 175–317 ms (5 imgs, 16-ago); det 16–28 ms; parse 5.7–13.9 ms; eval 1.3–8.6 ms; overlay 8.8–15.6 ms; OCR full-frame MP ~2.5 s (1 muestra) |
 | VEL-2 | Decisión <1 s | PARC | pipeline accesible <1 s; **sin cronómetro en ruta** |
 | VEL-3 | E2E <3 s | PARC | trayectoria accesible ≪3 s; OCR full-frame ~2.5 s (dentro de 3 s, 1 muestra); **sin cronómetro en ruta** |

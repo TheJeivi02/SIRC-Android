@@ -26,6 +26,13 @@ data class PlatformDescriptor(
     val platform: RidePlatform,
     /** Paquetes de la app de la plataforma (canónico + aliases) (→ IdentityDescriptor). */
     val packageNames: List<String> = listOf(platform.packageName),
+    /**
+     * Identificadores fuertes de la plataforma para la detección por OCR/texto
+     * cuando no hay package (→ IdentityDescriptor). Solo marcas y patrones
+     * específicos de la plataforma; las keywords genéricas de pantalla no
+     * determinan la plataforma (G2).
+     */
+    val platformKeywords: List<String> = emptyList(),
     /** Reglas de detección de pantalla por plataforma (→ DetectionDescriptor). */
     val detectionRules: List<DetectionRule>,
     /** Variantes de oferta en orden de especificidad (→ OfferTypeDescriptor). */

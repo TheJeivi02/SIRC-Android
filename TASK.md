@@ -6,6 +6,40 @@
 
 ## Tarea actual
 
+**LOOP ENGINEERING G2 (20-ago-2026) — Detección multi-plataforma endurecida y
+con regresión. CORREGIDO y VALIDADO (suite completa en verde, commit + push,
+HEAD==origin/main, working tree limpio).** La detección por keywords ya no
+produce ambigüedad: la identidad por OCR usa solo identificadores fuertes de
+marca (`PlatformDescriptor.platformKeywords`); `matchScore` puntúa solo por esas
+marcas y `KEYWORD_CANDIDATE` exige score > 0; package inequívoco sigue ganando;
+palabras genéricas o dos marcas → `AMBIGUOUS`/`NONE` (`UNSUPPORTED_PLATFORM`),
+nunca inventa plataforma. Matriz 14 casos en `PlatformDetectionEngineTest` +
+`DetectionMatcherTest` (9). Sin cambios en ProfitEngine/Settings/Room/parser de
+campos. FASE 10 sigue PENDING. Antecedente: auditoría de continuidad (18/18 +
+FASE 13 cerrada, commit `8d11514`).
+
+### Resultado G2 (detalles)
+
+- **Arquitectura encontrada**: `PlatformDetectionEngine` (package→PACKAGE_MATCH;
+  keywords→candidatos con `matchScore`); seed `PlatformDescriptors` con
+  `detectionRules = defaultRules()` idénticas en las 4 plataformas → el score de
+  keywords era indistinguible (siempre AMBIGUOUS sin package). K2 en
+  `SPRINT_12_DEVICE_VALIDATION.md` lo confirmaba.
+- **Cambios**: `PlatformDescriptor` +`platformKeywords` (identificadores fuertes:
+  uber/didi/cabify/indriver + variantes); `DetectionMatcher.matchScore` puntúa
+  solo identificadores fuertes; `PlatformDetectionEngine` exige score>0 para
+  `KEYWORD_CANDIDATE`. Sin cambio de contrato/consumidores.
+- **Matriz verificada**: package+OCR→package gana; sin package+ marca única→
+  plataforma (4/4); genéricas→AMBIGUOUS; 2 marcas→AMBIGUOUS; texto vacío+package→
+  plataforma; sin señal→NONE.
+- **Tests**: `PlatformDetectionEngineTest` 9→23; `DetectionMatcherTest` 6→9;
+  `K1AmountRegressionTest` 11/11 (regresión intacta). Suite completa BUILD
+  SUCCESSFUL.
+- **Commit**: `fix: harden multi-platform detection` (+ docs). HEAD==origin/main.
+- **FASE 10**: sigue PENDING (no tocada).
+
+## Tarea anterior
+
 **AUDITORÍA DE CONTINUIDAD (20-ago-2026) — VERIFICADA en código + física en
 DEVICE-01. 19 fases ejecutadas; 18/18 verificadas; 1 PENDING explícito
 (fase 10). Sin defectos nuevos en el motor/parser/overlay/settings. Cambios

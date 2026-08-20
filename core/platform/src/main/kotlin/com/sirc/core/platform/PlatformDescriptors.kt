@@ -19,6 +19,8 @@ object PlatformDescriptors {
         PlatformDescriptor(
             platform = RidePlatform.UBER,
             packageNames = listOf("com.ubercab", "com.ubercab.driver"),
+            platformKeywords =
+                listOf("uber", "uberx", "uberxl", "ubermoto", "uber xl", "uber moto"),
             detectionRules = OfferDetectionEngine.defaultRules(),
             offerTypes =
                 listOf(
@@ -61,6 +63,7 @@ object PlatformDescriptors {
     val DIDI: PlatformDescriptor =
         PlatformDescriptor(
             platform = RidePlatform.DIDI,
+            platformKeywords = listOf("didi", "didimovil", "didi movil", "didi chofer"),
             detectionRules = OfferDetectionEngine.defaultRules(),
             offerTypes = emptyList(),
             extractorKeywords =
@@ -74,6 +77,7 @@ object PlatformDescriptors {
     val CABIFY: PlatformDescriptor =
         PlatformDescriptor(
             platform = RidePlatform.CABIFY,
+            platformKeywords = listOf("cabify", "cabifyxl", "cabify xl"),
             detectionRules = OfferDetectionEngine.defaultRules(),
             offerTypes = emptyList(),
             extractorKeywords =
@@ -88,6 +92,7 @@ object PlatformDescriptors {
         PlatformDescriptor(
             platform = RidePlatform.INDRIVE,
             packageNames = listOf("com.leadingsoft.ride.driver", "sinet.startup.inDriver"),
+            platformKeywords = listOf("indriver", "indrive", "in driver", "in drive"),
             detectionRules = OfferDetectionEngine.defaultRules(),
             offerTypes = emptyList(),
             extractorKeywords =

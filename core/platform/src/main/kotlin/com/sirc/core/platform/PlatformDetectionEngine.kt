@@ -53,10 +53,10 @@ class PlatformDetectionEngine(
             return DetectionResult(resolution = DetectionResolution.NONE, origin = origin)
         }
 
-        // Etapas 3-4: único candidato o empate por el mayor score.
+        // Etapas 3-4: único candidato con evidencia fuerte o empate.
         val topScore = candidates.maxOf { it.matchScore }
         val winners = candidates.filter { it.matchScore == topScore }
-        return if (winners.size == 1) {
+        return if (winners.size == 1 && topScore > 0) {
             DetectionResult(
                 resolution = DetectionResolution.KEYWORD_CANDIDATE,
                 origin = origin,

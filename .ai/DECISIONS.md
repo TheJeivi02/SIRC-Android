@@ -918,6 +918,14 @@ motor (rompe pureza de `:core:platform`).
 plataforma; detección determinista y testeable; el motor no conoce el origen de
 los textos (`DetectionOrigin` deja preparado el framework para galería/laboratorios).
 
+**Adenda G2 (20-ago-2026):** el `matchScore` original puntuaba las keywords de
+`detectionRules` (genéricas: aceptar/viaje/oferta), por lo que sin `packageName`
+todas las plataformas empataban → `AMBIGUOUS`. Se endureció la identidad por OCR:
+`PlatformDescriptor.platformKeywords` (identificadores fuertes de marca) es la
+única señal de identidad y `KEYWORD_CANDIDATE` exige score > 0. Package
+inequívoco sigue ganando siempre; sin evidencia suficiente → `AMBIGUOUS`/`NONE`
+(`UNSUPPORTED_PLATFORM` en el pipeline). Sin cambio de contrato ni de consumidores.
+
 ### D11.13 — Unified Capture Source (WP-E3-03)
 
 **Contexto:** la captura se repartía entre `ScreenCapture`/`ScreenFrame`/

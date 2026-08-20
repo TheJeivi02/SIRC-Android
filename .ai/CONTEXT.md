@@ -343,9 +343,20 @@ Service **nunca** interactúa con otras apps.
   overlay y accesibilidad restaurados (en ejecución/habilitada). Suite AGENTS
   completa en verde. Evidencia:
   `docs/testing/evidence/AUDIT_2026-08-20_continuidad.txt`. **CIERRE FASE 13
-  hecho y commiteado (`0732e85`, pushed). STOP: esperando confirmación del
-  reporte final; no se abren Sprint 13 ni monetización (E1b); FASE 10 queda
-  PENDING.**
+  hecho y commiteado (`0732e85`, pushed).**
+- **LOOP ENGINEERING G2 CORREGIDO (20-ago-2026, commit `fix: harden
+  multi-platform detection` + docs, push, HEAD==origin/main)**: la detección
+  por keywords ya no es ambigua. Antes: `matchScore` puntuaba las `detectionRules`
+  (idénticas en las 4 plataformas) → sin `packageName` siempre `AMBIGUOUS`
+  (confirmado en K2). Ahora: `PlatformDescriptor.platformKeywords` (identificadores
+  fuertes de marca) es la única señal de identidad por OCR; `matchScore` puntúa
+  solo marcas; `KEYWORD_CANDIDATE` exige score > 0. Package inequívoco siempre
+  gana; palabras genéricas o dos marcas → `AMBIGUOUS`/`NONE` (`UNSUPPORTED_PLATFORM`);
+  nunca inventa plataforma. Matriz 14 casos (`PlatformDetectionEngineTest` 9→23)
+  + `DetectionMatcherTest` 6→9; `K1AmountRegressionTest` 11/11 intacto; suite
+  completa BUILD SUCCESSFUL. Sin cambios en ProfitEngine/Settings/Room/parser de
+  campos. **FASE 10 queda PENDING. NO se abren Sprint 13 ni monetización (E1b);
+  STOP: esperando confirmación del reporte final.**
 - **SPRINT 12 WP-12-CALC-04 completado y VALIDADO en DEVICE-01
   (rentabilidad con todos los datos disponibles + overlay semáforo,
   19-ago-2026, decisión D17.4)**: la evaluación usa monto y/o distancia y/o

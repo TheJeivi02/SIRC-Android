@@ -11,10 +11,12 @@ class PlatformDetectionEngineTest {
         platform: RidePlatform,
         requestKeywords: List<String>,
         packageNames: List<String> = listOf(platform.packageName),
+        platformKeywords: List<String> = emptyList(),
     ): PlatformDescriptor =
         PlatformDescriptor(
             platform = platform,
             packageNames = packageNames,
+            platformKeywords = platformKeywords,
             detectionRules =
                 listOf(
                     DetectionRule(ScreenType.REQUEST, 3f, requestKeywords),
@@ -25,8 +27,13 @@ class PlatformDetectionEngineTest {
             defaultCurrency = "MXN",
         )
 
-    private val uber = descriptor(RidePlatform.UBER, listOf("aceptar", "rechazar"))
-    private val didi = descriptor(RidePlatform.DIDI, listOf("aceptar didi", "solicitud didi"))
+    private val uber = descriptor(RidePlatform.UBER, listOf("aceptar", "rechazar"), platformKeywords = listOf("uber"))
+    private val didi =
+        descriptor(
+            RidePlatform.DIDI,
+            listOf("aceptar didi", "solicitud didi"),
+            platformKeywords = listOf("didi"),
+        )
 
     private fun engine(vararg descriptors: PlatformDescriptor) =
         PlatformDetectionEngine(PlatformDescriptorRegistry(descriptors.toList()))
@@ -59,7 +66,7 @@ class PlatformDetectionEngineTest {
 
     @Test
     fun `sin packageName y un unico candidato por keywords resuelve KEYWORD_CANDIDATE`() {
-        val result = engine(uber, didi).detect(texts = listOf("Aceptar", "Rechazar"))
+        val result = engine(uber, didi).detect(texts = listOf("Aceptar", "Rechazar", "Uber"))
 
         assertEquals(DetectionResolution.KEYWORD_CANDIDATE, result.resolution)
         assertEquals(RidePlatform.UBER, result.descriptor?.platform)
@@ -132,5 +139,130 @@ class PlatformDetectionEngineTest {
 
         assertEquals(DetectionResolution.PACKAGE_MATCH, result.resolution)
         assertEquals(RidePlatform.UBER, result.descriptor?.platform)
+    }
+
+    // ---- Matriz de regresión G2 (detección multi-plataforma determinista) ----
+
+    private val seedEngine = PlatformDetectionEngine(PlatformDescriptorRegistry(PlatformDescriptors.all()))
+
+    @Test
+    fun `package uber mas texto ambiguo resuelve UBER`() {
+        val result = seedEngine.detect(texts = listOf("aceptar", "viaje"), packageName = "com.ubercab")
+
+        assertEquals(DetectionResolution.PACKAGE_MATCH, result.resolution)
+        assertEquals(RidePlatform.UBER, result.descriptor?.platform)
+    }
+
+    @Test
+    fun `package uber con texto de otra plataforma gana el package`() {
+        val result = seedEngine.detect(texts = listOf("didi", "aceptar"), packageName = "com.ubercab")
+
+        assertEquals(DetectionResolution.PACKAGE_MATCH, result.resolution)
+        assertEquals(RidePlatform.UBER, result.descriptor?.platform)
+    }
+
+    @Test
+    fun `didi inequivoco por package resuelve DIDI`() {
+        val result = seedEngine.detect(texts = listOf("aceptar", "didi"), packageName = "com.didiglobal.passenger")
+
+        assertEquals(DetectionResolution.PACKAGE_MATCH, result.resolution)
+        assertEquals(RidePlatform.DIDI, result.descriptor?.platform)
+    }
+
+    @Test
+    fun `cabify inequivoco por package resuelve CABIFY`() {
+        val result = seedEngine.detect(texts = listOf("aceptar", "cabify"), packageName = "com.cabify.rider")
+
+        assertEquals(DetectionResolution.PACKAGE_MATCH, result.resolution)
+        assertEquals(RidePlatform.CABIFY, result.descriptor?.platform)
+    }
+
+    @Test
+    fun `indrive inequivoco por package resuelve INDRIVE`() {
+        val result =
+            seedEngine.detect(
+                texts = listOf("aceptar", "inDriver"),
+                packageName = "com.leadingsoft.ride.driver",
+            )
+
+        assertEquals(DetectionResolution.PACKAGE_MATCH, result.resolution)
+        assertEquals(RidePlatform.INDRIVE, result.descriptor?.platform)
+    }
+
+    @Test
+    fun `sin package keyword uber inequivoca resuelve UBER`() {
+        val result = seedEngine.detect(texts = listOf("Nueva solicitud", "Aceptar", "UberX"))
+
+        assertEquals(DetectionResolution.KEYWORD_CANDIDATE, result.resolution)
+        assertEquals(RidePlatform.UBER, result.descriptor?.platform)
+        assertEquals(ScreenType.REQUEST, result.screenDetection.type)
+    }
+
+    @Test
+    fun `sin package keyword didi inequivoca resuelve DIDI`() {
+        val result = seedEngine.detect(texts = listOf("Solicitud de viaje", "Aceptar", "DiDi"))
+
+        assertEquals(DetectionResolution.KEYWORD_CANDIDATE, result.resolution)
+        assertEquals(RidePlatform.DIDI, result.descriptor?.platform)
+        assertEquals(ScreenType.REQUEST, result.screenDetection.type)
+    }
+
+    @Test
+    fun `sin package keyword cabify inequivoca resuelve CABIFY`() {
+        val result = seedEngine.detect(texts = listOf("Solicitud", "Aceptar", "Cabify"))
+
+        assertEquals(DetectionResolution.KEYWORD_CANDIDATE, result.resolution)
+        assertEquals(RidePlatform.CABIFY, result.descriptor?.platform)
+        assertEquals(ScreenType.REQUEST, result.screenDetection.type)
+    }
+
+    @Test
+    fun `sin package keyword indriver inequivoca resuelve INDRIVE`() {
+        val result = seedEngine.detect(texts = listOf("Solicitud de viaje", "Aceptar", "inDriver"))
+
+        assertEquals(DetectionResolution.KEYWORD_CANDIDATE, result.resolution)
+        assertEquals(RidePlatform.INDRIVE, result.descriptor?.platform)
+        assertEquals(ScreenType.REQUEST, result.screenDetection.type)
+    }
+
+    @Test
+    fun `palabras genericas sin marca resuelven AMBIGUOUS`() {
+        val result = seedEngine.detect(texts = listOf("Solicitud de viaje", "Aceptar", "Rechazar", "Tarifa", "Oferta"))
+
+        assertEquals(DetectionResolution.AMBIGUOUS, result.resolution)
+        assertNull(result.descriptor)
+        assertEquals(4, result.candidates.size)
+    }
+
+    @Test
+    fun `dos marcas presentes resuelven AMBIGUOUS`() {
+        val result = seedEngine.detect(texts = listOf("Aceptar", "Uber", "DiDi"))
+
+        assertEquals(DetectionResolution.AMBIGUOUS, result.resolution)
+        assertNull(result.descriptor)
+    }
+
+    @Test
+    fun `texto vacio con package resuelve la plataforma del package`() {
+        val result = seedEngine.detect(texts = emptyList(), packageName = "com.ubercab")
+
+        assertEquals(DetectionResolution.PACKAGE_MATCH, result.resolution)
+        assertEquals(RidePlatform.UBER, result.descriptor?.platform)
+    }
+
+    @Test
+    fun `sin package ni marca ni pantalla reconocida resuelve NONE`() {
+        val result = seedEngine.detect(texts = listOf("Hola mundo"))
+
+        assertEquals(DetectionResolution.NONE, result.resolution)
+        assertNull(result.descriptor)
+    }
+
+    @Test
+    fun `solo marca sin contexto de pantalla resuelve NONE (conservador)`() {
+        val result = seedEngine.detect(texts = listOf("Uber"))
+
+        assertEquals(DetectionResolution.NONE, result.resolution)
+        assertNull(result.descriptor)
     }
 }

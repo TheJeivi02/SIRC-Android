@@ -22,13 +22,37 @@ class DetectionMatcherTest {
     }
 
     @Test
-    fun `matchScore cuenta keywords de deteccion presentes sin duplicados`() {
+    fun `matchScore cuenta identificadores fuertes de plataforma presentes`() {
         val descriptor = PlatformDescriptors.UBER
-        val normalized = listOf("aceptar", "rechazar", "nueva solicitud")
+        val normalized = listOf("uber", "aceptar")
 
         val score = DetectionMatcher.matchScore(descriptor, normalized)
 
-        assertEquals(3, score)
+        assertEquals(1, score)
+    }
+
+    @Test
+    fun `matchScore no duplica identificadores repetidos`() {
+        val descriptor = PlatformDescriptors.UBER
+        val normalized = listOf("UBER", "uber", "UberX")
+
+        assertEquals(1, DetectionMatcher.matchScore(descriptor, normalized))
+    }
+
+    @Test
+    fun `matchScore no puntua palabras genericas de pantalla como identificador`() {
+        val descriptor = PlatformDescriptors.UBER
+        val normalized = listOf("aceptar", "rechazar", "nueva solicitud", "viaje", "oferta", "tarifa")
+
+        assertEquals(0, DetectionMatcher.matchScore(descriptor, normalized))
+    }
+
+    @Test
+    fun `matchScore no puntua una plataforma con identificadores de otra`() {
+        val descriptor = PlatformDescriptors.UBER
+        val normalized = listOf("indriver", "didi", "cabify")
+
+        assertEquals(0, DetectionMatcher.matchScore(descriptor, normalized))
     }
 
     @Test
