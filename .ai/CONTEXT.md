@@ -324,20 +324,28 @@ Service **nunca** interactúa con otras apps.
   `DefaultCapturePipeline.kt:81`); PARSE_FALLIDO = mislabel del harness
   (motivo DUPLICATE); verificado físicamente (snapshot=NULL). **Fase 12**:
   copy obsoleto corregido en `DiagnosisScreen.kt` (título "Última oferta
-  evaluada", texto vacío real) — verificado en pantalla. **Fase 13**:
-  `DecisionThresholds.default()=(4.0,120.0)`; dispositivo 0.5/10.0; usuario
-  mencionó $11/h → 10.0≠11.0 → PENDING_USER_DECISION (no tocar). **Fase 15
+  evaluada", texto vacío real) — verificado en pantalla. **Fase 13 CERRADA
+  (20-ago, autorizado)**: el 10.0 NO está en código main (es valor persistido
+  del usuario; `DecisionThresholds.default()=(4.0,120.0)`; motor 100% dinámico).
+  Objetivo de validación ajustado a **$11/h** en
+  `driver_config.minProfitPerHour` (persistido, integrity_check ok), SIN
+  hardcodear (configurable desde Settings, funciona con cualquier valor: tests
+  usan 15). +4 tests (SettingsViewModelTest x3: carga 11.0 / 11→15 persiste /
+  recarga recupera 15; ProfitEngineTest x1: 13/h → MET con 11, NEAR con 15).
+  Commit `0732e85` + push, HEAD==origin/main, working tree limpio. **Fase 15
   física (DEVICE-01)**: OCR test build actual (indriver_1 → REJECT −0.42;
   indriver_2 → WARNING 3.0; uber_2 → WARNING 3.41; uber_1/3 → NO_REQUEST;
   total 156-260 ms); dedup re-run; persistencia Room (overlay_config
-  `1|1|1|0|0|1|90|45|50|4|500`, driver_config `|0.5|10.0`); Settings toggles
+  `1|1|1|0|0|1|90|45|50|4|500`, driver_config `|0.5|11.0`); Settings toggles
   ida y vuelta con persistencia real (showProfitPerKm 0→1→0, restaurado);
   carga limpia 6/6 toggles = DB (el Switch Compose tiene touch target ≥48dp
   que excede sus bounds visuales); `OverlayService.kt:247` FLAG_NOT_TOUCHABLE;
   overlay y accesibilidad restaurados (en ejecución/habilitada). Suite AGENTS
   completa en verde. Evidencia:
-  `docs/testing/evidence/AUDIT_2026-08-20_continuidad.txt`. **STOP: esperando
-  confirmación; no se abren Sprint 13 ni monetización (E1b).**
+  `docs/testing/evidence/AUDIT_2026-08-20_continuidad.txt`. **CIERRE FASE 13
+  hecho y commiteado (`0732e85`, pushed). STOP: esperando confirmación del
+  reporte final; no se abren Sprint 13 ni monetización (E1b); FASE 10 queda
+  PENDING.**
 - **SPRINT 12 WP-12-CALC-04 completado y VALIDADO en DEVICE-01
   (rentabilidad con todos los datos disponibles + overlay semáforo,
   19-ago-2026, decisión D17.4)**: la evaluación usa monto y/o distancia y/o

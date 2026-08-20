@@ -13,7 +13,12 @@ seguros: 4 tests añadidos (activeIndicatorCount + compactMode) y copy
 obsoleto corregido en DiagnosisScreen. Fase 15 C/D y D/F validadas en físico
 (toggles con persistencia real e ida y vuelta; FLAG_NOT_TOUCHABLE). Suite
 AGENTS completa en verde. Evidencia:
-`docs/testing/evidence/AUDIT_2026-08-20_continuidad.txt`.**
+`docs/testing/evidence/AUDIT_2026-08-20_continuidad.txt`.
+CIERRE FASE 13 (20-ago): objetivo por hora validado en $11/h, configurable y
+persistente (10.0 → 11.0 en driver_config del dispositivo; 4 tests nuevos;
+suite completa en verde; commit `test: validate configurable hourly target at
+11` + push; HEAD==origin/main==`0732e85`, working tree limpio). FASE 10 sigue
+PENDING. NO abrir WPs nuevos; esperando confirmación del reporte final.**
 
 ### Resultado de la auditoría (sin abrir WPs nuevos)
 
@@ -41,9 +46,14 @@ AGENTS completa en verde. Evidencia:
 - [x] **FASE 12**: copy obsoleto "datos simulados"/"cada 20 segundos"
       CORREGIDO en `DiagnosisScreen.kt` (KDoc + título "Última oferta
       evaluada" + texto vacío real). Verificado en pantalla; grep sin restos.
-- [x] **FASE 13**: `DecisionThresholds.default()=(4.0,120.0)`; dispositivo
-      persiste 0.5/10.0 (driver_config); usuario mencionó $11/h → 10.0 ≠ 11.0
-      → **PENDING_USER_DECISION** (NO se modifica; Settings muestra 10).
+- [x] **FASE 13**: `DecisionThresholds.default()=(4.0,120.0)`; el 10.0 NO está
+      en código main (es valor persistido del usuario); el motor es dinámico.
+      **CERRADA (20-ago, autorizado)**: objetivo de validación ajustado a
+      $11/h en `driver_config.minProfitPerHour` (persistido, integrity_check
+      ok), configurable desde Settings y con cualquier valor (tests usan 15);
+      +4 tests (SettingsViewModelTest x3: carga 11.0 / 11→15 persiste /
+      recarga recupera 15; ProfitEngineTest x1: 13/h → MET con 11, NEAR con
+      15). Commit `0732e85`.
 - [x] **FASE 14**: suite completa en verde
       (ktlintCheck/lintDebug/assembleDebug/tests unitarios).
 - [x] **FASE 15 (validación física, DEVICE-01)**:
