@@ -21,7 +21,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -37,7 +36,6 @@ import com.sirc.core.ui.components.RecommendationBadge
 import com.sirc.core.ui.components.SectionCard
 import com.sirc.core.ui.components.StatusDot
 import com.sirc.core.ui.theme.recommendationLabel
-import com.sirc.domain.model.RuleVerdict
 import com.sirc.domain.session.SessionStatus
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
@@ -247,35 +245,6 @@ fun DebugPanelScreen(viewModel: DebugPanelViewModel = hiltViewModel()) {
                     value = state.confidenceReasons.joinToString(", "),
                 )
             }
-            if (state.ruleResults.isEmpty()) {
-                Text(
-                    text =
-                        "Sin reglas evaluadas todavía. Cuando el pipeline analice " +
-                            "una oferta real, cada regla (ganancia, por km, por hora, " +
-                            "distancia, recogida, duración) aparece con su veredicto.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                state.ruleResults.forEach { row ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = row.name,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text(
-                            text = row.verdict.name,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = verdictColor(row.verdict),
-                        )
-                    }
-                }
-            }
         }
 
         SectionCard(title = "Modo validación") {
@@ -284,7 +253,6 @@ fun DebugPanelScreen(viewModel: DebugPanelViewModel = hiltViewModel()) {
             LabeledValue(label = "Errores OCR", value = "${state.validation.ocrFailed}")
             LabeledValue(label = "Errores de parseo", value = "${state.validation.parseFailed}")
             LabeledValue(label = "Capturas descartadas", value = "${state.validation.discarded}")
-            LabeledValue(label = "Reglas fallidas", value = "${state.validation.ruleFailed}")
             LabeledValue(label = "Ofertas rechazadas", value = "${state.validation.rejected}")
             Spacer(modifier = Modifier.height(8.dp))
             val context = LocalContext.current
@@ -436,13 +404,6 @@ private fun EventRow(event: CaptureWindowEvent) {
 }
 
 @Composable
-private fun verdictColor(verdict: RuleVerdict): Color =
-    when (verdict) {
-        RuleVerdict.PASS -> Color(0xFF2E7D32)
-        RuleVerdict.WARNING -> Color(0xFFF9A825)
-        RuleVerdict.FAIL -> MaterialTheme.colorScheme.error
-    }
-
 private fun sessionLabel(session: OfferCaptureSession): String =
     "${session.packageName} · ${session.status.name} · ${session.capturedSnapshotCount} snapshots"
 

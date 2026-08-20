@@ -70,7 +70,6 @@ class ValidationRecorder @Inject constructor() {
                 "Capturas descartadas: ${summary.discarded} " +
                     discardedDetail(discardedByReason),
             )
-            appendLine("Reglas fallidas: ${summary.ruleFailed}")
             appendLine("Ofertas rechazadas: ${summary.rejected}")
             appendLine()
             appendLine("== Detalle ==")

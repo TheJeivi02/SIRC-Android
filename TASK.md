@@ -6,6 +6,39 @@
 
 ## Tarea actual
 
+**LOOP ENGINEERING G8 (20-ago-2026) — Auditoría de textos fantasma / obsoletos.
+COMPLETADO.** Auditoría repo-wide de textos que describen comportamiento que ya
+no existe; corrección solo de lo obsoleto/engañoso visible; sin lógica de
+negocio; commit + push a `main`:
+
+- **Hallazgo clave**: desde WP-E1-02 `ruleEvaluation` se expone **siempre**
+  vacío (`PipelineOverlayDataSource.kt:234` → `RuleEvaluation(emptyList())`;
+  KDoc "compatibilidad de la UI"), por lo que la sección "Análisis" del Debug
+  Panel mostraba un ghost text que prometía veredictos por regla (ganancia, por
+  km, por hora, distancia, recogida, duración) que **no pueden aparecer nunca**.
+- **Corregidos**: (C) ghost text de "Análisis" eliminado + dead code asociado
+  (`RuleRow`, `ruleResults`, `verdictColor`, imports); (B) fila "Reglas
+  fallidas" del modo validación eliminada; (B) línea "Reglas fallidas" del
+  informe de validación exportado eliminada. Se conserva `RuleFailed`/
+  `ruleFailed` como API del framework (sin productor; testeado en
+  `ValidationRecorderTest`). 3 archivos, 53 líneas eliminadas.
+- **Sin cambios de comportamiento**: solo textos/UI muerta. No se tocaron
+  ProfitEngine/detección/parser/OCR/pipeline/overlay → **no regression risk
+  introduced** (no aplica batería física §14/§15).
+- **Verificación**: suite completa AGENTS BUILD SUCCESSFUL (ktlintCheck /
+  lintDebug / assembleDebug / testDebugUnitTest / :domain:test /
+  :core:platform:test / :core:capture:test / :feature:overlay:testDebugUnitTest).
+  Sin androidTest/config modificados. Sin tests nuevos (garantía de
+  `ruleEvaluation` vacío ya cubierta por `PipelineOverlayDataSourceTest.kt:175-177`).
+- **Clasificación del resto**: A legítimos (textos de estado reales, OCR/
+  captura, fixture de tests, `rulesMillis` real) y D históricos contextualizados
+  (DECISIONS, CHANGELOG, ROADMAP, audits, remediation, manual tests de sprint,
+  TASK histórico) — ninguno describe la arquitectura como vigente.
+- **Docs**: `docs/testing/G8_GHOST_TEXT_AUDIT.md` (nuevo), `.ai/CONTEXT.md`.
+  G2/G3/G5/G6/G7/G10 intactos. **FASE 10 sigue PENDING.**
+
+## Tarea anterior
+
 **LOOP ENGINEERING G10 (20-ago-2026) — Validación instrumentada en dispositivo
 (DEVICE-01 / Infinix X6850 / Android 15 / API 35). COMPLETADO.** Infraestructura
 androidTest para los componentes DEVICE_REQUIRED de G7, sin cambios de

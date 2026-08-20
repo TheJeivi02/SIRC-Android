@@ -364,6 +364,21 @@ Service **nunca** interactúa con otras apps.
   - **+2 tests**: `OverlayPresentationMapperTest` (24→25) y
     `SettingsViewModelTest` (11→12). Suite completa BUILD SUCCESSFUL. G2
     intacto. **FASE 10 sigue PENDING.**
+- **LOOP ENGINEERING G8 COMPLETADO (20-ago-2026) — auditoría de textos
+  fantasma / obsoletos**: desde WP-E1-02 `ruleEvaluation` se expone **siempre**
+  vacío (`PipelineOverlayDataSource.kt:234` → `RuleEvaluation(emptyList())`),
+  así que la sección "Análisis" del Debug Panel prometía veredictos por regla
+  que no pueden aparecer nunca. Corregidos: ghost text "Sin reglas evaluadas
+  todavía… cada regla (ganancia, por km, por hora…) aparece con su veredicto"
+  eliminado + dead code (`RuleRow`, `ruleResults`, `verdictColor`); fila "Reglas
+  fallidas" del modo validación eliminada; línea "Reglas fallidas" del informe
+  de validación exportado eliminada (`ValidationRecorder.buildReport`). Se
+  conserva `RuleFailed`/`ruleFailed` como API del framework (sin productor).
+  Resto clasificado A (estados reales, fixtures, `rulesMillis` real) / D
+  (históricos: DECISIONS, CHANGELOG, audits, remediation, manual tests).
+  Sin cambios de comportamiento (solo textos/UI muerta; 3 archivos, 53 líneas
+  eliminadas) → no regression risk. Suite completa AGENTS en verde. G2/G3/G5/
+  G6/G7/G10 intactos. **FASE 10 sigue PENDING.**
 - **LOOP ENGINEERING G10 COMPLETADO (20-ago-2026) — validación instrumentada
   en dispositivo (DEVICE-01 / Android 15)**: infraestructura androidTest para
   los DEVICE_REQUIRED de G7, sin cambios de producción:

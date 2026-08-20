@@ -17,7 +17,6 @@ import com.sirc.capture.pipeline.CapturePipeline
 import com.sirc.capture.validation.ValidationRecorder
 import com.sirc.capture.validation.ValidationSummary
 import com.sirc.domain.model.OfferEvaluationRecord
-import com.sirc.domain.model.RuleVerdict
 import com.sirc.domain.repository.OfferEvaluationRepository
 import com.sirc.domain.session.CaptureSessionManager
 import com.sirc.domain.session.SessionStats
@@ -51,12 +50,6 @@ class DebugPanelViewModel @Inject constructor(
     data class FlagStatus(
         val flag: FeatureFlag,
         val enabled: Boolean,
-    )
-
-    data class RuleRow(
-        val name: String,
-        val verdict: RuleVerdict,
-        val message: String,
     )
 
     data class UiState(
@@ -95,7 +88,6 @@ class DebugPanelViewModel @Inject constructor(
         val confidencePercent: Int? = null,
         val confidenceLevel: String? = null,
         val confidenceReasons: List<String> = emptyList(),
-        val ruleResults: List<RuleRow> = emptyList(),
         val session: SessionStats = SessionStats(),
         val validation: ValidationSummary = ValidationSummary(0, 0, 0, 0, 0, 0, 0),
     )
@@ -277,10 +269,6 @@ class DebugPanelViewModel @Inject constructor(
         val flags = FeatureFlag.entries.map { FlagStatus(it, featureFlags.isEnabled(it)) }
         val lastOffer = latest.firstOrNull()
         val lastTiming = performanceTracker.lastOffers.value.lastOrNull()
-        val ruleResults =
-            overlayUi.ruleEvaluation?.results?.map {
-                RuleRow(name = it.ruleName, verdict = it.verdict, message = it.message)
-            } ?: emptyList()
         return UiState(
             accessibilityEnabled = permissions.hasAccessibilityPermission(),
             overlayRunning = overlayRunning,
@@ -317,7 +305,6 @@ class DebugPanelViewModel @Inject constructor(
             confidencePercent = overlayUi.confidence?.percent,
             confidenceLevel = overlayUi.confidence?.level?.name,
             confidenceReasons = overlayUi.confidence?.reasons.orEmpty(),
-            ruleResults = ruleResults,
             session = session,
             validation = validationRecorder.summary(),
         )
