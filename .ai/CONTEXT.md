@@ -364,6 +364,30 @@ Service **nunca** interactúa con otras apps.
   - **+2 tests**: `OverlayPresentationMapperTest` (24→25) y
     `SettingsViewModelTest` (11→12). Suite completa BUILD SUCCESSFUL. G2
     intacto. **FASE 10 sigue PENDING.**
+- **LOOP ENGINEERING G9 COMPLETADO (20-ago-2026) — auditoría y resolución
+  controlada de deuda técnica**: clasificación RESOLVE_NOW / KEEP_INTENTIONAL /
+  REMOVE_DEAD / DEFER; corrección solo de lo justificado y de bajo riesgo:
+  - **G9-05 métrica falsa eliminada**: `captureMillis` era fabricada (siempre
+    `0.0` hardcodeado en `DefaultCapturePipeline.kt` para `OfferTiming`/
+    `ProcessingMetrics`) y se presentaba como real en Debug Panel e informe de
+    diagnóstico. Eliminada en todo el grafo (campo+merge+promedio, filas
+    "Captura", campos/report de VM, asserts que fijaban el 0.0).
+  - **G9-03 dead code**: `RidePlatform.fromPackageName()` (deprecado WP-E3-05A,
+    0 usos) + `@Deprecated` + KDoc eliminados; enum/`packageName` conservados.
+  - **G9-04 carpeta vacía**: `com.sirc.capture.screen` eliminada (sin código).
+  - **G9-01 reflexión OverlayService → KEEP_INTENTIONAL**: necesaria para los
+    ViewTree owners de un ComposeView en WindowManager sin Activity
+    (`androidx.savedstate` KMP; proxy sin resolución compile-time); try/catch +
+    validada en G10. Reemplazo = DEFER (requeriría regresión de dispositivo).
+  - **G9-02 acoplamiento DebugPanelViewModel → KEEP_INTENTIONAL**: :app consume
+    internos de :core:capture/:feature:overlay deliberadamente (panel de
+    diagnóstico, capa superior); abstracción artificial rechazada.
+  - **Resto sin hallazgos**: componentes muertos = 0 refs, TODO/FIXME = 0,
+    `@Deprecated` = 0, OverlayService §6/pipeline §7 correctos, valores mágicos
+    = constantes técnicas (sin hardcode de config).
+  - Sin cambios de comportamiento → no regression risk; G10 (8/8+1/1) válido.
+    Suite completa AGENTS BUILD SUCCESSFUL. G2/G3/G5/G6/G7/G8/G10 intactos.
+    **FASE 10 sigue PENDING.**
 - **LOOP ENGINEERING G8 COMPLETADO (20-ago-2026) — auditoría de textos
   fantasma / obsoletos**: desde WP-E1-02 `ruleEvaluation` se expone **siempre**
   vacío (`PipelineOverlayDataSource.kt:234` → `RuleEvaluation(emptyList())`),

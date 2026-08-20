@@ -6,6 +6,57 @@
 
 ## Tarea actual
 
+**LOOP ENGINEERING G9 (20-ago-2026) — Auditoría y resolución controlada de deuda
+técnica. COMPLETADO.** Auditoría repo-wide de deuda real; clasificación
+RESOLVE_NOW / KEEP_INTENTIONAL / REMOVE_DEAD / DEFER; corrección solo de lo
+justificado y de bajo riesgo; sin cambios de comportamiento; commit + push a
+`main`:
+
+- **G9-05 métrica falsa eliminada**: `captureMillis` era una métrica fabricada
+  (siempre `0.0` hardcodeado en `DefaultCapturePipeline.kt` para
+  `OfferTiming`/`ProcessingMetrics`), presentada como real en el Debug Panel
+  ("Captura: X ms") y en el informe de diagnóstico exportado. Eliminada por
+  completo: campo+merge+promedio (`OfferTiming`, `ProcessingMetrics`,
+  `OfferPerformanceTracker`), filas "Captura" (`DebugPanelScreen`),
+  campos/report (`DebugPanelViewModel`) y los asserts que fijaban el `0.0`
+  (`DefaultCapturePipelineTest`, `InMemoryOfferPerformanceTrackerTest`, fixtures
+  reacomodados). Regla §8: no fabricar una medición para disimular el 0.
+- **G9-03 dead code eliminado**: `RidePlatform.fromPackageName()` (deprecado
+  desde WP-E3-05A, 0 usos en código) + `@Deprecated` + KDoc eliminados; el enum
+  y `packageName` se conservan (usados por Pipeline/Descriptor/Detection).
+- **G9-04 carpeta vacía eliminada**: `com.sirc.capture.screen` (sin código, sin
+  referencias).
+- **G9-01 reflexión en OverlayService → KEEP_INTENTIONAL (documentado)**:
+  necesaria para fijar los ViewTree owners (Lifecycle/ViewModelStore/
+  SavedStateRegistry) de un ComposeView en WindowManager sin Activity;
+  `androidx.savedstate` es KMP y el proxy implementa la interfaz sin resolverse
+  en compile time; protegida con try/catch y validada físicamente en G10.
+  Reemplazo requeriría regresión de dispositivo para ganancia funcional nula →
+  DEFER a futuro si se demuestra equivalencia de compilación.
+- **G9-02 acoplamiento DebugPanelViewModel → KEEP_INTENTIONAL**: el panel de
+  diagnóstico consume internos de `:core:capture`/`:feature:overlay`
+  deliberadamente (:app es la capa superior); crear una abstracción sería
+  artificial.
+- **Resto auditado sin hallazgos**: componentes muertos (RuleEngine/OfferRule/
+  OfferValidator/RuleContext/RuleThresholds/ValidationResult/ValidationIssue/
+  FakeParser/SircAccessibilityService/SimulatedOverlayDataSource = 0 refs),
+  TODO/FIXME = 0, `@Deprecated` restantes = 0 (los `@Suppress("DEPRECATION")`
+  de API 24-29 son compat requerida), OverlayService §6 correcto (lifecycle,
+  addView/removeView/updateViewLayout con try/catch, scope cancelado en
+  onDestroy, FLAG_NOT_TOUCHABLE), pipeline §7 sin métricas falsas restantes,
+  valores mágicos §9 = constantes técnicas (sin hardcode de config de usuario).
+- **Sin cambios de comportamiento**: no se tocaron ProfitEngine/detección/
+  parser/OCR/dedup/overlay → no regression risk (§14/§15 no aplican); G10
+  (8/8 + 1/1) sigue válido.
+- **Verificación**: suite completa AGENTS BUILD SUCCESSFUL (ktlintCheck /
+  lintDebug / assembleDebug / testDebugUnitTest / :domain:test /
+  :core:platform:test / :core:capture:test / :feature:overlay:testDebugUnitTest).
+  Sin androidTest modificados (OverlayService no se tocó).
+- **Docs**: `.ai/CONTEXT.md`. G2/G3/G5/G6/G7/G8/G10 intactos. **FASE 10 sigue
+  PENDING.**
+
+## Tarea anterior
+
 **LOOP ENGINEERING G8 (20-ago-2026) — Auditoría de textos fantasma / obsoletos.
 COMPLETADO.** Auditoría repo-wide de textos que describen comportamiento que ya
 no existe; corrección solo de lo obsoleto/engañoso visible; sin lógica de
