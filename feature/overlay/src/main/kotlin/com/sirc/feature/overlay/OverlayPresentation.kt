@@ -160,7 +160,7 @@ private fun buildSummary(
     engine: ProfitEngine,
 ): String? {
     if (!showTripSummary) return null
-    val distance = if (metrics.distanceKm > 0) "${metrics.distanceKm} km" else null
+    val distance = metrics.distanceKm?.takeIf { it > 0 }?.let { "$it km" }
     val duration = if (metrics.durationMin > 0) engine.formatHours(metrics.durationMin) else null
     return listOfNotNull(distance, duration).joinToString(" · ").ifBlank { null }
 }

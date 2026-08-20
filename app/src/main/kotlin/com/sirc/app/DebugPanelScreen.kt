@@ -209,7 +209,7 @@ fun DebugPanelScreen(viewModel: DebugPanelViewModel = hiltViewModel()) {
                 )
                 LabeledValue(label = "Plataforma", value = record.platform.displayName)
                 LabeledValue(label = "Precio", value = formatNumber(record.price))
-                LabeledValue(label = "Distancia", value = "${formatNumber(record.distanceKm)} km")
+                LabeledValue(label = "Distancia", value = record.distanceKm?.let { "${formatNumber(it)} km" } ?: "—")
                 LabeledValue(label = "Duración", value = "${formatNumber(record.durationMin)} min")
                 LabeledValue(
                     label = "Motivo",
@@ -314,7 +314,7 @@ fun DebugPanelScreen(viewModel: DebugPanelViewModel = hiltViewModel()) {
             } else {
                 LabeledValue(label = "Plataforma", value = snapshot.platform.displayName)
                 LabeledValue(label = "Monto", value = formatNumber(snapshot.estimatedTotal))
-                LabeledValue(label = "Distancia", value = "${formatNumber(snapshot.distanceKm)} km")
+                LabeledValue(label = "Distancia", value = snapshot.distanceKm?.let { "${formatNumber(it)} km" } ?: "—")
                 LabeledValue(label = "Duración", value = "${formatNumber(snapshot.durationMin)} min")
                 LabeledValue(label = "Fuente", value = snapshot.source.name)
                 LabeledValue(

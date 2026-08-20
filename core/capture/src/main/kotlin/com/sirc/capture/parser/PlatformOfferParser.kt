@@ -45,7 +45,7 @@ class PlatformOfferParser @Inject constructor(
             capturedAtMillis = request.timestampMillis,
             source = SnapshotSource.REAL,
             estimatedTotal = offer.estimatedTotal ?: return null,
-            distanceKm = offer.distanceKm ?: 0.0,
+            distanceKm = offer.distanceKm,
             durationMin = offer.durationMin ?: 0.0,
             rawData = rawDataFor(parsed.type),
             texts = request.texts,

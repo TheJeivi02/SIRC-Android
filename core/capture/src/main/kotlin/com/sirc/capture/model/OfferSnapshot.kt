@@ -15,7 +15,7 @@ data class OfferSnapshot(
     val capturedAtMillis: Long,
     val source: SnapshotSource,
     val estimatedTotal: Double,
-    val distanceKm: Double,
+    val distanceKm: Double?,
     val durationMin: Double,
     val rawData: String? = null,
     val texts: List<String> = emptyList(),

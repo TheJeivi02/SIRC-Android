@@ -35,19 +35,19 @@ class ProfitEngine @Inject constructor() {
     ): ProfitEvaluation {
         require(offer.hasEnoughData) { "La oferta no contiene el monto para evaluar." }
         val total = offer.estimatedTotal ?: offer.fareAmount ?: 0.0
-        val distance = offer.distanceKm ?: 0.0
+        val distance = offer.distanceKm
         val duration = offer.durationMin ?: 0.0
-        val hasDistance = distance > 0.0
+        val hasDistance = distance != null && distance > 0.0
         val hasDuration = duration > 0.0
 
         // El costo por distancia solo se cuenta con distancia confiable; sin
         // ella, la ganancia es el mejor caso (solo costo fijo) y se marca la
         // falta de distancia en lugar de presentarla como real.
-        val costDistance = if (hasDistance) distance * costs.costPerKm else 0.0
+        val costDistance = if (hasDistance) distance!! * costs.costPerKm else 0.0
         val totalCost = costs.costPerTrip + costDistance
 
         val profit = total - totalCost
-        val profitPerKm = if (hasDistance) profit / distance else null
+        val profitPerKm = if (hasDistance) profit / distance!! else null
         val profitPerHour = if (hasDuration) profit / (duration / 60.0) else null
         val marginPercent = if (total > 0.0) profit / total * 100.0 else 0.0
 

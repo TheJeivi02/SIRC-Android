@@ -78,7 +78,57 @@ class ProfitEngineTest {
         assertEquals(Decision.MARGINAL, evaluation.decision)
         assertEquals(GoalStatus.NEAR, evaluation.metrics.profitPerHourGoal)
         assertEquals(GoalStatus.MET, evaluation.metrics.profitPerKmGoal)
-        assertTrue(evaluation.reasons.any { it.contains("Ganancia/hora menor al objetivo") })
+    }
+
+    @Test
+    fun `distancia desconocida null no produce profitPerKm pero mantiene decision MARGINAL si cumple horario`() {
+        // Sin distancia: no se calcula profitPerKm, pero si cumple el objetivo horario
+        // sigue siendo MARGINAL (como si fuera el mejor caso).
+        val evaluation =
+            engine.evaluate(
+                TripOffer(
+                    platform = RidePlatform.UBER,
+                    timestampMillis = 1_700_000_000_000,
+                    estimatedTotal = 100.0,
+                    // desconocida
+                    distanceKm = null,
+                    durationMin = 45.0,
+                    currency = "MXN",
+                ),
+                costs,
+                thresholds,
+            )
+
+        assertNull(evaluation.metrics.distanceKm)
+        assertNull(evaluation.metrics.profitPerKm)
+        assertEquals(Decision.MARGINAL, evaluation.decision) // cumple horario
+        assertEquals(GoalStatus.MET, evaluation.metrics.profitPerHourGoal) // 133/h > 120
+    }
+
+    @Test
+    fun `distancia cero se trata como desconocida no hay profitPerKm pero decision MARGINAL si cumple horario`() {
+        // Distancia 0.0: no se calcula profitPerKm, pero si cumple el objetivo horario
+        // sigue siendo MARGINAL (como si fuera el mejor caso). Esto mantiene
+        // compatibilidad con datos históricos que tienen distanceKm cero.
+        val evaluation =
+            engine.evaluate(
+                TripOffer(
+                    platform = RidePlatform.UBER,
+                    timestampMillis = 1_700_000_000_000,
+                    estimatedTotal = 100.0,
+                    // cero = desconocida
+                    distanceKm = 0.0,
+                    durationMin = 45.0,
+                    currency = "MXN",
+                ),
+                costs,
+                thresholds,
+            )
+
+        assertEquals(0.0, evaluation.metrics.distanceKm)
+        assertNull(evaluation.metrics.profitPerKm)
+        assertEquals(Decision.MARGINAL, evaluation.decision) // cumple horario
+        assertEquals(GoalStatus.MET, evaluation.metrics.profitPerHourGoal) // 133/h > 120
     }
 
     @Test

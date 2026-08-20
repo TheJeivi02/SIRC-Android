@@ -29,7 +29,7 @@ enum class GoalStatus {
  */
 data class ProfitMetrics(
     val estimatedTotal: Double,
-    val distanceKm: Double,
+    val distanceKm: Double?,
     val durationMin: Double,
     val totalCost: Double,
     val estimatedProfit: Double,
@@ -50,9 +50,9 @@ data class ProfitMetrics(
     /** Estado de [profitPerHour] frente a su objetivo; null sin duración. */
     val profitPerHourGoal: GoalStatus? = null,
 ) {
-    /** La distancia es confiable solo si es mayor que cero (0 = desconocida). */
+/** La distancia es confiable solo si existe y es mayor que cero. */
     val hasDistance: Boolean
-        get() = distanceKm > 0.0
+        get() = distanceKm != null && distanceKm > 0.0
 
     /** La duración es confiable solo si es mayor que cero (0 = desconocida). */
     val hasDuration: Boolean

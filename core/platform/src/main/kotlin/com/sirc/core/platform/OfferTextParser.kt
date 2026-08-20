@@ -33,11 +33,12 @@ class OfferTextParser @Inject constructor() {
         val durations = mutableListOf<Double>()
 
         for (text in texts) {
-            for (match in AMOUNT_RUN.findAll(text)) {
+            val normalizedText = normalizeSpaces(text)
+            for (match in AMOUNT_RUN.findAll(normalizedText)) {
                 val value = parseAmount(match.groupValues[3]) ?: continue
                 if (value <= 0.0 || value > MAX_AMOUNT) continue
                 if (hasLeadingZero(match.groupValues[3])) continue
-                val context = contextAround(text, match.range)
+                val context = contextAround(normalizedText, match.range)
                 if (looksLikeUnit(context)) continue
                 val hasCurrencyMarker =
                     match.groupValues[1].isNotBlank() ||
@@ -51,11 +52,11 @@ class OfferTextParser @Inject constructor() {
                         .ifBlank { currencyFromSymbol(match.groupValues[2]) }
                 amountCandidates += AmountCandidate(value, currency, context, hasCurrencyMarker)
             }
-            for (match in DISTANCE_REGEX.findAll(text)) {
+            for (match in DISTANCE_REGEX.findAll(normalizedText)) {
                 val km = parseDouble(match.groupValues[1]) ?: continue
                 if (km in MIN_DISTANCE_KM..MAX_DISTANCE_KM) distances += km
             }
-            collectDurations(text, durations)
+            collectDurations(normalizedText, durations)
         }
 
         return ParsedOfferText(
@@ -123,6 +124,20 @@ class OfferTextParser @Inject constructor() {
     }
 
     private fun parseDouble(raw: String): Double? = raw.replace(",", ".").toDoubleOrNull()
+
+    /**
+     * Normaliza separadores de espacio Unicode (NBSP U+00A0, U+202F, U+2000-200A,
+     * etc.) a espacio ASCII para que los regex `\s` los reconozcan. Solo actúa
+     * sobre separadores de espacio; no altera texto ni signos (FASE 10-D).
+     */
+    private fun normalizeSpaces(text: String): String {
+        if (text.length <= 0) return text
+        val sb = StringBuilder(text.length)
+        for (ch in text) {
+            sb.append(if (Character.getType(ch) == Character.SPACE_SEPARATOR.toInt()) ' ' else ch)
+        }
+        return sb.toString()
+    }
 
     companion object {
         private const val MAX_AMOUNT = 1_000_000.0

@@ -28,7 +28,7 @@ class ProfitEvaluationEngine @Inject constructor(
     ): ProfitEvaluationDetailed {
         val costs = driverCosts(config)
         val evaluation = engine.evaluate(offer, costs, config.thresholds)
-        val distance = evaluation.metrics.distanceKm
+        val distance = evaluation.metrics.distanceKm ?: 0.0
         val breakdown =
             ProfitBreakdown(
                 fuelCost = distance * fuelCostPerKm(config),

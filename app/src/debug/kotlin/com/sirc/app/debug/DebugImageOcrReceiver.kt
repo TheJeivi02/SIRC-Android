@@ -117,7 +117,7 @@ class DebugImageOcrReceiver : BroadcastReceiver() {
         if (snapshot != null) {
             result.append(
                 "snapshot=OK platform=${snapshot.platform.name} " +
-                    "total=${snapshot.estimatedTotal} dist=${snapshot.distanceKm}km " +
+                    "total=${snapshot.estimatedTotal} dist=${snapshot.distanceKm ?: 0.0}km " +
                     "dur=${snapshot.durationMin}min texts=${snapshot.texts.size}",
             )
         } else {

@@ -11,7 +11,7 @@ data class OfferEvaluationRecord(
     val timestampMillis: Long,
     val platform: RidePlatform,
     val price: Double,
-    val distanceKm: Double,
+    val distanceKm: Double?,
     val durationMin: Double,
     val ocrText: List<String>,
     val parserResult: String?,
