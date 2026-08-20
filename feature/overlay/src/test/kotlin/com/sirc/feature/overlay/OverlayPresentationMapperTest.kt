@@ -334,6 +334,13 @@ class OverlayPresentationMapperTest {
     }
 
     @Test
+    fun `sin evaluacion el mapper no fabrica presentacion`() {
+        val empty = OverlayUiState(evaluation = null, config = OverlayConfig(), status = OverlayState.WAITING)
+
+        assertNull(mapper(empty, engine))
+    }
+
+    @Test
     fun `montos con decimales largos se redondean a dos digitos`() {
         val evaluation = evaluation(estimatedProfit = 4.0867, totalCost = 60.0, estimatedTotal = 125.0)
         val config = OverlayConfig(showProfitPerHour = true, showTripSummary = false)

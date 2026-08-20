@@ -364,6 +364,25 @@ Service **nunca** interactúa con otras apps.
   - **+2 tests**: `OverlayPresentationMapperTest` (24→25) y
     `SettingsViewModelTest` (11→12). Suite completa BUILD SUCCESSFUL. G2
     intacto. **FASE 10 sigue PENDING.**
+- **LOOP ENGINEERING G7 PARTIAL / DEVICE_VALIDATION_PENDING (20-ago-2026) —
+  cobertura crítica UI + OCR** (+3 tests JVM de evidencia, sin cambios de
+  producción; frontera COVERED/DEVICE_REQUIRED documentada en
+  `docs/testing/COVERAGE_G7.md`):
+  - **OCR (contrato, JVM)**: `DefaultCapturePipelineTest` 13→15 —
+    `ocr sin texto reconocido descarta sin inventar` (imagen + OCR vacío →
+    null, `FrameDiscarded(NO_TEXTS)`, WAITING) y `error de ocr se registra y
+    degrada sin crashear` (`OcrFailed` + WAITING + null). El `FakeOcrEngine`
+    ya soportaba `recognized`/`throwError`; faltaba evidencia.
+  - **Overlay (estado crítico)**: `OverlayPresentationMapperTest` 25→26 —
+    `sin evaluacion el mapper no fabrica presentacion` (evaluation=null →
+    presentación null; Estado sin oferta/no disponible).
+  - **DEVICE_REQUIRED (NO falsificado)**: precisión OCR real
+    (`MlKitOcrEngine`, BitmapFactory + ML Kit, sin seam JVM), `OverlayService`
+    (WindowManager/FGS/FLAG_NOT_TOUCHABLE, validado en físico FASE 15) y el
+    render Compose (`OverlayContent`, sin infra Compose-test en el módulo) NO
+    se declaran validados por unit tests. Sin fixtures OCR nuevos, sin
+    infraestructura instrumentada (prohibida). Suite completa BUILD
+    SUCCESSFUL. G2/G3/G5/G6 intactos. **FASE 10 sigue PENDING.**
 - **LOOP ENGINEERING G3 VERIFIED (20-ago-2026) — tipos de oferta
   DiDi/Cabify/InDrive**: los `offerTypes = emptyList()` de esas plataformas NO
   bloquean: el contrato existente las representa con `OfferType.GENERIC` + el

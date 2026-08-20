@@ -167,6 +167,35 @@ class DefaultCapturePipelineTest {
         }
 
     @Test
+    fun `ocr sin texto reconocido descarta sin inventar`() =
+        runBlocking {
+            ocrEngine.recognized = emptyList()
+
+            val snapshot = pipeline.process(requestFor(imageData = loadTestImage("test-images/offer_uber_1.png")))
+
+            assertNull(snapshot)
+            assertEquals(0, repository.snapshots().size)
+            assertEquals(OverlayState.WAITING, pipeline.state.value)
+            assertTrue(
+                validationRecorder.snapshot().any {
+                    it is ValidationEvent.FrameDiscarded && it.reason == DiscardReason.NO_TEXTS
+                },
+            )
+        }
+
+    @Test
+    fun `error de ocr se registra y degrada sin crashear`() =
+        runBlocking {
+            ocrEngine.throwError = true
+
+            val snapshot = pipeline.process(requestFor(imageData = loadTestImage("test-images/offer_uber_1.png")))
+
+            assertNull(snapshot)
+            assertEquals(OverlayState.WAITING, pipeline.state.value)
+            assertTrue(validationRecorder.snapshot().any { it is ValidationEvent.OcrFailed })
+        }
+
+    @Test
     fun `imagen de prueba carga y recorre el pipeline`() =
         runBlocking {
             val image = loadTestImage("test-images/offer_uber_1.png")

@@ -967,6 +967,38 @@ cambiar el contrato.
 packages reales `com.cabify.rider` / `com.leadingsoft.ride.driver` → GENERIC +
 oferta $120). Suite completa en verde; G2/G5/G6 intactos; FASE 10 PENDING.
 
+### D11.17 — G7: cobertura crítica UI + OCR, PARTIAL / DEVICE_VALIDATION_PENDING (20-ago-2026)
+
+**Contexto:** la auditoría marcó G7 porque `MlKitOcrEngine` y los estados
+críticos del overlay (sin oferta, OCR vacío/error) podían no estar cubiertos.
+Este LOOP amplió la cobertura con tests JVM deterministas, separando
+explícitamente lo COVERED de lo DEVICE_REQUIRED (sin refactorizar producción).
+
+**Decisión (PARTIAL / DEVICE_VALIDATION_PENDING):**
+- **+2 tests OCR a nivel contrato** en `DefaultCapturePipelineTest` (13→15):
+  OCR vacío → `FrameDiscarded(NO_TEXTS)` sin inventar; OCR con excepción →
+  `ValidationEvent.OcrFailed` + degradación sin crash. El `FakeOcrEngine` ya
+  los soportaba (campos `recognized`/`throwError`), solo faltaba evidencia.
+- **+1 test del estado crítico del overlay** en `OverlayPresentationMapperTest`
+  (25→26): `sin evaluacion el mapper no fabrica presentacion` (evaluation=null
+  → presentación null; Estado sin oferta/no disponible).
+- **DEVICE_REQUIRED (documentado, NO falsificado)**: la precisión/rendimiento
+  OCR real de `MlKitOcrEngine` (BitmapFactory + ML Kit, sin seam JVM), el
+  `OverlayService` (WindowManager, FGS, `FLAG_NOT_TOUCHABLE` ya validado en
+  físico) y el render Compose (`OverlayContent`) quedan explícitamente fuera de
+  los unit tests JVM — matriz COVERED/DEVICE_REQUIRED/NOT_COVERED en
+  `docs/testing/COVERAGE_G7.md`.
+- **Regla de no-fabricar respetada**: no se crearon fixtures OCR nuevos, no se
+  fakeó precisión de ML Kit, no se construyó infraestructura instrumentada
+  (prohibido por la especificación G7); los requests `texts` XOR `imageData`
+  hacen que el OCR vacío sin textos = descarte `NO_TEXTS` correcto (documentado,
+  no es defecto).
+
+**Consecuencias:** sin cambios de producción; 3 tests de evidencia aditivos;
+suite AGENTS completa en verde; G2/G3/G5/G6 intactos; FASE 10 PENDING. La
+validación física del OCR real y del render queda para G10 / validación
+instrumentada.
+
 ### D11.13 — Unified Capture Source (WP-E3-03)
 
 **Contexto:** la captura se repartía entre `ScreenCapture`/`ScreenFrame`/

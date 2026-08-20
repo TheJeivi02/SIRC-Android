@@ -6,38 +6,52 @@
 
 ## Tarea actual
 
-**LOOP ENGINEERING G3 (20-ago-2026) — Tipos de oferta: DiDi / Cabify / InDrive.
-VERIFIED (sin cambios de producción; +1 test de evidencia).** La auditoría
-marcó G3 porque DiDi/Cabify/InDrive tenían `offerTypes = emptyList()`; la
-inspección repo-wide demuestra que eso NO bloquea: el contrato existente ya
-representa esas plataformas con **`OfferType.GENERIC`** + el extractor genérico
-específico de cada plataforma (`extractorKeywords`), y el pipeline continúa
-normalmente:
+**LOOP ENGINEERING G7 (20-ago-2026) — Cobertura crítica UI + OCR.
+PARTIAL / DEVICE_VALIDATION_PENDING (+3 tests JVM; documentación de
+frontera).** Se expandió la cobertura de los comportamientos críticos del
+overlay y del OCR con tests deterministas JVM, sin tocar producción ni G2/G3/
+G5/G6/FASE 10:
 
-- **Inventario** (`PlatformDescriptors.kt`): UBER → 5 variantes
-  (UBER_REQUEST/RADAR/RESERVATION/MOTO/XL) + GENERIC de respaldo; DIDI, CABIFY
-  e INDRIVE → `offerTypes = emptyList()` → el orquestador cae al extractor
-  genérico (`OfferParserOrchestrator.kt:71-76` → `type = GENERIC`).
-- **`OfferType` downstream**: informativo. `PlatformOfferParser.rawDataFor`
-  serializa `type=GENERIC` sin fallar; se muestra en DebugPanel/History y se
-  persiste en `offer_history.offerType`. **ProfitEngine/ProfitEvaluationEngine
-  NO dependen del tipo** (`TripOffer` no lo lleva); no hay gating.
-- **Evidencia previa**: `plataforma distinta a uber usa el extractor generico`
-  (DiDi → GENERIC + oferta); K1 regresión extrae InDrive REAL del dataset OCR
-  (4.5/16.4/13) vía el mismo orquestador. Validación física Sprint 12 evaluó
-  ofertas InDrive reales (GENERIC) → REJECT/WARNING.
-- **Regla respetada**: NO se creó `DIDI_REQUEST`/`CABIFY_REQUEST`/`INDRIVE_
-  REQUEST` (no hay evidencia de formatos reales de esas pantallas; inventarlos
-  violaría "no fabricar taxonomía comercial"). El contrato genérico es la
-  representación correcta.
-- **+1 test de evidencia**: `OfferParserOrchestratorTest` (14→15) `cabify e
-  indrive se representan con el tipo generico y su extractor` — packages reales
-  (`com.cabify.rider`, `com.leadingsoft.ride.driver`) → `GENERIC` + oferta
-  extraída $120. Sin cambios en producción.
-- **Suite completa BUILD SUCCESSFUL**. G2/G5/G6 intactos. **FASE 10 sigue
-  PENDING** (no se concluye nada sobre `distance=0.0`).
+- **Cobertura OCR (contrato, JVM)**: `DefaultCapturePipelineTest` (13→15)
+  añade los dos caminos que el `FakeOcrEngine` ya soportaba pero nadie
+  probaba: **`ocr sin texto reconocido descarta sin inventar`** (imagen + OCR
+  vacío → snapshot null, `FrameDiscarded(NO_TEXTS)`, `WAITING`, sin datos
+  fabricados) y **`error de ocr se registra y degrada sin crashear`** (imagen +
+  OCR lanza → `ValidationEvent.OcrFailed` + estado `WAITING` + null). El
+  contrato `OcrEngine.recognize` ya estaba cubierto a nivel pipeline (imagen→
+  OCR→snapshot, flag OCR off, textos de accesibilidad).
+- **Cobertura Overlay (estado crítico)**: `OverlayPresentationMapperTest`
+  (25→26) añade **`sin evaluacion el mapper no fabrica presentacion`**
+  (evaluation=null → mapper devuelve null; Estado sin oferta/no disponible).
+  El resto de estados críticos ya estaban cubiertos (decisiones, oferta,
+  resumen, pares de métricas, flags, tonos, compactMode, showDecision,
+  no-invención ×3, caso real 5.90/27 min).
+- **DEVICE_REQUIRED (documentado en `docs/testing/COVERAGE_G7.md`)**: la
+  precisión/rendimiento OCR real (`MlKitOcrEngine`: BitmapFactory + ML Kit, sin
+  seam JVM; no se fakesea precisión), `OverlayService` (WindowManager, FGS,
+  FLAG_NOT_TOUCHABLE ya validado en físico) y el render Compose
+  (`OverlayContent`, sin infra Compose-test en `:feature:overlay`) NO se
+  declaran validados por unit tests — la frontera queda explícita en la matriz
+  COVERED/DEVICE_REQUIRED/NOT_COVERED.
+- **Hallazgo del análisis**: `resolveTexts` degrada a `request.texts` SOLO si
+  el OCR lanza excepción (no si devuelve vacío); los requests llevan `texts` o
+  `imageData` (XOR), así que OCR vacío + sin textos = descarte `NO_TEXTS`
+  correcto (no es defecto; comportamientos documentados en los tests).
+- **Suite completa BUILD SUCCESSFUL** (ktlintCheck/lintDebug/assembleDebug/
+  testDebugUnitTest/:domain:test/:core:platform:test/:core:capture:test/
+  :feature:overlay:testDebugUnitTest). G2/G3/G5/G6 intactos. **FASE 10 sigue
+  PENDING.**
 
 ## Tarea anterior
+
+**LOOP ENGINEERING G3 (20-ago-2026) — VERIFIED (sin cambios de producción;
++1 test de evidencia).** DiDi/Cabify/InDrive con `offerTypes = emptyList()` NO
+bloquean: el contrato existente ya las representa con `OfferType.GENERIC` + el
+extractor genérico por plataforma; `OfferParserOrchestrator` cae a GENERIC;
+`ProfitEngine` no depende del tipo. NO se inventó `DIDI_REQUEST`/`CABIFY_
+REQUEST`/`INDRIVE_REQUEST` (sin evidencia de formatos reales). +1 test
+(`OfferParserOrchestratorTest` 14→15: packages reales de Cabify/InDrive →
+GENERIC + $120). Commit `34d0e3e` pusheado.
 
 **AUDITORÍA DE CONTINUIDAD (20-ago-2026) — VERIFICADA en código + física en
 DEVICE-01. 19 fases ejecutadas; 18/18 verificadas; 1 PENDING explícito
